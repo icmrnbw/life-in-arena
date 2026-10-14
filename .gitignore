@@ -1,0 +1,5 @@
+.godot/
+*.apk
+qa/screens/
+build/
+!builds/*.apk
