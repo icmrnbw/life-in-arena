@@ -13,11 +13,21 @@ var last_pos := Vector3.ZERO
 var orbit_sign := 1.0
 var orbit_flip_t := 4.0
 var passive := false
+## Barrel pen play (smart bot, regular waves): smash the barrel facing the arena, hold just inside the gap.
+var use_pens := true
+var pen_wave := -1
+var pen_i := -1
+var pen_slot := -1
+var pen_quit := false
+var pen_idle_t := 0.0
+var pen_kills := 0
+var pen_dry_t := 0.0   # time in pen play since the last kill
 
 
 func setup(r: Run) -> void:
 	run = r
 	passive = Game.autoplay_mode == "passive"
+	use_pens = Game.arg("pens", "1") != "0"
 
 
 func tick(dt: float) -> void:
@@ -207,6 +217,9 @@ func _move(dt: float) -> void:
 		var stop := (h.atk_range + n.radius + h.radius - 0.3) if n else 1.0
 		h.move_input = Vector2(to.x, to.z).normalized() if to.length() > stop else Vector2.ZERO
 		return
+	_focus_buffers()
+	if _pen_play(dt):
+		return
 	var v := Vector3.ZERO
 	var enemies := []
 	for e in run.enemies:
@@ -300,6 +313,97 @@ func _move(dt: float) -> void:
 	else:
 		stuck_t = maxf(0.0, stuck_t - dt)
 	h.move_input = Vector2(v.x, v.z).normalized() if v.length() > 0.15 else Vector2.ZERO
+
+
+## Tap Chanters and Drummers first when they're close.
+func _focus_buffers() -> void:
+	var h := run.hero
+	if h.focus != null and h.focus.alive and not (h.focus is Barrel):
+		return
+	var best: Unit = null
+	var bd := 12.0
+	for b in run.chanters + run.drummers:
+		if b.alive:
+			var d := run._flat(b.pos - h.pos).length()
+			if d < bd:
+				bd = d
+				best = b
+	if best != null:
+		h.focus = best
+
+
+func _pen_play(dt: float) -> bool:
+	var h := run.hero
+	var bf := run.barrels
+	if not use_pens or bf == null or run.phase != "wave" or not run.boss_units.is_empty() or DB.BOSS_WAVES.has(run.wave):
+		return false
+	if pen_wave != run.wave:
+		pen_wave = run.wave
+		pen_quit = false
+		pen_idle_t = 0.0
+		pen_dry_t = 0.0
+		pen_kills = int(run.stats["kills"])
+		pen_i = -1
+		var bd := 1e9
+		for i in bf.pens.size():
+			var d := run._flat(bf.pens[i]["c"] - h.pos).length()
+			if d < bd:
+				bd = d
+				pen_i = i
+		# the slot facing the arena centre
+		var pen: Dictionary = bf.pens[pen_i]
+		var to_c := run._flat(-pen["c"]).normalized()
+		var best := -2.0
+		for j in pen["n"]:
+			var dd := BarrelField._ring_dir(pen, j).dot(to_c)
+			if dd > best:
+				best = dd
+				pen_slot = j
+	if pen_quit or pen_i < 0:
+		return false
+	var pen: Dictionary = bf.pens[pen_i]
+	var c: Vector3 = pen["c"]
+	var r: float = pen["r"]
+	var gs := bf.gaps(pen_i)
+	var inside := bf.pen_at(h.pos) == pen_i
+	# give up on the pen once it's been broken wide open, or a buffer needs killing, or it's stale
+	var wide := gs.size() > 1 or (gs.size() == 1 and float(gs[0]["width"]) > 2.6)
+	var hp_frac := h.hp / maxf(1.0, h.max_hp)
+	var near := run.count_enemies(c, r + 7.0)
+	if inside and near == 0:
+		pen_idle_t += dt
+	else:
+		pen_idle_t = 0.0
+	if int(run.stats["kills"]) != pen_kills:
+		pen_kills = int(run.stats["kills"])
+		pen_dry_t = 0.0
+	else:
+		pen_dry_t += dt
+	# nothing dying (ranged foes plinking from outside, or nobody coming in): go fight in the open
+	if wide or pen_idle_t > 3.0 or pen_dry_t > 12.0 or (h.focus != null and h.focus.alive and not (h.focus is Barrel) and run._flat(h.focus.pos - c).length() > r + h.atk_range + 1.0):
+		pen_quit = true
+		return false
+	var goal: Vector3
+	if gs.is_empty():
+		# break in through the chosen slot
+		var b: Barrel = pen["barrels"][pen_slot]
+		h.focus = b
+		goal = c + BarrelField._ring_dir(pen, pen_slot) * (r + 1.1)
+	else:
+		var gdir: Vector3 = gs[0]["dir"]
+		var hold := r - 1.25 if h.hero_id != "hivemother" else 0.4
+		if hp_frac < 0.4:
+			hold = -0.8   # back off to the far side
+		goal = c + gdir * hold
+		if not inside:
+			goal = bf.waypoint(h, goal)
+	var to := run._flat(goal - h.pos)
+	var v := to.normalized() if to.length() > 0.35 else Vector3.ZERO
+	var hz := _hazard_push()
+	if hz.length() > 0.01:
+		v = v * 0.3 + hz * 3.0
+	h.move_input = Vector2(v.x, v.z).normalized() if v.length() > 0.15 else Vector2.ZERO
+	return true
 
 
 func _nearest_kind(k: String) -> Unit:

@@ -31,13 +31,29 @@ static func _toggle(text: String, key: String) -> CheckButton:
 static func title_screen(on_play: Callable) -> Control:
 	var root := _base()
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var shade := ColorRect.new()
+	# darken the left side only: the bonfire scene stays bright on the right
+	var shade := TextureRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shade.color = Color(0.03, 0.02, 0.01, 0.35)
+	var gt := GradientTexture2D.new()
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.42, 0.7])
+	g.colors = PackedColorArray([Color(0.03, 0.02, 0.01, 0.7), Color(0.03, 0.02, 0.01, 0.45), Color(0.03, 0.02, 0.01, 0.0)])
+	gt.gradient = g
+	gt.fill_from = Vector2(0, 0.5)
+	gt.fill_to = Vector2(1, 0.5)
+	gt.width = 256
+	gt.height = 4
+	shade.texture = gt
+	shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(shade)
 	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.anchor_left = 0.0
+	center.anchor_right = 0.46
+	center.anchor_top = 0.0
+	center.anchor_bottom = 1.0
+	center.offset_left = UIK.safe_margins((Engine.get_main_loop() as SceneTree).root).x
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(center)
 	var v := VBoxContainer.new()

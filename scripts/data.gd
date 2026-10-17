@@ -123,6 +123,9 @@ const ENEMIES := {
 	"hexcaster": {"name": "Hexcaster", "hp": 90.0, "dmg": 11.0, "atk_time": 2.2, "range": 9.0, "speed": 3.4, "armor": 0.0, "radius": 0.5, "xp": 20.0, "gold": 9.0},
 	"burrower": {"name": "Burrower", "hp": 140.0, "dmg": 13.0, "atk_time": 1.2, "range": 1.2, "speed": 4.0, "armor": 2.0, "radius": 0.55, "xp": 20.0, "gold": 9.0},
 	"bloater": {"name": "Bloater", "hp": 170.0, "dmg": 9.0, "atk_time": 1.4, "range": 1.2, "speed": 2.4, "armor": 0.0, "radius": 0.8, "xp": 20.0, "gold": 9.0},
+	# Buffers (wave 7+): weak on their own, but they make the pack around them dangerous. Kill them first.
+	"chanter": {"name": "Ward Chanter", "hp": 150.0, "dmg": 6.0, "atk_time": 1.6, "range": 1.2, "speed": 3.3, "armor": 1.0, "radius": 0.5, "xp": 30.0, "gold": 14.0, "support": true},
+	"drummer": {"name": "War Drummer", "hp": 175.0, "dmg": 8.0, "atk_time": 1.5, "range": 1.2, "speed": 3.5, "armor": 2.0, "radius": 0.55, "xp": 30.0, "gold": 14.0, "support": true},
 	"choir_add": {"name": "Choir Voice", "hp": 240.0, "dmg": 13.0, "atk_time": 1.3, "range": 1.2, "speed": 4.0, "armor": 1.0, "radius": 0.5, "xp": 10.0, "gold": 4.0},
 	# Bosses (absolute numbers; only lightly scaled)
 	"pit_brute": {"name": "Pit Brute", "hp": 3400.0, "dmg": 38.0, "atk_time": 1.6, "range": 2.2, "speed": 3.6, "armor": 4.0, "radius": 1.5, "xp": 400.0, "gold": 0.0, "boss": true},
@@ -147,6 +150,31 @@ const WARD_RADIUS := 5.0
 const WARD_DAMAGE_TAKEN := 0.6
 const VOLATILE_RADIUS := 3.2
 const VOLATILE_DELAY := 1.1
+
+## Buffer auras. A Chanter makes nearby foes immune to damage; a Drummer doubles their damage.
+## Neither affects bosses or its own kind (two Chanters can't shield each other).
+const AURAS := {
+	"chanter": {"radius": 3.8, "color": Color(1.0, 0.85, 0.35), "from_wave": 9,
+		"hint": "Ward Chanter! Foes near it can't be hurt. Tap it and kill it first."},
+	"drummer": {"radius": 5.0, "color": Color(1.0, 0.3, 0.2), "from_wave": 7,
+		"hint": "War Drummer! Foes near it hit twice as hard. Take it out first."},
+}
+const DRUM_DMG := 2.0
+
+## Barrels. Pens are rings of barrels: smash one to open a gap, stand inside, and the pack has to
+## come through the gap one at a time. Powder kegs blow up shortly after they're broken.
+const PENS := [
+	{"c": Vector3(-13.5, 0, 6.0), "r": 2.6, "n": 13, "rot": 0.1},
+	{"c": Vector3(13.5, 0, 6.0), "r": 2.6, "n": 13, "rot": -0.1},
+	{"c": Vector3(0, 0, -12.5), "r": 2.6, "n": 13, "rot": 0.25},
+]
+const KEGS := [Vector3(-4.5, 0, -17.0), Vector3(16.8, 0, -3.5), Vector3(-16.8, 0, -3.5), Vector3(10.5, 0, -13.0)]
+const BARREL_R := 0.5
+const BARREL_HP := 8.0          # hero swings deal BARREL_HERO_HIT, enemy swings 1 (big ones 2)
+const BARREL_HERO_HIT := 5.0
+const KEG_RADIUS := 3.6
+const KEG_FUSE := 0.9
+const KEG_CHAIN_FUSE := 0.25
 
 ## Pit pressure: a wave that drags on enrages the enemies still alive (more damage, faster).
 const BOSS_ENRAGE_TIME := {5: 100.0, 10: 120.0, 15: 150.0, 20: 210.0}
@@ -189,9 +217,14 @@ static func hp_mult(w: int) -> float:
 	return 1.0 + 0.10 * x + 0.014 * x * x + 0.0009 * x * x * x
 
 
+## Enemy damage is a notch higher since barrel pens let you fight the pack one at a time.
+const DMG_BASE := 1.1
+const BOSS_DMG_BASE := 1.1
+
+
 static func dmg_mult(w: int) -> float:
 	var x := float(w - 1)
-	return 1.0 + 0.05 * x + 0.006 * x * x + 0.00015 * x * x * x
+	return DMG_BASE * (1.0 + 0.05 * x + 0.006 * x * x + 0.0001 * x * x * x)
 
 
 ## Seconds into wave w before the survivors enrage.
@@ -247,6 +280,10 @@ static func wave_bursts(w: int) -> Array:
 		counts["burrower"] = int(1 + (w - 4) / 5.0)
 	if w >= 6:
 		counts["bloater"] = int(1 + (w - 6) / 4.0)
+	if w >= AURAS["drummer"]["from_wave"]:
+		counts["drummer"] = 1 + int(w >= 16)
+	if w >= AURAS["chanter"]["from_wave"]:
+		counts["chanter"] = 1 + int(w >= 18)
 	if BOSS_WAVES.has(w):
 		# boss waves: lighter escort
 		for k in counts.keys():
@@ -257,7 +294,7 @@ static func wave_bursts(w: int) -> Array:
 		bursts.append({"delay": 0.0 if i == 0 else 7.0 + 1.0 * i, "gate": "", "units": []})
 	# distribute
 	var idx := 0
-	for kind in ["shieldbearer", "hexcaster", "burrower", "bloater", "gnawer"]:
+	for kind in ["drummer", "chanter", "shieldbearer", "hexcaster", "burrower", "bloater", "gnawer"]:
 		var c: int = counts.get(kind, 0)
 		for j in c:
 			bursts[idx % n_bursts]["units"].append(kind)

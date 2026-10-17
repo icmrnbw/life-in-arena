@@ -253,8 +253,10 @@ func _exit_tree() -> void:
 
 func set_state(s: String) -> void:
 	match s:
-		"idle", "run":
+		"idle", "run", "sit":
 			loop_state = s
+			if _ring:
+				_ring.visible = s != "sit"
 			if dead:
 				return
 			if one_shot == "" or one_shot == "spawn":
@@ -355,6 +357,11 @@ func _compute_pose() -> void:
 	R.clear(); PO.clear(); S.clear()
 	var run := loop_state == "run"
 	var lt := t + _phase
+	if loop_state == "sit":
+		_loop_sit(lt)
+		glow_boost = 0.0
+		shadow_alpha = 1.0
+		return
 	match style:
 		"biped": _loop_biped(run, lt)
 		"robe": _loop_robe(run, lt)
@@ -364,6 +371,13 @@ func _compute_pose() -> void:
 		"blob": _loop_blob(run, lt)
 		"float": _loop_float(run, lt)
 		"totem": _loop_totem(run, lt)
+	if kind == "drummer":
+		# beats the belly drum, alternating mallets
+		var beat := lt * 5.5
+		_r("arm_l", Vector3(0.7 + maxf(0.0, sin(beat)) * 0.7, 0, -0.15))
+		_r("arm_r", Vector3(0.7 + maxf(0.0, -sin(beat)) * 0.7, 0, 0.15))
+		_r("weapon_l", Vector3(-maxf(0.0, sin(beat)) * 0.5, 0, 0))
+		_r("weapon_r", Vector3(-maxf(0.0, -sin(beat)) * 0.5, 0, 0))
 	glow_boost = 0.0
 	if style == "totem":
 		glow_boost = 0.25 + 0.15 * sin(lt * 5.0)
@@ -584,6 +598,42 @@ func _loop_float(run: bool, lt: float) -> void:
 	if run:
 		_r("body", Vector3(-0.22, 0, 0))
 		_r("tail", Vector3(-0.45, 0, sin(lt * 4.0) * 0.12))
+
+## Resting by a fire (title screen): bipeds sit on a log, the brood queen settles down on her legs.
+func _loop_sit(lt: float) -> void:
+	var b := sin(lt * 1.5)
+	var look := sin(lt * 0.23) * 0.35 + sin(lt * 0.61) * 0.12
+	if style == "taur":
+		_p("body", Vector3(0, -0.16 + b * 0.01, 0))
+		_r("body", Vector3(0.04, 0, 0))
+		for n in ["leg_fl", "leg_bl"]:
+			_r(n, Vector3(0, 0, 0.22))
+		for n in ["leg_fr", "leg_br"]:
+			_r(n, Vector3(0, 0, -0.22))
+		_r("abdomen", Vector3(0.12 + b * 0.02, 0, 0))
+		_r("chest", Vector3(0.12 + b * 0.03, look * 0.5, 0))
+		_s("chest", Vector3(1.0 + b * 0.012, 1.0 + b * 0.018, 1.0 + b * 0.012))
+		_r("head", Vector3(0.1 - b * 0.03, look, 0))
+		_r("arm_l", Vector3(-0.35, 0, 0.15)); _r("arm_r", Vector3(-0.35, 0, -0.15))
+		_r("wing_l", Vector3(0, 0.25, 0.2)); _r("wing_r", Vector3(0, -0.25, -0.2))
+		return
+	var hip_y: float = rest[bi["hips"]].y if bi.has("hips") else 0.9
+	_p("hips", Vector3(0, 0.46 - hip_y, 0.05))
+	_r("leg_l", Vector3(1.0, 0.1, -0.16))
+	_r("leg_r", Vector3(1.0, -0.1, 0.16))
+	_r("chest", Vector3(-0.32 + b * 0.025, look * 0.4, 0))
+	_s("chest", Vector3(1.0 + b * 0.012, 1.0 + b * 0.018, 1.0 + b * 0.012))
+	_r("head", Vector3(0.22 - b * 0.02, look, 0))
+	_r("arm_l", Vector3(0.95 + b * 0.02, 0, -0.18))
+	_r("arm_r", Vector3(0.95 + b * 0.02, 0, 0.18))
+	_r("cape", Vector3(0.5, 0, 0))
+	_r("scarf1", Vector3(0.6 + sin(lt * 2.3) * 0.08, sin(lt * 1.7) * 0.1, 0))
+	_r("scarf2", Vector3(0.5 + sin(lt * 2.9) * 0.1, 0, sin(lt * 2.0) * 0.1))
+	# weapons rest across the lap / lean on the ground instead of pointing at the fire
+	var wx := 0.75 if kind == "ashwarden" else -1.1
+	_r("weapon_r", (P["w_idle_r"] as Vector3) + Vector3(wx, 0, 0.35))
+	_r("weapon_l", (P["w_idle_l"] as Vector3) + Vector3(wx, 0, -0.35))
+
 
 func _loop_totem(_run: bool, lt: float) -> void:
 	_s("head", Vector3.ONE * (1.0 + sin(lt * 5.0) * 0.03))

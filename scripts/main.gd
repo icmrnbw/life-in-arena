@@ -7,7 +7,14 @@ var backdrop_cam: Camera3D
 var run: Run
 var screen: Control
 var pause_ui: Control
-var _orbit := 0.0
+var menu_hero := ""
+var _sway := 0.0
+
+## Title scene: a hero resting by a bonfire on a ledge south of the camp; the camp and the Pit glow beyond.
+const FIRE_POS := Vector3(-4.0, 0, 72.0)
+const SEAT_POS := Vector3(-5.56, 0, 70.83)
+const CAM_POS := Vector3(-3.9, 2.3, 77.6)
+const CAM_LOOK := Vector3(-7.4, 1.0, 70.6)
 
 
 func _ready() -> void:
@@ -83,10 +90,11 @@ func _shot_when_ready(sc: String) -> void:
 
 func _process(delta: float) -> void:
 	if backdrop_cam and is_instance_valid(backdrop_cam):
-		_orbit += delta * 0.06
-		var r := 34.0
-		backdrop_cam.position = Vector3(sin(_orbit) * r, 20.0, cos(_orbit) * r)
-		backdrop_cam.look_at(Vector3(0, 0, 0), Vector3.UP)
+		# slow handheld drift
+		_sway += delta
+		var off := Vector3(sin(_sway * 0.21) * 0.25, sin(_sway * 0.17) * 0.08, cos(_sway * 0.13) * 0.15)
+		backdrop_cam.position = CAM_POS + off
+		backdrop_cam.look_at(CAM_LOOK + off * 0.3, Vector3.UP)
 
 
 # ---------------------------------------------------------------- screens
@@ -112,20 +120,24 @@ func _ensure_backdrop() -> void:
 		Art.build_world(w)
 	if Art.has_method("set_fx_root"):
 		Art.set_fx_root(w)
-	# a few figures standing in the pit
-	var figures := [["ashwarden", Vector3(-2.5, 0, 2)], ["riftdancer", Vector3(0, 0, 3)], ["hivemother", Vector3(2.5, 0, 2)],
-		["pit_brute", Vector3(0, 0, -9)], ["gnawer", Vector3(-4, 0, -6)], ["gnawer", Vector3(4, 0, -6.5)], ["shieldbearer", Vector3(-6, 0, -9)], ["hexcaster", Vector3(6, 0, -10)]]
-	for f in figures:
-		var u = Art.create_unit(f[0]) if Art.has_method("create_unit") else null
-		if u is Node3D:
-			w.add_child(u)
-			u.position = f[1]
-			u.rotation.y = PI if f[1].z < 0 else 0.0
-			if u.has_method("set_state"):
-				u.call("set_state", "idle")
+	if Art.has_method("menu_camp"):
+		Art.menu_camp(w, FIRE_POS)
+	# one of the heroes (random each visit) resting by the fire
+	menu_hero = Game.arg("menu-hero", "")
+	if not DB.HEROES.has(menu_hero):
+		menu_hero = DB.HERO_ORDER[randi() % DB.HERO_ORDER.size()]
+	var u = Art.create_unit(menu_hero) if Art.has_method("create_unit") else null
+	if u is Node3D:
+		w.add_child(u)
+		u.position = SEAT_POS + (Vector3(-0.32, 0, -0.24) if menu_hero == "hivemother" else Vector3.ZERO)
+		u.rotation.y = -2.21   # facing the fire
+		if u.has_method("set_state"):
+			u.call("set_state", "sit")
 	backdrop_cam = Camera3D.new()
-	backdrop_cam.fov = 45.0
+	backdrop_cam.fov = 40.0
+	backdrop_cam.far = 200.0
 	backdrop.add_child(backdrop_cam)
+	backdrop_cam.position = CAM_POS
 	backdrop_cam.current = true
 
 

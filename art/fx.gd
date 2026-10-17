@@ -435,6 +435,7 @@ func _spawn_kind(fx_name: String, o: Dictionary, root: Node) -> FxNode:
 		"ash_wall": n = _ash_wall(o, root)
 		"tether_pull": n = _tether_pull(o, root)
 		"foundry_aura": n = _foundry_aura(o, root)
+		"buff_aura": n = _buff_aura(o, root)
 		"slip_trail": n = _slip_trail(o, root)
 		"mark": n = _mark(o, root)
 		"shatter": n = _shatter(o, root)
@@ -585,6 +586,8 @@ func _damage_number(o: Dictionary, root: Node) -> FxNode:
 	var txt := str(int(round(amount)))
 	if crit:
 		txt += "!"
+	if o.has("text"):
+		txt = str(o["text"])
 	var l := _label(n, txt, c, 96 if crit else 64)
 	# constant on-screen size (~44 px tall at 1080p, crits ~66 px) regardless of camera zoom
 	l.fixed_size = true
@@ -953,6 +956,36 @@ func _foundry_aura(o: Dictionary, root: Node) -> FxNode:
 		d.rotation.y = node.t * 0.6
 		if not node.stopping:
 			(glow.material_override as ShaderMaterial).set_shader_parameter("alpha", 0.6 + 0.25 * sin(node.t * 5.0))
+	return n
+
+## Ground ring showing a buffer enemy's aura (Ward Chanter / War Drummer). Follows `target` until stop().
+func _buff_aura(o: Dictionary, root: Node) -> FxNode:
+	var tgt = o.get("target")
+	var p := _v(o, "pos")
+	if tgt is Node3D and is_instance_valid(tgt):
+		p = (tgt as Node3D).global_position
+	var n := _node(root, "buff_aura", p)
+	n.fade_time = 0.3
+	if tgt is Node3D:
+		n.target = tgt; n.follow = true
+	var r := _f(o, "radius", 4.5)
+	var c := _c(o, "color", Color(1.0, 0.85, 0.35))
+	var d := _decal(n, 5, r * 2.0, r * 2.0, c, c.lerp(Color.WHITE, 0.5), true, 0.9)
+	n.mats.append(d.material_override)
+	var pulse := _decal(n, 6, r * 2.0, r * 2.0, c, Color(1, 1, 1), true, 1.1)
+	n.mats.append(pulse.material_override)
+	var em := _particles(n, {"amount": 10, "life": 1.4, "one_shot": false, "shape": "ring", "radius": r * 0.95, "inner": r * 0.85, "vmin": 0.4, "vmax": 1.0,
+		"dir": Vector3.UP, "spread": 10.0, "smin": 0.08, "smax": 0.16, "color": c})
+	n.parts.append(em)
+	var glow := _sprite(n, c, c.lerp(Color.WHITE, 0.6), 1.4, 1.6, 0, 2.4)
+	n.mats.append(glow.material_override)
+	n.update = func(node: FxNode, _dt: float) -> void:
+		d.rotation.y = node.t * 0.4
+		var k := fmod(node.t * 0.7, 1.0)
+		(pulse.material_override as ShaderMaterial).set_shader_parameter("fill", k)
+		if not node.stopping:
+			(pulse.material_override as ShaderMaterial).set_shader_parameter("alpha", (1.0 - k) * 0.8)
+			(glow.material_override as ShaderMaterial).set_shader_parameter("alpha", 0.55 + 0.3 * sin(node.t * 4.0))
 	return n
 
 func _mark(o: Dictionary, root: Node) -> FxNode:

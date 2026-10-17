@@ -432,6 +432,8 @@ func _focus_tap(p: Vector2) -> void:
 			best = e
 	if best == null:
 		best = _enemy_under(p)
+	if best == null and run.barrels and run.in_arena():
+		best = run.barrels.barrel_near(gp, 1.0)
 	if best:
 		_set_focus(best)
 

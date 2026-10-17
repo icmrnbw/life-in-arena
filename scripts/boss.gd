@@ -23,7 +23,7 @@ func init_enemy(k: String, w: int, r: Run) -> void:
 	# bosses use designed numbers, scaled gently
 	max_hp = float(data["hp"])
 	hp = max_hp
-	atk_dmg = float(data["dmg"]) * (1.0 + 0.02 * w)
+	atk_dmg = float(data["dmg"]) * (1.0 + 0.02 * w) * DB.BOSS_DMG_BASE
 	armor = data["armor"]
 	base_speed = data["speed"]
 	xp_val = data["xp"]
