@@ -14,6 +14,9 @@ var dust_t := 0.0
 var twin_index := 0
 var turn_rate := 12.0
 var display_name := ""
+var elite := ""                # elite affix id (DB.ELITE_AFFIXES), "" = normal
+var swings := 0
+var bashing := false
 
 
 func init_enemy(k: String, w: int, r: Run) -> void:
@@ -54,11 +57,41 @@ func post_visual() -> void:
 			node.visible = false
 
 
+## Turns this enemy into an elite with `affix` (see DB.ELITE_AFFIXES).
+func make_elite(affix: String) -> void:
+	var a: Dictionary = DB.ELITE_AFFIXES.get(affix, {})
+	if a.is_empty():
+		return
+	elite = affix
+	max_hp *= DB.ELITE_HP_MULT
+	hp = max_hp
+	atk_dmg *= DB.ELITE_DMG_MULT
+	xp_val *= DB.ELITE_REWARD_MULT
+	gold_val *= DB.ELITE_REWARD_MULT
+	display_name = "%s %s" % [a["name"], display_name]
+	if affix == "frenzied":
+		base_speed *= 1.35
+		atk_time *= 0.7
+	set_tint(a["tint"])
+	if node:
+		node.scale *= 1.18
+	radius *= 1.1
+
+
+func speed() -> float:
+	var s := super.speed()
+	if run.pit_enraged:
+		s *= DB.ENRAGE_SPEED
+	return s
+
+
 func damage_taken_mult() -> float:
-	return 1.0
+	return DB.WARD_DAMAGE_TAKEN if run.is_warded(self) else 1.0
 
 
 func on_death() -> void:
+	if elite == "volatile":
+		run.volatile_burst(pos, atk_dmg * 3.0)
 	if kind == "bloater":
 		var dps := 18.0 * DB.dmg_mult(wave)
 		run.add_pool(pos, 3.0, dps, 5.0)
@@ -138,8 +171,10 @@ func _ai_melee(dt: float) -> void:
 	if atk_wind > 0.0:
 		atk_wind -= dt
 		turn_toward(t.pos - pos, dt)
-		if atk_wind <= 0.0 and t.alive and edge_dist(t) <= atk_range + 0.8:
-			run.damage(t, atk_dmg, self, display_name, "phys", {"melee": true})
+		if atk_wind <= 0.0 and bashing:
+			_bash_hit()
+		elif atk_wind <= 0.0 and t.alive and edge_dist(t) <= atk_range + 0.8:
+			run.damage(t, atk_dmg * _pack_mult(t), self, display_name, "phys", {"melee": true})
 		return
 	var d := edge_dist(t)
 	if d > atk_range:
@@ -154,9 +189,52 @@ func _ai_melee(dt: float) -> void:
 		if atk_cd <= 0.0:
 			atk_cd = atk_time
 			atk_wind = 0.32
+			swings += 1
+			bashing = kind == "shieldbearer" and swings % 3 == 0
+			if bashing:
+				_bash_start()
 			set_state("attack")
 		else:
 			set_state("idle")
+
+
+## Gnawers hunt in packs: +8% damage per other gnawer next to the victim (up to +24%).
+func _pack_mult(t: Unit) -> float:
+	if kind != "gnawer":
+		return 1.0
+	var n := 0
+	for e in run.enemies:
+		if e != self and e.alive and e.kind == "gnawer" and run._flat(e.pos - t.pos).length() < 2.6:
+			n += 1
+			if n >= 3:
+				break
+	return 1.0 + 0.08 * n
+
+
+## Shieldbearer shield bash (every 3rd swing): telegraphed, stuns and knocks back.
+func _bash_center() -> Vector3:
+	return pos + facing * (radius + 0.9)
+
+
+func _bash_start() -> void:
+	atk_wind = 0.75
+	var c := _bash_center()
+	run.fx_timed("telegraph_circle", {"pos": c, "radius": 1.5, "duration": 0.75, "color": Color(0.7, 0.8, 1.0)}, 0.75)
+	run.add_hazard({"type": "circle", "pos": c, "r": 1.5, "t": 0.8})
+
+
+func _bash_hit() -> void:
+	bashing = false
+	var c := _bash_center()
+	run.fx("slam", {"pos": c, "radius": 1.5})
+	for u in run.hero_side_targets():
+		var off := run._flat(u.pos - c)
+		if off.length() <= 1.5 + u.radius * 0.5:
+			run.damage(u, atk_dmg * 1.3, self, display_name, "phys", {"melee": true})
+			if u.alive:
+				u.stun_t = maxf(u.stun_t, 0.7)
+			if u == run.hero:
+				run.hint_once("bash", "Shield bash! Shieldbearers stun every third swing.")
 
 
 func _ai_ranged(dt: float) -> void:
@@ -167,7 +245,7 @@ func _ai_ranged(dt: float) -> void:
 		turn_toward(t.pos - pos, dt)
 		if atk_wind <= 0.0 and t.alive:
 			run.fire_projectile("hex_bolt", pos + Vector3(0, 1.3, 0), t, Vector3.ZERO, 11.0, atk_dmg, 1, self, display_name,
-				{"slow": 0.3, "slow_t": 1.6, "dtype": "magic", "life": 2.0, "color": Color(0.7, 0.4, 1.0)})
+				{"slow": 0.3, "slow_t": 1.6, "hex": DB.HEX_TIME, "dtype": "magic", "life": 2.0, "color": Color(0.7, 0.4, 1.0)})
 		return
 	if d > atk_range - 0.5:
 		var dir := run.steer_dir(self, t.pos)

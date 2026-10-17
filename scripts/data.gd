@@ -131,6 +131,32 @@ const ENEMIES := {
 	"warden": {"name": "The Warden of the Pit", "hp": 26000.0, "dmg": 70.0, "atk_time": 1.5, "range": 2.6, "speed": 3.6, "armor": 8.0, "radius": 1.9, "xp": 0.0, "gold": 0.0, "boss": true},
 }
 
+## Elite affixes (wave 4+). Elites are tinted, tougher and pay more; each affix asks for a different answer.
+const ELITE_AFFIXES := {
+	"frenzied": {"name": "Frenzied", "from_wave": 4, "tint": Color(1.45, 0.55, 0.45),
+		"hint": "Frenzied elites: fast and furious. Don't let them catch you in a crowd!"},
+	"volatile": {"name": "Volatile", "from_wave": 6, "tint": Color(1.5, 1.05, 0.35),
+		"hint": "Volatile elites explode when they die. Step out of the glow!"},
+	"warding": {"name": "Warding", "from_wave": 8, "tint": Color(0.5, 0.85, 1.55),
+		"hint": "Warding elites shield nearby foes. Kill the warder first!"},
+}
+const ELITE_HP_MULT := 1.9
+const ELITE_DMG_MULT := 1.2
+const ELITE_REWARD_MULT := 2.5
+const WARD_RADIUS := 5.0
+const WARD_DAMAGE_TAKEN := 0.6
+const VOLATILE_RADIUS := 3.2
+const VOLATILE_DELAY := 1.1
+
+## Pit pressure: a wave that drags on enrages the enemies still alive (more damage, faster).
+const BOSS_ENRAGE_TIME := {5: 100.0, 10: 120.0, 15: 150.0, 20: 210.0}
+const ENRAGE_DMG := 1.3
+const ENRAGE_SPEED := 1.2
+
+## Hexcaster bolts hex the hero: healing received is reduced while hexed.
+const HEX_TIME := 4.0
+const HEX_HEAL_MULT := 0.5
+
 const BOSS_WAVES := {5: "pit_brute", 10: "matron", 15: "hollow_choir", 20: "warden"}
 const BOSS_TITLES := {5: "Pit Brute", 10: "Twin Matrons", 15: "The Hollow Choir", 20: "The Warden of the Pit"}
 const BOSS_HINTS := {5: "Glowing ground means a slam or a charge is coming. Step out!",
@@ -165,7 +191,28 @@ static func hp_mult(w: int) -> float:
 
 static func dmg_mult(w: int) -> float:
 	var x := float(w - 1)
-	return 1.0 + 0.04 * x + 0.005 * x * x + 0.00012 * x * x * x
+	return 1.0 + 0.05 * x + 0.006 * x * x + 0.00015 * x * x * x
+
+
+## Seconds into wave w before the survivors enrage.
+static func enrage_time(w: int) -> float:
+	return BOSS_ENRAGE_TIME.get(w, 55.0 + 3.0 * float(w))
+
+
+## Chance that a regular enemy spawns as an elite.
+static func elite_chance(w: int) -> float:
+	if w < 4:
+		return 0.0
+	return minf(0.26, 0.05 + 0.012 * float(w - 4))
+
+
+## Affixes that can roll on wave w.
+static func elite_affixes(w: int) -> Array:
+	var out := []
+	for k in ELITE_AFFIXES:
+		if w >= int(ELITE_AFFIXES[k]["from_wave"]):
+			out.append(k)
+	return out
 
 
 static func gold_mult(w: int) -> float:

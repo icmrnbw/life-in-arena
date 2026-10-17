@@ -23,6 +23,9 @@ var timers: Array = []     # [time_left, Callable]
 var spawn_queue: Array = []
 var boss_units: Array = []
 var boss_title := ""
+var pit_enraged := false
+var warders: Array = []    # alive Warding elites
+var hints_shown := {}
 
 var phase := "prep"
 var wave := 1
@@ -214,6 +217,14 @@ func toast(text: String, color := Color(1, 1, 1)) -> void:
 	toast_requested.emit(text, color)
 
 
+## Shows a gold hint toast once per run.
+func hint_once(id: String, text: String) -> void:
+	if hints_shown.has(id):
+		return
+	hints_shown[id] = true
+	toast(text, Art.palette.get("gold", Color.GOLD))
+
+
 func add_hazard(h: Dictionary) -> Dictionary:
 	hazards.append(h)
 	return h
@@ -356,6 +367,52 @@ func spawn_enemy(kind: String, p: Vector3, w := -1) -> Enemy:
 	return e
 
 
+## Rolls whether a freshly spawned wave enemy becomes an elite.
+func _roll_elite(e: Enemy) -> void:
+	var chance := DB.elite_chance(wave) * (0.5 if boss_title != "" else 1.0)
+	if e.is_boss or rng.randf() >= chance:
+		return
+	var affixes := DB.elite_affixes(wave)
+	if e.kind == "shieldbearer":
+		affixes.erase("warding")   # a warded wall of shields stalls the wave
+	if affixes.is_empty():
+		return
+	var affix: String = affixes[rng.randi() % affixes.size()]
+	e.make_elite(affix)
+	if affix == "warding":
+		warders.append(e)
+	hint_once("elite_" + affix, DB.ELITE_AFFIXES[affix]["hint"])
+
+
+## True when a living Warding elite (other than `e`) stands near `e`.
+func is_warded(e: Unit) -> bool:
+	if warders.is_empty():
+		return false
+	for w in warders:
+		if w != e and w.alive and _flat(w.pos - e.pos).length() <= DB.WARD_RADIUS:
+			return true
+	return false
+
+
+## Volatile elite death: a telegraphed blast after a short delay.
+func volatile_burst(p: Vector3, dmg: float) -> void:
+	var r := DB.VOLATILE_RADIUS
+	fx_timed("telegraph_circle", {"pos": p, "radius": r, "duration": DB.VOLATILE_DELAY, "color": Color(1.0, 0.6, 0.2)}, DB.VOLATILE_DELAY)
+	add_hazard({"type": "circle", "pos": p, "r": r, "t": DB.VOLATILE_DELAY + 0.1})
+	schedule(DB.VOLATILE_DELAY, _volatile_hit.bind(p, r, dmg))
+
+
+func _volatile_hit(p: Vector3, r: float, dmg: float) -> void:
+	if not in_arena():
+		return
+	fx("death_burst", {"pos": p, "size": r * 2.0, "color": Color(1.0, 0.6, 0.2)})
+	fx("slam", {"pos": p, "radius": r})
+	shake(0.35)
+	for u in hero_side_targets():
+		if _flat(u.pos - p).length() <= r + u.radius * 0.5:
+			damage(u, dmg, null, "Volatile Blast", "magic")
+
+
 func spawn_summon(kind: String, p: Vector3) -> Unit:
 	var s := Unit.new()
 	s.run = self
@@ -385,6 +442,8 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 	if t.invuln_t > 0.0:
 		return 0.0
 	var a := amount
+	if pit_enraged and src != null and src.team == 1:
+		a *= DB.ENRAGE_DMG
 	if dtype == "phys":
 		a *= armor_factor(t.armor)
 	if t.team == 1 and t is Enemy:
@@ -440,6 +499,8 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 func heal_unit(u: Unit, amount: float, show := true) -> void:
 	if not u.alive or amount <= 0.0:
 		return
+	if u.hex_t > 0.0:
+		amount *= DB.HEX_HEAL_MULT
 	var before := u.hp
 	u.hp = minf(u.max_hp, u.hp + amount)
 	if show and u.hp - before > 5.0:
@@ -637,6 +698,11 @@ func _proj_hit(p: Dictionary, u: Unit) -> void:
 	damage(u, p["dmg"], p["src"], p["tag"], opts.get("dtype", "magic"), o)
 	if opts.has("slow"):
 		u.apply_slow(opts["slow"], opts.get("slow_t", 1.5))
+	if opts.has("hex") and u.alive:
+		u.hex_t = maxf(u.hex_t, float(opts["hex"]))
+		u.flash(Color(0.7, 0.35, 1.0))
+		if u == hero:
+			hint_once("hex", "Hexed! Hexcaster bolts halve your healing for a few seconds.")
 	if opts.get("spit_mark", false):
 		u.spit_mark_t = 4.0
 	if opts.has("aoe"):
@@ -1011,6 +1077,8 @@ func _tick_corpses(dt: float) -> void:
 			if b.alive:
 				kb.append(b)
 		boss_units = kb
+		if not warders.is_empty():
+			warders = warders.filter(func(w): return w.alive)
 	var dead_a := false
 	for a in allies:
 		if not a.alive:
@@ -1075,13 +1143,13 @@ func _tick_hero(dt: float) -> void:
 		return
 	h.tick_status(dt)
 	# regen
-	var regen_mult := 1.0
+	var regen_mult := DB.HEX_HEAL_MULT if h.hex_t > 0.0 else 1.0
 	h.hp = minf(h.max_hp, h.hp + h.hp_regen * dt * regen_mult)
 	h.mana = minf(h.max_mana, h.mana + h.mana_regen * dt)
 	var keep := []
 	for b in h.regen_buff:
 		b["t"] -= dt
-		h.hp = minf(h.max_hp, h.hp + b["hp"] * dt)
+		h.hp = minf(h.max_hp, h.hp + b["hp"] * dt * regen_mult)
 		h.mana = minf(h.max_mana, h.mana + b["mana"] * dt)
 		if b["t"] > 0.0:
 			keep.append(b)
@@ -1463,6 +1531,8 @@ func start_wave() -> void:
 	wave_time = 0.0
 	wave_died = false
 	wave_gold = 0
+	pit_enraged = false
+	warders.clear()
 	hero.aegis_ready = true
 	max_wave_reached = maxi(max_wave_reached, wave)
 	if hud and hud.has_method("close_shop"):
@@ -1517,12 +1587,28 @@ func _tick_wave(dt: float) -> void:
 		if s.get("tint", false):
 			e.set_tint(Color(0.75, 0.85, 1.25))
 			e.twin_index = 1
+		else:
+			_roll_elite(e)
 		if e.is_boss:
 			fx("teleport", {"pos": e.pos})
 			shake(0.4)
 		alive_n += 1
 	if spawn_queue.is_empty() and alive_n == 0 and wave_time > 1.5:
 		_wave_cleared()
+		return
+	if not pit_enraged and alive_n > 0 and wave_time >= DB.enrage_time(wave):
+		_enrage()
+
+
+## The wave dragged on: everything still alive hits harder and moves faster.
+func _enrage() -> void:
+	pit_enraged = true
+	shake(0.5)
+	Audio.play("boss")
+	banner_requested.emit("The Pit grows restless", "Enemies are enraged! Finish them fast")
+	for e in enemies:
+		if e.alive:
+			e.flash(Color(1.0, 0.3, 0.2))
 
 
 func _wave_cleared() -> void:
@@ -1601,6 +1687,8 @@ func _clear_arena(fx_burst: bool) -> void:
 			e.node = null
 	enemies.clear()
 	boss_units.clear()
+	warders.clear()
+	pit_enraged = false
 	for p in projs:
 		_release_proj(p)
 	projs.clear()

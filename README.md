@@ -7,12 +7,18 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - Riftdancer runs on momentum and combos.
   - Hivemother commands a brood.
 - 20 waves, with bosses on waves 5, 10, 15 and 20, and 3 lives.
+- The Pit fights back:
+  - From wave 4, elite enemies spawn with an affix: Frenzied (fast), Volatile (explodes on death, step out of the glow) or Warding (shields nearby foes, kill it first).
+  - A wave that drags on enrages the survivors: they hit harder and move faster.
+  - Hexcaster bolts halve your healing for a few seconds (your HP bar turns purple).
+  - Shieldbearers stun with a telegraphed shield bash every third swing, and Gnawers hit harder in packs.
+  - A wounded Pit Brute charges twice in a row, and a wounded Hollow Choir fires denser rings.
 - A camp between waves with a shop of 18 items, including recipes.
 - Touch controls: a joystick, tap-to-cast and drag-to-aim.
 - All art is procedural and original, generated in code.
 
 ## Install (Android)
-Download `builds/emberpit-0.1.0-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.2.0-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.
