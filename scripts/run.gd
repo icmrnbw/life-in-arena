@@ -460,6 +460,8 @@ func kill(t: Unit, src: Unit) -> void:
 	corpses.append(t)
 	if t.team == 1:
 		var e := t as Enemy
+		if e.is_boss:
+			Game.crumb("boss death %s #%d (bosses left %d)" % [e.kind, e.twin_index, boss_units.filter(func(b): return b.alive).size()])
 		e.on_death()
 		if not e.no_reward:
 			stats["kills"] += 1
@@ -474,6 +476,8 @@ func kill(t: Unit, src: Unit) -> void:
 		fx("death_burst", {"pos": e.pos, "size": e.radius * 2.0, "color": Art.palette.get("ember", Color.ORANGE)})
 		if e.is_boss:
 			shake(0.6)
+			Game.crumb("boss death handled")
+			Game.watch_frames("boss death %s #%d" % [e.kind, e.twin_index])
 	else:
 		fx("death_burst", {"pos": t.pos, "size": t.radius * 2.0})
 
@@ -499,6 +503,7 @@ func _log_wave(what: String) -> void:
 
 func _hero_died() -> void:
 	_log_wave("death")
+	Game.crumb("hero died")
 	hero.dead = true
 	hero.set_state("death", true)
 	stats["deaths"] += 1
@@ -1460,6 +1465,7 @@ func start_wave() -> void:
 	if phase != "prep":
 		return
 	phase = "wave"
+	Game.crumb("wave start")
 	wave_time = 0.0
 	wave_died = false
 	wave_gold = 0
@@ -1518,6 +1524,7 @@ func _tick_wave(dt: float) -> void:
 			e.set_tint(Color(0.75, 0.85, 1.25))
 			e.twin_index = 1
 		if e.is_boss:
+			Game.crumb("boss spawn %s #%d" % [e.kind, e.twin_index])
 			fx("teleport", {"pos": e.pos})
 			shake(0.4)
 		alive_n += 1
@@ -1533,6 +1540,7 @@ func _wave_cleared() -> void:
 		bonus += DB.boss_gold(wave)
 		stats["bosses"] += 1
 	_log_wave("clear")
+	Game.crumb("wave cleared")
 	var flawless := 0
 	if not wave_died:
 		flawless = int(round((wave_gold + bonus) * 0.10))
@@ -1551,6 +1559,7 @@ func _wave_cleared() -> void:
 
 
 func _return_to_camp() -> void:
+	Game.crumb("return to camp")
 	wave += 1
 	_clear_arena(false)
 	if hero.kit:
@@ -1638,6 +1647,7 @@ func _end_run(res: String) -> void:
 		return
 	result = res
 	phase = res
+	Game.crumb("run ended: " + res)
 	if res == "victory":
 		max_wave_reached = DB.TOTAL_WAVES
 		hero.set_state("idle", true)

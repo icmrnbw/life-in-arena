@@ -1090,6 +1090,8 @@ func _beam(o: Dictionary, root: Node) -> FxNode:
 		var t1 := _line_xform(A, B, ww, y)
 		q1.transform = t1
 		var dir := (B - A); var L := maxf(dir.length(), 0.05); dir = dir / L
+		if dir.length_squared() < 0.0001:
+			dir = Vector3.FORWARD   # ends on top of each other (e.g. the Matrons overlapping): keep the basis invertible
 		var side := Vector3.UP.cross(dir).normalized()
 		# vertical strip: same along-axis, width along up
 		q2.transform = Transform3D(Basis(Vector3.UP * ww, side, dir * L), (A + B) * 0.5)
