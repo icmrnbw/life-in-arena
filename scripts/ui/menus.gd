@@ -73,7 +73,34 @@ static func title_screen(on_play: Callable) -> Control:
 	var tip := _outlined(UIK.label("Survive 20 waves in the Pit. 3 lives. Shop between waves.", "SmallLabel", 20, UIK.col("dim", Color(0.75, 0.7, 0.62))), 6)
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(tip)
+	if not Game.prev_crash.is_empty():
+		v.add_child(_crash_notice())
 	return root
+
+
+## Shown after a session that closed unexpectedly: copies the crash trail so the player can paste it to us.
+static func _crash_notice() -> Control:
+	var p := UIK.panel()
+	p.name = "CrashNotice"
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 16)
+	p.add_child(h)
+	var l := UIK.label("The last game closed unexpectedly.", "SmallLabel", 20, UIK.col("text", Color(0.95, 0.92, 0.85)))
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(l)
+	var copy := UIK.button("Copy report", "", Vector2(200, 64))
+	copy.pressed.connect(func():
+		DisplayServer.clipboard_set(Game.crash_report_text())
+		copy.text = "Copied")
+	h.add_child(copy)
+	var dismiss := UIK.button("Dismiss", "", Vector2(160, 64))
+	dismiss.pressed.connect(func():
+		Game.prev_crash = {}
+		p.queue_free())
+	h.add_child(dismiss)
+	var c := CenterContainer.new()
+	c.add_child(p)
+	return c
 
 
 # ---------------------------------------------------------------- hero select
