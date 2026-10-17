@@ -58,6 +58,7 @@ func _main() -> void:
 	await test_lives()
 	await test_waves()
 	await test_gold()
+	await test_difficulty()
 	print("\n==== RESULT: %d passed, %d failed" % [passed, failed])
 	for f in fails:
 		print("FAILED: ", f)
@@ -643,3 +644,88 @@ func test_gold() -> void:
 
 func _g() -> Node:
 	return get_node("/root/Game")
+
+
+# ------------------------------------------------------------------ difficulty mechanics
+func test_difficulty() -> void:
+	section("difficulty mechanics")
+	check(DB.elite_chance(3) == 0.0 and DB.elite_chance(4) > 0.0 and DB.elite_chance(20) <= 0.26, "elites from wave 4, chance capped")
+	check(DB.elite_affixes(4) == ["frenzied"] and DB.elite_affixes(8).size() == 3, "affixes unlock by wave", str(DB.elite_affixes(8)))
+	check(DB.enrage_time(10) == DB.BOSS_ENRAGE_TIME[10] and DB.enrage_time(7) > 60.0, "enrage timers")
+	var r := make_run("ashwarden", 8)
+	await get_tree().process_frame
+	r.phase = "wave"
+	r.hero.in_camp = false
+	r.hero.pos = Vector3(0, 0, 0)
+	var h := r.hero
+	# elite stats
+	var g := r.spawn_enemy("gnawer", Vector3(8, 0, 0), 8)
+	var hp0 := g.max_hp
+	var gold0 := g.gold_val
+	g.make_elite("frenzied")
+	check(near(g.max_hp, hp0 * DB.ELITE_HP_MULT) and near(g.hp, g.max_hp), "elite hp multiplied")
+	check(near(g.gold_val, gold0 * DB.ELITE_REWARD_MULT) and g.display_name.begins_with("Frenzied"), "elite reward + name")
+	# warding: nearby allies take less damage, the warder itself does not
+	var w := r.spawn_enemy("gnawer", Vector3(-8, 0, 0), 8)
+	w.make_elite("warding")
+	r.warders.append(w)
+	var near_e := r.spawn_enemy("hexcaster", Vector3(-8, 0, 2), 8)
+	var far_e := r.spawn_enemy("hexcaster", Vector3(8, 0, 8), 8)
+	var d_near := r.damage(near_e, 100.0, h, "Test", "magic")
+	var d_far := r.damage(far_e, 100.0, h, "Test", "magic")
+	var d_self := r.damage(w, 100.0, h, "Test", "magic")
+	check(near(d_near, 100.0 * DB.WARD_DAMAGE_TAKEN) and near(d_far, 100.0) and near(d_self, 100.0), "warding shields neighbours only",
+		"%f %f %f" % [d_near, d_far, d_self])
+	# hex halves healing
+	h.hp = 100.0
+	h.hex_t = 2.0
+	r.heal_unit(h, 100.0, false)
+	check(near(h.hp, 150.0), "hex halves healing", str(h.hp))
+	h.hex_t = 0.0
+	r.heal_unit(h, 100.0, false)
+	check(near(h.hp, 250.0), "healing normal after hex", str(h.hp))
+	h.hp = h.max_hp
+	# enrage: enemies hit harder
+	var base := r.damage(h, 50.0, g, "Hit", "magic")
+	h.hp = h.max_hp
+	r.pit_enraged = true
+	var enr := r.damage(h, 50.0, g, "Hit", "magic")
+	check(near(enr, base * DB.ENRAGE_DMG), "enraged enemies deal more damage", "%f vs %f" % [enr, base])
+	check(g.speed() > g.base_speed * 1.1, "enraged enemies move faster")
+	r.pit_enraged = false
+	h.hp = h.max_hp
+	# volatile: telegraphed blast after a delay
+	var v := r.spawn_enemy("gnawer", Vector3(1, 0, 0), 8)
+	v.make_elite("volatile")
+	r.damage(v, 1e7, h, "Test", "magic")
+	var hp_before := h.hp
+	check(r.hazards.size() > 0, "volatile death adds a hazard")
+	for i in 20:
+		r._step(1.0 / 30.0)
+	check(near(h.hp, hp_before, 30.0), "no blast before the delay", "%f -> %f" % [hp_before, h.hp])
+	h.pos = Vector3(1, 0, 0)
+	for i in 30:
+		r._step(1.0 / 30.0)
+	check(h.hp < hp_before - 50.0, "volatile blast hits", "%f -> %f" % [hp_before, h.hp])
+	free_run(r)
+	await get_tree().process_frame
+	# shieldbearer bash: every 3rd swing stuns
+	var r2 := make_run("ashwarden", 6)
+	await get_tree().process_frame
+	_g().god = true
+	r2.phase = "wave"
+	r2.wave_time = 5.0
+	r2.hero.in_camp = false
+	r2.hero.pos = Vector3(0, 0, 0)
+	var sb := r2.spawn_enemy("shieldbearer", Vector3(2.0, 0, 0), 6)
+	var stunned := false
+	for i in 400:
+		r2.hero.pos = Vector3(0, 0, 0)
+		r2._step(1.0 / 30.0)
+		if r2.hero.stun_t > 0.0:
+			stunned = true
+			break
+	check(stunned and sb.swings >= 3, "shield bash stuns on the 3rd swing", "swings=%d" % sb.swings)
+	_g().god = false
+	free_run(r2)
+	await get_tree().process_frame

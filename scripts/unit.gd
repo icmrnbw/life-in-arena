@@ -40,6 +40,7 @@ var taunt_t := 0.0
 var mark_t := 0.0
 var mark_fx: Node = null
 var spit_mark_t := 0.0
+var hex_t := 0.0               # healing received is reduced while > 0
 var knock := Vector3.ZERO     # knockback velocity
 var pull_to := Vector3.ZERO
 var pull_t := 0.0
@@ -144,6 +145,8 @@ func tick_status(dt: float) -> void:
 			taunt_t = 0.0
 	if spit_mark_t > 0.0:
 		spit_mark_t -= dt
+	if hex_t > 0.0:
+		hex_t -= dt
 	if mark_t > 0.0:
 		mark_t -= dt
 		if mark_t <= 0.0:

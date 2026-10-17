@@ -35,7 +35,7 @@ func _draw() -> void:
 	for e in run.enemies:
 		if not e.alive or e.untargetable:
 			continue
-		var elite: bool = e.is_boss or float(DB.ENEMIES.get(e.kind, {}).get("hp", 0.0)) >= 200.0
+		var elite: bool = e.is_boss or e.elite != "" or float(DB.ENEMIES.get(e.kind, {}).get("hp", 0.0)) >= 200.0
 		var recent: bool = now - e.hurt_at < 3.0 and e.hp < e.max_hp - 0.5
 		if e == focus:
 			_bar(cam, e, 52.0 if not e.is_boss else 110.0, hpc, 0.3, 6.0, 1.0)
@@ -43,6 +43,10 @@ func _draw() -> void:
 			SkillButton.ring(self, sp, 30.0 + e.radius * 8.0, UIK.col("gold", Color.GOLD))
 		elif e.is_boss:
 			_bar(cam, e, 110.0, hpc, 0.3, 6.0, 0.85)
+		elif e.elite != "":
+			# elites always show a bar in their affix colour
+			var tc: Color = DB.ELITE_AFFIXES[e.elite]["tint"]
+			_bar(cam, e, 44.0, Color(minf(tc.r, 1.0), minf(tc.g, 1.0), minf(tc.b, 1.0)), 0.3, 5.0, 0.95)
 		elif recent or (elite and e.hp < e.max_hp - 0.5):
 			_bar(cam, e, 40.0 if elite else 30.0, hpc, 0.3, 4.0, 0.72)
 	for a in run.allies:
@@ -50,7 +54,8 @@ func _draw() -> void:
 			_bar(cam, a, 30.0, Color(0.4, 0.9, 0.35), 0.3, 4.0, 0.8)
 	var h := run.hero
 	if h.alive and not h.dead:
-		_bar(cam, h, 70.0, Color(0.35, 0.95, 0.35), 0.5)
+		# purple while hexed (healing halved)
+		_bar(cam, h, 70.0, Color(0.7, 0.4, 1.0) if h.hex_t > 0.0 else Color(0.35, 0.95, 0.35), 0.5)
 		var wp := h.pos + Vector3(0, h.height + 0.5, 0)
 		if not cam.is_position_behind(wp):
 			var sp2 := cam.unproject_position(wp)

@@ -13,6 +13,7 @@ var summon_t := 6.0
 var adds: Array = []
 var enraged := false
 var last_pattern := ""
+var chain_charge := false
 
 
 func init_enemy(k: String, w: int, r: Run) -> void:
@@ -101,7 +102,7 @@ func tick(dt: float) -> void:
 		# stands still while channeling
 		set_state("cast")
 		return
-	pattern_t -= dt * (1.35 if enraged else 1.0)
+	pattern_t -= dt * (1.35 if enraged else 1.0) * (1.25 if run.pit_enraged else 1.0)
 	summon_t -= dt
 	if pattern_t <= 0.0:
 		_choose_pattern()
@@ -120,10 +121,12 @@ func _choose_pattern() -> void:
 	match kind:
 		"pit_brute":
 			if d > 6.0 and last_pattern != "charge":
+				# wounded: the second charge follows straight after the first
+				chain_charge = hp < max_hp * 0.5
 				_charge()
 			else:
 				_slam_front(4.0, 2.6, 1.1)
-			pattern_t = randf_range(3.6, 4.6)
+			pattern_t = randf_range(3.6, 4.6) if hp >= max_hp * 0.5 else randf_range(2.8, 3.6)
 		"matron":
 			if last_pattern == "volley":
 				_slam_at(target.pos, 3.2, 2.2, 1.3)
@@ -139,7 +142,7 @@ func _choose_pattern() -> void:
 				_start_beam(220.0, 6.0, 20.0, 1.8, 2.2)
 				pattern_t = 9.0
 			else:
-				_ring(10)
+				_ring(10 if hp >= max_hp * 0.5 else 14)
 				pattern_t = 3.0
 		"warden":
 			match phase:
@@ -310,6 +313,13 @@ func _tick_charge(dt: float) -> void:
 					side = -side
 				u.knock = side * 10.0 + dir * 4.0
 			run.shake(0.6)
+	if done and chain_charge and target != null and target.alive:
+		chain_charge = false
+		charge = {}
+		run.fx("slam", {"pos": pos, "radius": 2.5})
+		set_state("idle", true)
+		_charge()
+		return
 	if done:
 		charge = {}
 		stun_t = 1.2   # dazed after a charge: punish window
