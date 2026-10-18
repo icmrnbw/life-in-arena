@@ -102,6 +102,14 @@ const ATTACKS := {
 		"chest": [[0.0, Vector3.ZERO], [0.35, Vector3(0.1, -0.45, 0)], [0.55, Vector3(-0.25, 0.4, 0)], [1.0, Vector3.ZERO]],
 		"body": [[0.35, Vector3(0.1, -0.35, 0)], [0.55, Vector3(-0.2, 0.35, 0)]],
 	},
+	"aim": {
+		"arm_r": [[0.0, Vector3(0.1, 0, 0.1)], [0.28, Vector3(1.45, 0, 0.02)], [0.42, Vector3(1.6, 0, 0.02)], [0.72, Vector3(1.45, 0, 0.02)], [1.0, Vector3(0.1, 0, 0.1)]],
+		"weapon_r": [[0.0, Vector3.ZERO], [0.28, Vector3(-1.45, 0, 0)], [0.42, Vector3(-1.2, 0, 0)], [0.72, Vector3(-1.45, 0, 0)], [1.0, Vector3.ZERO]],
+		"arm_l": [[0.0, Vector3(0.1, 0, -0.1)], [0.28, Vector3(1.25, 0, 0.45)], [0.72, Vector3(1.2, 0, 0.45)], [1.0, Vector3(0.1, 0, -0.1)]],
+		"chest": [[0.0, Vector3.ZERO], [0.28, Vector3(0.0, 0.25, 0)], [0.42, Vector3(-0.08, 0.28, 0)], [0.72, Vector3(0.0, 0.25, 0)], [1.0, Vector3.ZERO]],
+		"head": [[0.28, Vector3(0.0, -0.2, 0)], [0.72, Vector3(0.0, -0.2, 0)]],
+		"@root": [[0.0, Vector3.ZERO], [0.3, Vector3.ZERO], [0.42, Vector3(0, 0, 0.08)], [0.6, Vector3.ZERO]],
+	},
 	"pulse": {
 		"%head": [[0.0, Vector3.ONE], [0.3, Vector3(1.3, 0.8, 1.3)], [0.55, Vector3(0.9, 1.2, 0.9)], [1.0, Vector3.ONE]],
 		"%body": [[0.0, Vector3.ONE], [0.3, Vector3(1.06, 0.95, 1.06)], [0.55, Vector3(0.97, 1.04, 0.97)], [1.0, Vector3.ONE]],
@@ -163,12 +171,13 @@ func setup(rig: Dictionary, k: String) -> void:
 		mat = SH.new_unit_mat(glow, height)
 		var rim_c: Color = P["rim"]
 		var rim_s: float = P["rim_strength"]
-		if HERO_RING.has(kind):
+		var hc = hero_color(kind, P)
+		if hc is Color:
 			# heroes: strong rim in the hero colour + a coloured ground ring, so they never sink into the floor
-			rim_c = (HERO_RING[kind] as Color).lerp(Color.WHITE, 0.35)
+			rim_c = (hc as Color).lerp(Color.WHITE, 0.35)
 			rim_s = maxf(rim_s, 0.95)
 			mat.set_shader_parameter("rim_pow", 2.0)
-			_make_ring(HERO_RING[kind])
+			_make_ring(hc)
 		elif P.get("enemy", true):
 			# enemies: warm hostile rim that separates them from the cool stone
 			rim_c = rim_c.lerp(Color(1.0, 0.42, 0.22), 0.6)
@@ -181,11 +190,26 @@ func setup(rig: Dictionary, k: String) -> void:
 			mat2.set_shader_parameter("glow_strength", 0.6)
 			mi.set_surface_override_material(1, mat2)
 	if P.has("flame"):
-		_flame = _make_flame(P["flame"])
+		_flame = _make_flame(P["flame"], float(P.get("flame_scale", 1.0)))
 		add_child(_flame)
 	_apply_pose(1.0)
 
-const HERO_RING := {"ashwarden": Color(1.0, 0.76, 0.25), "riftdancer": Color(0.25, 0.95, 0.88), "hivemother": Color(0.62, 1.0, 0.25)}
+const HERO_RING := {"ashwarden": Color(1.0, 0.76, 0.25), "riftdancer": Color(0.25, 0.95, 0.88), "hivemother": Color(0.62, 1.0, 0.25),
+	"sanguine": Color("e0263c"), "snarewright": Color("c8d24a"), "twinhide": Color("c86bff"), "twinhide_beast": Color("c86bff"),
+	"gravekeeper": Color("8affc8"), "stoneshaper": Color("d9a066"), "gunsmith": Color("4fb8ff"), "sunspeaker": Color("ffe680")}
+
+## Hero ground-ring colour: HERO_RING, else Art.palette[kind] for any non-enemy kind (so a future hero only needs a palette entry).
+static func hero_color(k: String, p: Dictionary) -> Variant:
+	if HERO_RING.has(k):
+		return HERO_RING[k]
+	if p.get("enemy", true):
+		return null
+	var ml := Engine.get_main_loop()
+	if ml is SceneTree and (ml as SceneTree).root:
+		var art = (ml as SceneTree).root.get_node_or_null("Art")
+		if art and art.get("palette") is Dictionary and (art.palette as Dictionary).has(k) and art.palette[k] is Color:
+			return art.palette[k]
+	return null
 var _ring: MeshInstance3D
 var _ring_mat: ShaderMaterial
 
@@ -208,22 +232,22 @@ func _make_ring(c: Color) -> void:
 	_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_ring)
 
-func _make_flame(pos: Vector3) -> Node3D:
+func _make_flame(pos: Vector3, fs := 1.0) -> Node3D:
 	var p := CPUParticles3D.new()
 	p.position = pos
-	p.amount = 14
-	p.lifetime = 0.7
+	p.amount = 14 if fs >= 1.0 else 6
+	p.lifetime = 0.7 if fs >= 1.0 else 0.4
 	p.mesh = _quad_mesh()
 	p.material_override = SH.mat("particle_add")
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	p.emission_sphere_radius = 0.16
+	p.emission_sphere_radius = 0.16 * fs
 	p.direction = Vector3.UP
-	p.spread = 12.0
-	p.gravity = Vector3(0, 1.6, 0)
-	p.initial_velocity_min = 0.4
-	p.initial_velocity_max = 0.9
-	p.scale_amount_min = 0.25
-	p.scale_amount_max = 0.45
+	p.spread = 12.0 if fs >= 1.0 else 60.0
+	p.gravity = Vector3(0, 1.6 * fs, 0)
+	p.initial_velocity_min = 0.4 * fs
+	p.initial_velocity_max = 0.9 * fs
+	p.scale_amount_min = 0.25 * fs
+	p.scale_amount_max = 0.45 * fs
 	var c := Curve.new(); c.add_point(Vector2(0, 1)); c.add_point(Vector2(1, 0.1))
 	p.scale_amount_curve = c
 	var g := Gradient.new()
@@ -630,7 +654,7 @@ func _loop_sit(lt: float) -> void:
 	_r("scarf1", Vector3(0.6 + sin(lt * 2.3) * 0.08, sin(lt * 1.7) * 0.1, 0))
 	_r("scarf2", Vector3(0.5 + sin(lt * 2.9) * 0.1, 0, sin(lt * 2.0) * 0.1))
 	# weapons rest across the lap / lean on the ground instead of pointing at the fire
-	var wx := 0.75 if kind == "ashwarden" else -1.1
+	var wx: float = float(P.get("sit_wx", 0.75 if kind == "ashwarden" else -1.1))
 	_r("weapon_r", (P["w_idle_r"] as Vector3) + Vector3(wx, 0, 0.35))
 	_r("weapon_l", (P["w_idle_l"] as Vector3) + Vector3(wx, 0, -0.35))
 

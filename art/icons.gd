@@ -13,6 +13,13 @@ const HERO_BG := {
 	"basic": ["#56626e", "#11151a", "#e0b070"],
 	"adv": ["#6a3490", "#150a20", "#ffcf5a"],
 	"cons": ["#2e6658", "#08160f", "#8affd8"],
+	"sang": ["#a0182a", "#1e0408", "#ff6070"],
+	"snare": ["#6a7020", "#121405", "#e8f070"],
+	"twin": ["#5a2c90", "#10061e", "#e0a0ff"],
+	"grave": ["#2a6a5a", "#06120e", "#b0ffe0"],
+	"stone": ["#9a6a34", "#1c1006", "#ffc070"],
+	"gun": ["#245a90", "#060e1c", "#a0e0ff"],
+	"sun": ["#b08a20", "#1e1404", "#fff0a0"],
 }
 
 const GRADS := """
@@ -34,6 +41,17 @@ const GRADS := """
 <radialGradient id="glowE" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffd27a" stop-opacity="0.9"/><stop offset="1" stop-color="#ff7a2f" stop-opacity="0"/></radialGradient>
 <radialGradient id="glowT" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#b8fff6" stop-opacity="0.9"/><stop offset="1" stop-color="#3ff0dc" stop-opacity="0"/></radialGradient>
 <radialGradient id="glowA" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#eaffa0" stop-opacity="0.9"/><stop offset="1" stop-color="#9cff3a" stop-opacity="0"/></radialGradient>
+<linearGradient id="olive" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4ffb0"/><stop offset="0.5" stop-color="#c8d24a"/><stop offset="1" stop-color="#6a7014"/></linearGradient>
+<linearGradient id="mint" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6fff4"/><stop offset="0.5" stop-color="#8affc8"/><stop offset="1" stop-color="#2a8a64"/></linearGradient>
+<linearGradient id="sand" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0cc98"/><stop offset="0.5" stop-color="#c8945a"/><stop offset="1" stop-color="#6a4626"/></linearGradient>
+<linearGradient id="sun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbe0"/><stop offset="0.5" stop-color="#ffe680"/><stop offset="1" stop-color="#e8a020"/></linearGradient>
+<radialGradient id="glowC" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ff9aa4" stop-opacity="0.9"/><stop offset="1" stop-color="#e0263c" stop-opacity="0"/></radialGradient>
+<radialGradient id="glowO" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#f4ffb0" stop-opacity="0.9"/><stop offset="1" stop-color="#c8d24a" stop-opacity="0"/></radialGradient>
+<radialGradient id="glowV" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ecc8ff" stop-opacity="0.9"/><stop offset="1" stop-color="#c86bff" stop-opacity="0"/></radialGradient>
+<radialGradient id="glowM" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#d8fff0" stop-opacity="0.9"/><stop offset="1" stop-color="#8affc8" stop-opacity="0"/></radialGradient>
+<radialGradient id="glowS" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffe0a8" stop-opacity="0.9"/><stop offset="1" stop-color="#ffb040" stop-opacity="0"/></radialGradient>
+<radialGradient id="glowB" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#d0f0ff" stop-opacity="0.9"/><stop offset="1" stop-color="#4fb8ff" stop-opacity="0"/></radialGradient>
+<radialGradient id="glowY" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#fffbe0" stop-opacity="0.95"/><stop offset="1" stop-color="#ffd040" stop-opacity="0"/></radialGradient>
 <radialGradient id="glowR" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffb0a0" stop-opacity="0.9"/><stop offset="1" stop-color="#ff3a26" stop-opacity="0"/></radialGradient>
 """
 
@@ -130,7 +148,17 @@ static func all_ids() -> Array:
 		"emberbrand", "bulwark_plate", "wayfarer_treads", "hivecore_sigil", "bloodthirst_fang", "wardens_aegis",
 		"healing_draught", "mana_draught", "tome_of_might", "phoenix_feather",
 		"portrait_ashwarden", "portrait_riftdancer", "portrait_hivemother",
-		"gold", "life", "attack", "armor", "speed", "pause", "shop"]
+		"gold", "life", "attack", "armor", "speed", "pause", "shop"] + WAVE2_IDS
+
+const WAVE2_IDS := ["crimson_cleave", "blood_rush", "hemorrhage", "undying_pact",
+	"snare_trap", "blast_charge", "tripwire", "killing_field",
+	"spirit_lance", "moonwell", "rend", "pounce", "shift", "twin_fury",
+	"raise_dead", "corpse_blast", "grave_chill", "open_graves",
+	"rock_shove", "stone_ridge", "quake", "avalanche",
+	"hot_reload", "scattershot", "mortar", "deadeye",
+	"sunbeam", "solar_flare", "sanctum", "dawn_lance",
+	"portrait_sanguine", "portrait_snarewright", "portrait_twinhide", "portrait_gravekeeper",
+	"portrait_stoneshaper", "portrait_gunsmith", "portrait_sunspeaker"]
 
 static func _flame(x: float, y: float, s: float, fill := "url(#fire)") -> String:
 	# flame shape with tip at (x, y - 30s), base at (x, y)
@@ -404,8 +432,360 @@ static func _svg_for(id: String) -> String:
 				+ '<circle cx="64" cy="78" r="17" fill="url(#gold)"' + _o(4) + '/>'
 				+ '<path d="M64 68 V88" stroke="#a8641a" stroke-width="4"/>')
 		_:
+			var w2 := _svg_wave2(id)
+			if w2 != "":
+				return w2
 			return _framed("basic", '<path d="M64 26 L94 64 L64 102 L34 64 Z" fill="url(#bronze)"' + _o() + '/>'
 				+ '<path d="M64 42 V86 M50 64 H78" stroke="#ffd27a" stroke-width="5" stroke-linecap="round"/>')
+
+
+## Wave-2 hero icons (skills + portraits). Returns "" for unknown ids.
+static func _svg_wave2(id: String) -> String:
+	var O := _o()
+	match id:
+		# ---------------------------------------------------------- Sanguine (crimson)
+		"crimson_cleave":
+			return _framed("sang", '<ellipse cx="64" cy="64" rx="46" ry="42" fill="url(#glowC)" opacity="0.6"/>'
+				+ '<path d="M16 96 C26 46 62 20 112 22 C74 34 46 60 36 104 Z" fill="url(#blood)"' + O + '/>'
+				+ '<path d="M30 88 C42 54 66 36 98 28" stroke="#ffd0d0" stroke-width="3.5" fill="none" stroke-linecap="round"/>'
+				+ '<path d="M70 70 L104 104 M64 76 L58 70 L76 64 L82 70 Z" stroke="' + D + '" stroke-width="4" fill="url(#metal)" stroke-linejoin="round"/>'
+				+ '<path d="M70 70 L104 104" stroke="url(#metal)" stroke-width="9" stroke-linecap="round"/>'
+				+ '<path d="M70 70 L104 104" stroke="' + D + '" stroke-width="2"/>'
+				+ _drop(96, 52, 0.8) + _drop(84, 40, 0.6) + _drop(108, 66, 0.55))
+		"blood_rush":
+			var ch := ""
+			for i in 3:
+				var x := 30.0 + i * 24.0
+				ch += '<path d="M%s 34 L%s 64 L%s 94 L%s 94 L%s 64 L%s 34 Z" fill="url(#blood)" opacity="%s"%s/>' % [x, x + 28, x, x + 14, x + 42, x + 14, 0.5 + i * 0.25, _o(3.5)]
+			return _framed("sang", '<ellipse cx="80" cy="64" rx="40" ry="34" fill="url(#glowC)" opacity="0.7"/>'
+				+ '<path d="M12 50 H34 M8 64 H30 M14 78 H34" stroke="#ff8a90" stroke-width="5" stroke-linecap="round"/>' + ch
+				+ _drop(46, 104, 0.6) + _drop(66, 108, 0.5))
+		"hemorrhage":
+			return _framed("sang", '<ellipse cx="64" cy="54" rx="42" ry="34" fill="url(#glowC)" opacity="0.55"/>'
+				+ '<path d="M24 40 C50 30 80 46 104 36 C84 60 50 52 24 40 Z" fill="#4a0810"' + O + '/>'
+				+ '<path d="M34 42 C54 38 76 46 94 40" stroke="#ff4a5a" stroke-width="4" fill="none" stroke-linecap="round"/>'
+				+ _drop(44, 74, 1.1) + _drop(66, 92, 1.4) + _drop(88, 72, 1.0)
+				+ '<path d="M44 50 V62 M66 52 V74 M88 48 V60" stroke="url(#blood)" stroke-width="5" stroke-linecap="round"/>')
+		"undying_pact":
+			var links := ""
+			for i in 6:
+				var x := 18.0 + i * 18.4
+				var y := 44.0 + i * 8.0
+				links += '<ellipse cx="%s" cy="%s" rx="9" ry="5.5" transform="rotate(24 %s %s)" fill="none" stroke="%s" stroke-width="7"/><ellipse cx="%s" cy="%s" rx="9" ry="5.5" transform="rotate(24 %s %s)" fill="none" stroke="url(#metal)" stroke-width="3.5"/>' % [x, y, x, y, D, x, y, x, y]
+			return _framed("sang", '<circle cx="64" cy="62" r="44" fill="url(#glowC)" opacity="0.7"/>'
+				+ '<circle cx="64" cy="62" r="38" fill="none" stroke="#ff4a5a" stroke-width="3" stroke-dasharray="6 5"/>'
+				+ '<path d="M64 104 C38 86 24 70 28 52 C32 36 54 32 64 48 C74 32 96 36 100 52 C104 70 90 86 64 104 Z" fill="url(#blood)"' + O + '/>'
+				+ '<ellipse cx="48" cy="54" rx="7" ry="4.5" fill="#ffffff" opacity="0.6"/>' + links)
+		# ---------------------------------------------------------- Snarewright (olive)
+		"snare_trap":
+			var teeth := ""
+			for i in 7:
+				var x := 30.0 + i * 11.3
+				teeth += '<path d="M%s 62 L%s 46 L%s 62 Z" fill="#f0ecd8"%s/>' % [x - 4.5, x, x + 4.5, _o(2)]
+				teeth += '<path d="M%s 66 L%s 82 L%s 66 Z" fill="#f0ecd8"%s/>' % [x - 4.5, x + 0.5, x + 4.5, _o(2)]
+			return _framed("snare", '<ellipse cx="64" cy="64" rx="46" ry="30" fill="url(#glowO)" opacity="0.7"/>'
+				+ '<path d="M18 64 C18 30 110 30 110 64 L100 64 C98 40 30 40 28 64 Z" fill="url(#metal)"' + O + '/>'
+				+ '<path d="M18 64 C18 98 110 98 110 64 L100 64 C98 88 30 88 28 64 Z" fill="url(#metal)"' + O + '/>'
+				+ teeth + '<ellipse cx="64" cy="64" rx="12" ry="5" fill="url(#olive)"' + _o(2.5) + '/>'
+				+ '<rect x="6" y="58" width="16" height="12" rx="3" fill="#5a5448"' + _o(3) + '/><rect x="106" y="58" width="16" height="12" rx="3" fill="#5a5448"' + _o(3) + '/>')
+		"blast_charge":
+			return _framed("snare", '<ellipse cx="60" cy="74" rx="42" ry="36" fill="url(#glowO)" opacity="0.5"/>'
+				+ '<circle cx="58" cy="76" r="32" fill="#2e2c2a"' + O + '/>'
+				+ '<path d="M28 74 C40 82 76 82 88 74" stroke="url(#olive)" stroke-width="7" fill="none"/>'
+				+ '<ellipse cx="46" cy="64" rx="9" ry="6" fill="#ffffff" opacity="0.35"/>'
+				+ '<rect x="66" y="38" width="16" height="12" rx="2" fill="url(#bronze)" transform="rotate(30 74 44)"' + _o(3) + '/>'
+				+ '<path d="M80 38 C86 28 96 30 98 22" stroke="#d8c08a" stroke-width="4" fill="none" stroke-linecap="round"/>'
+				+ '<circle cx="100" cy="20" r="11" fill="url(#glowE)"/>'
+				+ '<path d="M100 10 L103 17 L110 18 L104 22 L106 30 L100 25 L94 30 L96 22 L90 18 L97 17 Z" fill="#fff0a0"' + _o(1.5) + '/>')
+		"tripwire":
+			return _framed("snare", '<ellipse cx="64" cy="66" rx="48" ry="20" fill="url(#glowO)" opacity="0.6"/>'
+				+ '<path d="M22 104 L28 34 L36 34 L34 104 Z" fill="url(#wood)"' + O + '/>'
+				+ '<path d="M94 104 L92 34 L100 34 L106 104 Z" fill="url(#wood)"' + O + '/>'
+				+ '<path d="M30 58 C50 64 78 64 98 58" stroke="' + D + '" stroke-width="7" fill="none"/>'
+				+ '<path d="M30 58 C50 64 78 64 98 58" stroke="#f0ff9a" stroke-width="3" fill="none"/>'
+				+ '<path d="M56 62 L50 52 M64 63 L64 50 M72 62 L78 52" stroke="#e8f070" stroke-width="3" stroke-linecap="round"/>'
+				+ '<circle cx="64" cy="74" r="7" fill="url(#gold)"' + _o(2.5) + '/>')
+		"killing_field":
+			var traps := ""
+			for p in [[34, 92], [94, 92], [26, 66], [102, 66], [64, 104]]:
+				traps += '<ellipse cx="%s" cy="%s" rx="9" ry="5" fill="url(#metal)"%s/><circle cx="%s" cy="%s" r="2.5" fill="#e8f070"/>' % [p[0], p[1], _o(2.5), p[0], p[1]]
+			return _framed("snare", '<ellipse cx="64" cy="74" rx="46" ry="32" fill="url(#glowO)" opacity="0.6"/>'
+				+ '<ellipse cx="64" cy="74" rx="40" ry="26" fill="none" stroke="#c8d24a" stroke-width="3" stroke-dasharray="7 5"/>' + traps
+				+ '<circle cx="64" cy="54" r="24" fill="none" stroke="' + D + '" stroke-width="9"/>'
+				+ '<circle cx="64" cy="54" r="24" fill="none" stroke="#f0ff9a" stroke-width="4"/>'
+				+ '<path d="M64 22 V40 M64 68 V86 M32 54 H50 M78 54 H96" stroke="' + D + '" stroke-width="8" stroke-linecap="round"/>'
+				+ '<path d="M64 22 V40 M64 68 V86 M32 54 H50 M78 54 H96" stroke="#f0ff9a" stroke-width="3.5" stroke-linecap="round"/>'
+				+ '<circle cx="64" cy="54" r="4" fill="#ff5a3a"/>')
+		# ---------------------------------------------------------- Twinhide (violet)
+		"spirit_lance":
+			return _framed("twin", '<ellipse cx="64" cy="64" rx="48" ry="26" transform="rotate(-40 64 64)" fill="url(#glowV)"/>'
+				+ '<path d="M18 110 L82 46" stroke="' + D + '" stroke-width="12" stroke-linecap="round"/>'
+				+ '<path d="M18 110 L82 46" stroke="url(#viol)" stroke-width="6" stroke-linecap="round"/>'
+				+ '<path d="M76 40 L112 16 L88 52 Z" fill="#f2e6ff"' + O + '/>'
+				+ '<path d="M80 44 L106 22" stroke="#c86bff" stroke-width="2.5"/>'
+				+ '<path d="M70 40 L64 30 M88 58 L98 62 M60 52 L50 48" stroke="#e8c8ff" stroke-width="3" stroke-linecap="round"/>')
+		"moonwell":
+			return _framed("twin", '<ellipse cx="64" cy="94" rx="44" ry="14" fill="url(#glowV)"/>'
+				+ '<ellipse cx="64" cy="94" rx="40" ry="11" fill="#3a1e6a"' + O + '/>'
+				+ '<ellipse cx="64" cy="92" rx="30" ry="6" fill="#c86bff" opacity="0.6"/>'
+				+ '<path d="M78 18 C56 20 44 38 46 56 C48 74 66 84 84 78 C66 74 58 58 62 44 C64 32 70 24 78 18 Z" fill="#f4eeff"' + O + '/>'
+				+ '<path d="M58 84 V92 M70 80 V90" stroke="#e8c8ff" stroke-width="3" stroke-linecap="round" opacity="0.8"/>'
+				+ '<circle cx="96" cy="34" r="3" fill="#ffffff"/><circle cx="30" cy="40" r="2.5" fill="#ffffff"/><circle cx="100" cy="60" r="2" fill="#e8c8ff"/>')
+		"rend":
+			var cl := ""
+			for i in 3:
+				var dx := i * 20.0
+				cl += '<path d="M%s 22 C%s 52 %s 80 %s 108 C%s 82 %s 52 %s 22 Z" fill="url(#viol)"%s/>' % [30 + dx, 44 + dx, 40 + dx, 30 + dx, 48 + dx, 52 + dx, 38 + dx, _o(3.5)]
+				cl += '<path d="M%s 30 C%s 56 %s 80 %s 98" stroke="#ffffff" stroke-width="2" fill="none" opacity="0.8"/>' % [36 + dx, 46 + dx, 42 + dx, 36 + dx]
+			return _framed("twin", '<ellipse cx="64" cy="64" rx="42" ry="44" fill="url(#glowV)" opacity="0.7"/>' + cl)
+		"pounce":
+			return _framed("twin", '<ellipse cx="64" cy="60" rx="46" ry="34" fill="url(#glowV)" opacity="0.6"/>'
+				+ '<path d="M14 104 Q60 40 112 92" stroke="#c86bff" stroke-width="3" fill="none" stroke-dasharray="6 6"/>'
+				+ '<path d="M22 72 C34 56 50 50 66 52 L82 42 L90 34 L92 44 L100 48 L96 56 C92 62 86 66 80 68 L94 86 L84 88 L70 74 C60 76 52 76 46 74 L34 90 L24 86 L34 70 Z" fill="#3a2a40"' + O + '/>'
+				+ '<path d="M88 36 L84 20 L92 26 L96 14 L98 30" stroke="url(#ivory)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+				+ '<circle cx="92" cy="46" r="3" fill="#e8b0ff"/>'
+				+ '<path d="M94 86 L100 92 M84 88 L88 96 M34 90 L30 98 M24 86 L18 90" stroke="url(#ivory)" stroke-width="3" stroke-linecap="round"/>')
+		"shift":
+			return _framed("twin", '<circle cx="64" cy="62" r="44" fill="url(#glowV)" opacity="0.6"/>'
+				+ '<path d="M64 20 C40 20 28 38 30 60 C32 84 46 100 64 104 Z" fill="url(#ivory)"' + O + '/>'
+				+ '<path d="M64 20 C88 20 100 38 98 60 C96 84 82 100 64 104 Z" fill="#3a2a40"' + O + '/>'
+				+ '<path d="M40 26 L30 8 L48 20 M88 26 L98 8 L80 20" stroke="url(#ivory)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+				+ '<ellipse cx="48" cy="56" rx="7" ry="5" fill="#1a0e22"/><circle cx="48" cy="56" r="2.5" fill="#e8b0ff"/>'
+				+ '<path d="M74 54 L88 50 L84 58 Z" fill="#e8b0ff"/>'
+				+ '<path d="M46 80 H62 M66 80 L72 86 L78 80 L84 86 L90 78" stroke="' + D + '" stroke-width="3" fill="none"/>')
+		"twin_fury":
+			return _framed("twin", '<circle cx="64" cy="64" r="46" fill="url(#glowV)" opacity="0.6"/>'
+				+ '<path d="M64 18 C38 18 18 38 18 64 C18 90 38 110 64 110 C50 100 44 82 64 64 C84 46 78 28 64 18 Z" fill="url(#viol)"' + O + '/>'
+				+ '<path d="M64 18 C90 18 110 38 110 64 C110 90 90 110 64 110 C78 100 84 82 64 64 C44 46 50 28 64 18 Z" fill="url(#fire)"' + O + '/>'
+				+ '<circle cx="54" cy="40" r="6" fill="#1a0e22"/><circle cx="54" cy="40" r="2.5" fill="#ffe0a0"/>'
+				+ '<circle cx="74" cy="88" r="6" fill="#2a1406"/><circle cx="74" cy="88" r="2.5" fill="#e8b0ff"/>')
+		# ---------------------------------------------------------- Gravekeeper (mint)
+		"raise_dead":
+			return _framed("grave", '<ellipse cx="64" cy="70" rx="40" ry="40" fill="url(#glowM)" opacity="0.7"/>'
+				+ '<path d="M14 108 C30 88 98 88 114 108 Z" fill="#3a3028"' + O + '/>'
+				+ '<path d="M50 96 L52 70 L46 50 L50 48 L56 66 L58 40 L63 40 L64 64 L68 38 L73 39 L72 64 L78 44 L83 46 L78 70 L86 58 L90 61 L80 80 L78 96 Z" fill="url(#ivory)"' + O + '/>'
+				+ '<path d="M56 78 H74 M58 86 H74" stroke="#7a705a" stroke-width="2.5"/>'
+				+ '<path d="M30 92 C26 80 34 74 30 64 M100 90 C104 80 96 72 100 62" stroke="#8affc8" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.8"/>')
+		"corpse_blast":
+			var rays := ""
+			for i in 10:
+				var a := TAU * i / 10.0
+				rays += '<path d="M%s %s L%s %s" stroke="#b0ffe0" stroke-width="4" stroke-linecap="round"/>' % [64 + cos(a) * 34, 64 + sin(a) * 34, 64 + cos(a) * 50, 64 + sin(a) * 50]
+			var ribs := ""
+			for i in 4:
+				var y := 48.0 + i * 11.0
+				var w := 22.0 - i * 2.0
+				ribs += '<path d="M64 %s C%s %s %s %s %s %s" stroke="url(#ivory)" stroke-width="5" fill="none" stroke-linecap="round"/>' % [y, 64 - w, y - 4, 64 - w - 4, y + 8, 64 - w + 2, y + 12]
+				ribs += '<path d="M64 %s C%s %s %s %s %s %s" stroke="url(#ivory)" stroke-width="5" fill="none" stroke-linecap="round"/>' % [y, 64 + w, y - 4, 64 + w + 4, y + 8, 64 + w - 2, y + 12]
+			return _framed("grave", '<circle cx="64" cy="64" r="46" fill="url(#glowM)"/>' + rays
+				+ '<path d="M64 38 V98" stroke="' + D + '" stroke-width="10" stroke-linecap="round"/>'
+				+ '<path d="M64 38 V98" stroke="url(#ivory)" stroke-width="5" stroke-linecap="round"/>' + ribs
+				+ '<path d="M30 30 L38 36 M98 28 L90 36 M100 100 L92 92" stroke="url(#ivory)" stroke-width="4" stroke-linecap="round"/>')
+		"grave_chill":
+			return _framed("grave", '<ellipse cx="64" cy="62" rx="44" ry="40" fill="url(#glowM)" opacity="0.6"/>'
+				+ '<path d="M64 20 C88 20 98 36 96 56 C95 66 90 72 86 76 V90 H42 V76 C38 72 33 66 32 56 C30 36 40 20 64 20 Z" fill="#dff8ee"' + O + '/>'
+				+ '<ellipse cx="50" cy="56" rx="10" ry="9" fill="#0e3a2c"/><ellipse cx="78" cy="56" rx="10" ry="9" fill="#0e3a2c"/>'
+				+ '<circle cx="50" cy="56" r="3.5" fill="#8affc8"/><circle cx="78" cy="56" r="3.5" fill="#8affc8"/>'
+				+ '<path d="M60 72 L64 66 L68 72 Z" fill="#0e3a2c"/><path d="M50 82 V90 M58 82 V90 M66 82 V90 M74 82 V90" stroke="#0e3a2c" stroke-width="3"/>'
+				+ '<path d="M64 20 L60 8 M44 26 L36 16 M84 26 L92 16" stroke="#b0ffe0" stroke-width="3" stroke-linecap="round"/>'
+				+ '<path d="M18 104 C34 94 48 106 64 98 C80 90 94 104 110 96" stroke="#8affc8" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.8"/>')
+		"open_graves":
+			var st := ""
+			for p in [[30, 0.85], [64, 1.0], [98, 0.85]]:
+				var x: float = p[0]; var s: float = p[1]
+				st += '<path d="M%s 52 C%s 52 %s 52 %s 104 H%s C%s 52 %s 52 %s 52 Z" transform="translate(0 %s)" fill="url(#mint)"%s/>' % [x, x - 2, x - 16 * s, x - 16 * s, x + 16 * s, x + 16 * s, x + 2, x, (1.0 - s) * 20.0, O]
+				st += '<path d="M%s %s V%s M%s %s H%s" stroke="#1a3a30" stroke-width="3"/>' % [x, 68 + (1.0 - s) * 20, 86 + (1.0 - s) * 20, x - 6, 74 + (1.0 - s) * 20, x + 6]
+				st += '<path d="M%s %s C%s %s %s %s %s %s" stroke="#b0ffe0" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.85"/>' % [x, 46 + (1.0 - s) * 20, x - 8, 36, x + 8, 30, x, 16 + (1.0 - s) * 10]
+			return _framed("grave", '<ellipse cx="64" cy="64" rx="48" ry="40" fill="url(#glowM)" opacity="0.6"/>'
+				+ '<rect x="12" y="102" width="104" height="10" fill="#3a3028"' + _o(3) + '/>' + st)
+		# ---------------------------------------------------------- Stoneshaper (sandstone)
+		"rock_shove":
+			return _framed("stone", '<ellipse cx="74" cy="64" rx="40" ry="34" fill="url(#glowS)" opacity="0.6"/>'
+				+ '<path d="M10 50 H34 M6 66 H30 M12 82 H34" stroke="#ffc070" stroke-width="5" stroke-linecap="round"/>'
+				+ '<path d="M40 40 L84 34 L104 46 L108 82 L90 96 L46 92 L38 72 Z" fill="url(#sand)"' + O + '/>'
+				+ '<path d="M84 34 L82 56 L104 58 M82 56 L86 76 L108 78 M86 76 L84 96" stroke="' + D + '" stroke-width="3" fill="none"/>'
+				+ '<path d="M50 50 L62 62 L56 76 M70 46 L74 60" stroke="#ffb040" stroke-width="3.5" fill="none" stroke-linecap="round"/>')
+		"stone_ridge":
+			return _framed("stone", '<ellipse cx="64" cy="98" rx="50" ry="12" fill="url(#glowS)"/>'
+				+ '<path d="M14 104 L20 70 L30 60 L36 74 L46 40 L58 36 L64 62 L74 30 L86 40 L90 62 L100 52 L114 70 L114 104 Z" fill="url(#sand)"' + O + '/>'
+				+ '<path d="M26 102 L30 80 L34 90 M52 102 L54 60 L58 78 M78 102 L78 50 L84 72 M102 102 L104 76" stroke="#ffb040" stroke-width="3.5" fill="none" stroke-linecap="round"/>'
+				+ '<path d="M30 30 L36 22 L40 30 Z M96 26 L102 18 L106 28 Z" fill="url(#sand)"' + _o(2.5) + '/>')
+		"quake":
+			return _framed("stone", '<ellipse cx="64" cy="80" rx="48" ry="26" fill="url(#glowS)" opacity="0.7"/>'
+				+ '<ellipse cx="64" cy="80" rx="44" ry="20" fill="none" stroke="#ffc070" stroke-width="4" opacity="0.7"/>'
+				+ '<ellipse cx="64" cy="80" rx="28" ry="12" fill="none" stroke="#ffc070" stroke-width="4"/>'
+				+ '<path d="M64 80 L56 60 L66 46 L58 28 M64 80 L86 70 L96 56 M64 80 L40 88 L24 84 M64 80 L80 98 L98 104 M64 80 L50 104" stroke="' + D + '" stroke-width="9" fill="none" stroke-linejoin="round" stroke-linecap="round"/>'
+				+ '<path d="M64 80 L56 60 L66 46 L58 28 M64 80 L86 70 L96 56 M64 80 L40 88 L24 84 M64 80 L80 98 L98 104 M64 80 L50 104" stroke="#ffb040" stroke-width="4" fill="none" stroke-linejoin="round" stroke-linecap="round"/>'
+				+ '<path d="M30 40 L38 32 L42 42 Z M96 34 L104 30 L102 40 Z" fill="url(#sand)"' + _o(2.5) + '/>')
+		"avalanche":
+			return _framed("stone", '<ellipse cx="70" cy="66" rx="42" ry="38" fill="url(#glowS)" opacity="0.6"/>'
+				+ '<path d="M8 104 L120 104" stroke="' + D + '" stroke-width="5"/>'
+				+ '<path d="M12 46 H30 M8 62 H26 M12 78 H28" stroke="#ffc070" stroke-width="5" stroke-linecap="round"/>'
+				+ '<circle cx="72" cy="66" r="36" fill="url(#sand)"' + O + '/>'
+				+ '<path d="M50 44 L64 56 L58 72 L72 84 M80 38 L84 56 L100 62 M66 98 L72 84" stroke="#ffb040" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+				+ '<path d="M30 98 L36 90 L42 98 Z M108 96 L114 88 L118 98 Z" fill="url(#sand)"' + _o(2.5) + '/>')
+		# ---------------------------------------------------------- Gunsmith (sky blue)
+		"hot_reload":
+			var ch := ""
+			for i in 6:
+				var a := TAU * i / 6.0 - PI / 2.0
+				ch += '<circle cx="%s" cy="%s" r="9" fill="#14202e"%s/><circle cx="%s" cy="%s" r="5" fill="url(#gold)"/>' % [64 + cos(a) * 24, 64 + sin(a) * 24, _o(2.5), 64 + cos(a) * 24, 64 + sin(a) * 24]
+			return _framed("gun", '<circle cx="64" cy="64" r="46" fill="url(#glowB)"/>'
+				+ '<circle cx="64" cy="64" r="38" fill="url(#metal)"' + O + '/>' + ch
+				+ '<circle cx="64" cy="64" r="7" fill="#4fb8ff"' + _o(2.5) + '/>'
+				+ '<path d="M98 26 A48 48 0 0 1 110 74" stroke="#a0e0ff" stroke-width="5" fill="none" stroke-linecap="round"/>'
+				+ '<path d="M104 70 L110 80 L116 68 Z" fill="#a0e0ff"/>')
+		"scattershot":
+			var pel := ""
+			for i in 7:
+				var a := deg_to_rad(-30.0 + i * 10.0)
+				for j in 2:
+					var r := 30.0 + j * 22.0 + (i % 2) * 8.0
+					pel += '<circle cx="%s" cy="%s" r="%s" fill="#dff4ff"%s/>' % [44 + cos(a) * r, 70 + sin(a) * r, 4.5 - j, _o(1.5)]
+			return _framed("gun", '<path d="M44 70 L116 30 L116 110 Z" fill="url(#glowB)" opacity="0.8"/>'
+				+ '<rect x="8" y="58" width="40" height="22" rx="4" fill="url(#metal)"' + O + '/>'
+				+ '<rect x="38" y="56" width="12" height="26" rx="2" fill="url(#gold)"' + _o(3) + '/>'
+				+ '<ellipse cx="54" cy="69" rx="10" ry="14" fill="url(#glowE)"/>' + pel)
+		"mortar":
+			return _framed("gun", '<ellipse cx="80" cy="40" rx="30" ry="22" fill="url(#glowB)" opacity="0.6"/>'
+				+ '<path d="M34 80 Q66 6 104 58" stroke="#a0e0ff" stroke-width="3.5" fill="none" stroke-dasharray="7 6"/>'
+				+ '<rect x="22" y="60" width="26" height="46" rx="4" transform="rotate(30 35 83)" fill="url(#metal)"' + O + '/>'
+				+ '<rect x="20" y="58" width="30" height="8" rx="2" transform="rotate(30 35 62)" fill="url(#gold)"' + _o(3) + '/>'
+				+ '<path d="M12 110 H62 L54 98 H20 Z" fill="url(#wood)"' + _o(3) + '/>'
+				+ '<circle cx="100" cy="54" r="10" fill="#2a2c32"' + _o(3) + '/><circle cx="96" cy="50" r="3" fill="#4fb8ff"/>')
+		"deadeye":
+			return _framed("gun", '<circle cx="64" cy="64" r="46" fill="url(#glowB)" opacity="0.6"/>'
+				+ '<path d="M24 64 C36 44 92 44 104 64 C92 84 36 84 24 64 Z" fill="#eef6ff"' + O + '/>'
+				+ '<circle cx="64" cy="64" r="15" fill="url(#mana)"' + _o(3) + '/><circle cx="64" cy="64" r="6" fill="#0a1220"/>'
+				+ '<circle cx="64" cy="64" r="36" fill="none" stroke="' + D + '" stroke-width="8"/>'
+				+ '<circle cx="64" cy="64" r="36" fill="none" stroke="#a0e0ff" stroke-width="3.5"/>'
+				+ '<path d="M64 14 V36 M64 92 V114 M14 64 H36 M92 64 H114" stroke="' + D + '" stroke-width="7" stroke-linecap="round"/>'
+				+ '<path d="M64 14 V36 M64 92 V114 M14 64 H36 M92 64 H114" stroke="#ff5a3a" stroke-width="3" stroke-linecap="round"/>')
+		# ---------------------------------------------------------- Sunspeaker (sun gold)
+		"sunbeam":
+			return _framed("sun", '<path d="M50 70 L120 40 L120 100 Z" fill="url(#glowY)"/>'
+				+ '<path d="M54 66 L118 52 V88 L54 74 Z" fill="#fff6c0" opacity="0.9"/>'
+				+ '<path d="M14 98 L30 74 C32 62 38 56 44 56 L56 58 C62 60 62 66 56 68 L48 68 L60 70 C66 72 64 78 58 78 L44 80 C40 90 34 96 26 106 Z" fill="#c8885a"' + O + '/>'
+				+ '<circle cx="56" cy="70" r="10" fill="url(#glowY)"/>'
+				+ '<path d="M78 46 L84 34 M96 46 L106 38 M80 94 L86 106" stroke="#ffe680" stroke-width="3.5" stroke-linecap="round"/>')
+		"solar_flare":
+			var r2 := ""
+			for i in 12:
+				var a := TAU * i / 12.0
+				var l := 40.0 if i % 2 == 0 else 32.0
+				r2 += '<path d="M%s %s L%s %s L%s %s Z" fill="url(#sun)"%s/>' % [64 + cos(a - 0.12) * 20, 56 + sin(a - 0.12) * 20, 64 + cos(a) * l, 56 + sin(a) * l, 64 + cos(a + 0.12) * 20, 56 + sin(a + 0.12) * 20, _o(2)]
+			return _framed("sun", '<ellipse cx="64" cy="100" rx="48" ry="12" fill="url(#glowY)"/>'
+				+ '<ellipse cx="64" cy="100" rx="38" ry="8" fill="none" stroke="#fff0a0" stroke-width="3"/>'
+				+ '<circle cx="64" cy="56" r="42" fill="url(#glowY)" opacity="0.7"/>' + r2
+				+ '<circle cx="64" cy="56" r="20" fill="url(#sun)"' + O + '/>'
+				+ '<circle cx="64" cy="56" r="11" fill="#fffbe0"/>')
+		"sanctum":
+			return _framed("sun", '<ellipse cx="64" cy="94" rx="46" ry="14" fill="url(#glowY)"/>'
+				+ '<rect x="22" y="34" width="12" height="62" fill="#fff6c0" opacity="0.55"/><rect x="58" y="24" width="12" height="72" fill="#fff6c0" opacity="0.7"/><rect x="94" y="34" width="12" height="62" fill="#fff6c0" opacity="0.55"/>'
+				+ '<ellipse cx="64" cy="94" rx="42" ry="12" fill="none" stroke="' + D + '" stroke-width="9"/>'
+				+ '<ellipse cx="64" cy="94" rx="42" ry="12" fill="none" stroke="url(#gold)" stroke-width="5"/>'
+				+ '<ellipse cx="64" cy="30" rx="22" ry="7" fill="none" stroke="' + D + '" stroke-width="8"/>'
+				+ '<ellipse cx="64" cy="30" rx="22" ry="7" fill="none" stroke="#fff0a0" stroke-width="4"/>'
+				+ '<path d="M64 46 L70 58 L64 70 L58 58 Z" fill="url(#sun)"' + _o(2.5) + '/>')
+		"dawn_lance":
+			return _framed("sun", '<path d="M14 92 A50 50 0 0 1 114 92 Z" fill="url(#glowY)"/>'
+				+ '<path d="M34 92 A30 30 0 0 1 94 92 Z" fill="url(#sun)"' + O + '/>'
+				+ '<path d="M10 92 H118" stroke="' + D + '" stroke-width="5"/>'
+				+ '<path d="M8 58 L96 52 L120 58 L96 64 Z" fill="#fffbe0"' + O + '/>'
+				+ '<path d="M12 58 H100" stroke="#ffd040" stroke-width="2.5"/>'
+				+ '<path d="M30 44 H60 M40 72 H70" stroke="#fff0a0" stroke-width="3" stroke-linecap="round" opacity="0.8"/>')
+		# ---------------------------------------------------------- portraits
+		"portrait_sanguine":
+			return _framed("sang", '<ellipse cx="64" cy="62" rx="44" ry="40" fill="url(#glowC)" opacity="0.45"/>'
+				+ '<path d="M14 116 C14 96 30 86 46 84 H82 C98 86 114 96 114 116 Z" fill="#3e3539"' + O + '/>'
+				+ '<ellipse cx="26" cy="92" rx="22" ry="13" fill="#5a4e54"' + O + '/>'
+				+ '<path d="M12 86 L4 64 L20 80 M22 82 L20 58 L30 80" fill="url(#ivory)"' + _o(2.5) + '/>'
+				+ '<ellipse cx="102" cy="94" rx="16" ry="11" fill="#5a4e54"' + O + '/>'
+				+ '<path d="M52 84 L64 112 L76 84 Z" fill="url(#blood)"' + _o(3) + '/>'
+				+ '<path d="M38 42 C38 24 50 18 64 18 C78 18 90 24 90 42 V82 H38 Z" fill="#4a4046"' + O + '/>'
+				+ '<path d="M38 30 C30 22 26 12 30 4 C36 14 42 18 46 24 Z M90 30 C98 22 102 12 98 4 C92 14 86 18 82 24 Z" fill="url(#ivory)"' + _o(3) + '/>'
+				+ '<path d="M44 50 H84 V58 H70 V76 H58 V58 H44 Z" fill="#14080a"' + _o(2) + '/>'
+				+ '<path d="M47 53 H81 M64 58 V73" stroke="#ff2a40" stroke-width="3.5"/>'
+				+ '<ellipse cx="64" cy="54" rx="22" ry="7" fill="url(#glowC)"/>')
+		"portrait_snarewright":
+			return _framed("snare", '<ellipse cx="64" cy="62" rx="44" ry="40" fill="url(#glowO)" opacity="0.35"/>'
+				+ '<path d="M16 116 C16 96 32 86 48 84 H80 C96 86 112 96 112 116 Z" fill="url(#leather)"' + O + '/>'
+				+ '<path d="M20 98 C36 82 92 82 108 98 C96 90 32 90 20 98 Z" fill="#e2cc9e"' + _o(3) + '/>'
+				+ '<ellipse cx="64" cy="88" rx="40" ry="10" fill="#d8c090"' + _o(3) + '/>'
+				+ '<path d="M64 26 C86 26 94 44 92 62 C90 78 82 86 64 88 C46 86 38 78 36 62 C34 44 42 26 64 26 Z" fill="#5e6230"' + O + '/>'
+				+ '<path d="M64 46 C76 48 80 58 78 66 C76 74 70 78 64 78 C58 78 52 74 50 66 C48 58 52 48 64 46 Z" fill="#120e08"/>'
+				+ '<path d="M50 70 H78 V80 H50 Z" fill="#5e6230"/>'
+				+ '<path d="M54 61 L60 63 M74 61 L68 63" stroke="#e8f070" stroke-width="4" stroke-linecap="round"/>'
+				+ '<path d="M40 30 C44 18 84 18 88 30 C80 40 48 40 40 30 Z" fill="#8a6e4c"' + _o(3) + '/>'
+				+ '<path d="M44 26 L40 6 L54 20 Z M84 26 L88 6 L74 20 Z" fill="#8a6e4c"' + _o(3) + '/>'
+				+ '<path d="M56 36 L64 48 L72 36" fill="#6a5238"' + _o(2) + '/><circle cx="56" cy="30" r="2.5" fill="#e8f070"/><circle cx="72" cy="30" r="2.5" fill="#e8f070"/>')
+		"portrait_twinhide":
+			return _framed("twin", '<ellipse cx="64" cy="62" rx="44" ry="40" fill="url(#glowV)" opacity="0.4"/>'
+				+ '<path d="M16 116 C16 98 32 88 48 86 H80 C96 88 112 98 112 116 Z" fill="#342a62"' + O + '/>'
+				+ '<path d="M22 100 C40 84 88 84 106 100 L102 92 C84 80 44 80 26 92 Z" fill="#5e7034"' + _o(3) + '/>'
+				+ '<path d="M40 36 L24 8 L34 12 L30 2 L42 18 M88 36 L104 8 L94 12 L98 2 L86 18" stroke="url(#ivory)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+				+ '<path d="M64 26 C86 26 94 44 92 62 C90 78 82 88 64 90 C46 88 38 78 36 62 C34 44 42 26 64 26 Z" fill="#1c1634"' + O + '/>'
+				+ '<path d="M64 34 C80 34 84 46 82 56 C80 66 74 70 70 84 H58 C54 70 48 66 46 56 C44 46 48 34 64 34 Z" fill="url(#ivory)"' + _o(3) + '/>'
+				+ '<ellipse cx="55" cy="54" rx="6" ry="5" fill="#1a0e22"/><ellipse cx="73" cy="54" rx="6" ry="5" fill="#1a0e22"/>'
+				+ '<circle cx="55" cy="54" r="2.5" fill="#e8b0ff"/><circle cx="73" cy="54" r="2.5" fill="#e8b0ff"/>'
+				+ '<path d="M61 76 H67" stroke="#1a0e22" stroke-width="3"/>')
+		"portrait_gravekeeper":
+			return _framed("grave", '<ellipse cx="64" cy="62" rx="44" ry="40" fill="url(#glowM)" opacity="0.35"/>'
+				+ '<path d="M18 116 C18 96 34 86 50 84 H78 C94 86 110 96 110 116 Z" fill="#33323c"' + O + '/>'
+				+ '<path d="M44 84 L54 104 L64 90 L74 104 L84 84 Z" fill="#1c1b22"' + _o(3) + '/>'
+				+ '<circle cx="64" cy="96" r="3" fill="#8affc8"/>'
+				+ '<path d="M64 36 C80 36 86 48 84 62 C82 76 74 86 64 88 C54 86 46 76 44 62 C42 48 48 36 64 36 Z" fill="#b4c2b0"' + O + '/>'
+				+ '<ellipse cx="56" cy="58" rx="6" ry="5" fill="#0a0c0c"/><ellipse cx="72" cy="58" rx="6" ry="5" fill="#0a0c0c"/>'
+				+ '<circle cx="56" cy="58" r="2.5" fill="#8affc8"/><circle cx="72" cy="58" r="2.5" fill="#8affc8"/>'
+				+ '<path d="M64 60 L60 72 H66" stroke="#5a6458" stroke-width="2.5" fill="none"/><path d="M58 78 H70" stroke="#2a302a" stroke-width="2.5"/>'
+				+ '<ellipse cx="64" cy="38" rx="52" ry="9" fill="#24222a"' + O + '/>'
+				+ '<path d="M44 38 L46 12 H82 L84 38 Z" fill="#24222a"' + O + '/>'
+				+ '<rect x="45" y="28" width="38" height="6" fill="#8affc8"/>')
+		"portrait_stoneshaper":
+			return _framed("stone", '<ellipse cx="64" cy="62" rx="44" ry="40" fill="url(#glowS)" opacity="0.4"/>'
+				+ '<path d="M12 116 C12 96 30 86 46 84 H82 C98 86 116 96 116 116 Z" fill="#6e4e2e"' + O + '/>'
+				+ '<path d="M8 96 L14 74 L34 70 L40 88 L28 100 Z M120 96 L114 74 L94 70 L88 88 L100 100 Z" fill="url(#sand)"' + O + '/>'
+				+ '<path d="M22 80 L28 90 M106 80 L100 90" stroke="#ffb040" stroke-width="3"/>'
+				+ '<path d="M64 26 C84 26 90 40 88 56 C86 66 82 70 80 72 H48 C46 70 42 66 40 56 C38 40 44 26 64 26 Z" fill="#b47c56"' + O + '/>'
+				+ '<rect x="38" y="36" width="52" height="9" rx="2" fill="url(#sand)"' + _o(3) + '/>'
+				+ '<path d="M64 36 L68 40 L64 44 L60 40 Z" fill="#ffb040"/>'
+				+ '<path d="M52 54 H59 M69 54 H76" stroke="#ffb040" stroke-width="4" stroke-linecap="round"/>'
+				+ '<path d="M42 64 C46 72 52 70 64 70 C76 70 82 72 86 64 C88 84 78 98 64 102 C50 98 40 84 42 64 Z" fill="#6a4026"' + O + '/>')
+		"portrait_gunsmith":
+			return _framed("gun", '<ellipse cx="64" cy="62" rx="44" ry="40" fill="url(#glowB)" opacity="0.35"/>'
+				+ '<path d="M16 116 C16 96 32 86 48 84 H80 C96 86 112 96 112 116 Z" fill="#6a4228"' + O + '/>'
+				+ '<path d="M40 84 L52 112 L64 92 L76 112 L88 84 Z" fill="#2c3a50"' + _o(3) + '/>'
+				+ '<path d="M44 84 C52 92 76 92 84 84 L80 78 H48 Z" fill="#2e78b0"' + _o(3) + '/>'
+				+ '<path d="M64 30 C82 30 88 44 86 60 C84 74 76 84 64 86 C52 84 44 74 42 60 C40 44 46 30 64 30 Z" fill="#d8a47c"' + O + '/>'
+				+ '<path d="M42 50 C40 30 52 22 64 22 C78 22 90 30 86 50 C80 40 50 40 42 50 Z" fill="#3a2216"' + _o(3) + '/>'
+				+ '<rect x="40" y="38" width="48" height="7" fill="#3a2418"/>'
+				+ '<circle cx="54" cy="40" r="9" fill="url(#gold)"' + _o(3) + '/><circle cx="74" cy="40" r="9" fill="url(#gold)"' + _o(3) + '/>'
+				+ '<circle cx="54" cy="40" r="5.5" fill="#4fb8ff"/><circle cx="74" cy="40" r="5.5" fill="#4fb8ff"/>'
+				+ '<path d="M53 60 H59 M69 60 H75" stroke="#1a100a" stroke-width="3.5" stroke-linecap="round"/>'
+				+ '<path d="M56 74 C60 71 68 71 72 74" stroke="#3a2216" stroke-width="4" fill="none" stroke-linecap="round"/>')
+		"portrait_sunspeaker":
+			var rays := ""
+			for i in 12:
+				var a := TAU * i / 12.0
+				rays += '<path d="M%s %s L%s %s" stroke="url(#sun)" stroke-width="6" stroke-linecap="round"/>' % [64 + cos(a) * 36, 52 + sin(a) * 36, 64 + cos(a) * (50 if i % 2 == 0 else 44), 52 + sin(a) * (50 if i % 2 == 0 else 44)]
+			return _framed("sun", '<circle cx="64" cy="52" r="48" fill="url(#glowY)" opacity="0.6"/>' + rays
+				+ '<circle cx="64" cy="52" r="34" fill="none" stroke="' + D + '" stroke-width="9"/>'
+				+ '<circle cx="64" cy="52" r="34" fill="none" stroke="url(#gold)" stroke-width="5"/>'
+				+ '<path d="M16 116 C16 96 32 86 48 84 H80 C96 86 112 96 112 116 Z" fill="#f2ead8"' + O + '/>'
+				+ '<path d="M34 92 C46 80 82 80 94 92 C82 104 46 104 34 92 Z" fill="url(#gold)"' + _o(3) + '/>'
+				+ '<circle cx="64" cy="94" r="4" fill="#fff6c0"/>'
+				+ '<path d="M64 26 C84 26 92 42 90 62 C88 80 78 88 64 88 C50 88 40 80 38 62 C36 42 44 26 64 26 Z" fill="#f2ead8"' + O + '/>'
+				+ '<path d="M64 36 C76 36 82 46 80 60 C78 72 72 80 64 80 C56 80 50 72 48 60 C46 46 52 36 64 36 Z" fill="#9a6440"' + _o(3) + '/>'
+				+ '<path d="M46 40 C54 30 74 30 82 40" stroke="url(#gold)" stroke-width="5" fill="none"/>'
+				+ '<path d="M64 33 L67 38 L64 43 L61 38 Z" fill="#ff9a30"/>'
+				+ '<path d="M55 58 H61 M67 58 H73" stroke="#fff0a0" stroke-width="3.5" stroke-linecap="round"/>')
+	return ""
+
+static func _drop(x: float, y: float, s: float) -> String:
+	return '<path d="M%s %s C%s %s %s %s %s %s C%s %s %s %s %s %s C%s %s %s %s %s %s Z" fill="url(#blood)"%s/>' % [x, y - 12 * s,
+		x + 4 * s, y - 6 * s, x + 7 * s, y - 2 * s, x + 7 * s, y + 2 * s,
+		x + 7 * s, y + 8 * s, x - 7 * s, y + 8 * s, x - 7 * s, y + 2 * s,
+		x - 7 * s, y - 2 * s, x - 4 * s, y - 6 * s, x, y - 12 * s, _o(2)]
 
 static func _flask(theme: String, liquid: String, col: String, tall: bool) -> String:
 	var body := ""

@@ -2,10 +2,18 @@
 
 A single-player hero arena survival game for Android, built with Godot 4.6. It's an original game inspired by classic hero arena custom maps.
 
-- 3 heroes with distinct playstyles. Each has 4 skills you rank up.
+- 10 heroes with distinct playstyles. Each has 4 skills you rank up.
   - Ashwarden builds zones out of totems and walls.
   - Riftdancer runs on momentum and combos.
   - Hivemother commands a brood.
+  - Sanguine pays for skills with HP, heals by hitting, and hits harder the lower his HP.
+  - Snarewright lays traps, timed blast charges and tripwires.
+  - Twinhide shifts between a spirit caster and a beast, each with its own Q and W.
+  - Gravekeeper raises skeletons from the graves enemies leave behind.
+  - Stoneshaper knocks enemies into pillars, walls and each other.
+  - Gunsmith shoots from long range with a 8-round magazine, a scattergun blast and a mortar.
+  - Sunspeaker builds Radiance by standing still and channels beams.
+- Hero select is a roster grid with each hero's playstyle tag, difficulty and skills.
 - 20 waves, with bosses on waves 5, 10, 15 and 20, and 3 lives.
 - The Pit fights back:
   - From wave 4, elite enemies spawn with an affix: Frenzied (fast), Volatile (explodes on death, step out of the glow) or Warding (shields nearby foes, kill it first).
