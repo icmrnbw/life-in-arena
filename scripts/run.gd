@@ -25,6 +25,10 @@ var boss_units: Array = []
 var boss_title := ""
 var pit_enraged := false
 var warders: Array = []    # alive Warding elites
+var chanters: Array = []   # alive Ward Chanters (foes near them take no damage)
+var drummers: Array = []   # alive War Drummers (foes near them deal double damage)
+var barrels: BarrelField
+var immune_shown_t := -10.0
 var hints_shown := {}
 
 var phase := "prep"
@@ -91,6 +95,9 @@ func _ready() -> void:
 			shop_node = res["shop"]
 		if res.get("fountain") is Node3D:
 			fountain_node = res["fountain"]
+	barrels = BarrelField.new()
+	world.add_child(barrels)
+	barrels.setup(self)
 	units_root = Node3D.new()
 	units_root.name = "Units"
 	add_child(units_root)
@@ -171,6 +178,7 @@ func make_visual(kind: String) -> Node3D:
 func fx(fx_name: String, opts: Dictionary) -> Node:
 	if not Art.has_method("fx"):
 		return null
+	Game.note_fx(fx_name)
 	var n = Art.fx(fx_name, opts)
 	if n is Node and is_instance_valid(n):
 		return n
@@ -364,13 +372,19 @@ func spawn_enemy(kind: String, p: Vector3, w := -1) -> Enemy:
 	enemies.append(e)
 	if e.is_boss:
 		boss_units.append(e)
+	if kind == "chanter":
+		chanters.append(e)
+	elif kind == "drummer":
+		drummers.append(e)
+	if DB.AURAS.has(kind):
+		hint_once("aura_" + kind, DB.AURAS[kind]["hint"])
 	return e
 
 
 ## Rolls whether a freshly spawned wave enemy becomes an elite.
 func _roll_elite(e: Enemy) -> void:
 	var chance := DB.elite_chance(wave) * (0.5 if boss_title != "" else 1.0)
-	if e.is_boss or rng.randf() >= chance:
+	if e.is_boss or e.support or rng.randf() >= chance:
 		return
 	var affixes := DB.elite_affixes(wave)
 	if e.kind == "shieldbearer":
@@ -390,6 +404,28 @@ func is_warded(e: Unit) -> bool:
 		return false
 	for w in warders:
 		if w != e and w.alive and _flat(w.pos - e.pos).length() <= DB.WARD_RADIUS:
+			return true
+	return false
+
+
+## True when a living Ward Chanter stands near `e`: it takes no damage. Bosses and Chanters aren't covered.
+func is_sheltered(e: Unit) -> bool:
+	if chanters.is_empty() or e.is_boss or e.kind == "chanter":
+		return false
+	var r: float = DB.AURAS["chanter"]["radius"]
+	for c in chanters:
+		if c.alive and _flat(c.pos - e.pos).length() <= r:
+			return true
+	return false
+
+
+## True when a living War Drummer stands near `e`: it deals double damage. Bosses and Drummers aren't covered.
+func is_drummed(e: Unit) -> bool:
+	if drummers.is_empty() or e.is_boss or e.kind == "drummer":
+		return false
+	var r: float = DB.AURAS["drummer"]["radius"]
+	for d in drummers:
+		if d.alive and _flat(d.pos - e.pos).length() <= r:
 			return true
 	return false
 
@@ -439,15 +475,22 @@ static func armor_factor(a: float) -> float:
 func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opts := {}) -> float:
 	if t == null or not t.alive or amount <= 0.0:
 		return 0.0
+	if t is Barrel:
+		return barrels.hit(t, src)
 	if t.invuln_t > 0.0:
 		return 0.0
 	var a := amount
-	if pit_enraged and src != null and src.team == 1:
-		a *= DB.ENRAGE_DMG
+	if src != null and src.team == 1:
+		if pit_enraged:
+			a *= DB.ENRAGE_DMG
+		if is_drummed(src):
+			a *= DB.DRUM_DMG
 	if dtype == "phys":
 		a *= armor_factor(t.armor)
 	if t.team == 1 and t is Enemy:
 		a *= (t as Enemy).damage_taken_mult()
+		if a <= 0.0 and src != null and src.team == 0:
+			(t as Enemy).show_immune()
 	if t == hero:
 		if Game.god:
 			a = 0.0
@@ -521,6 +564,8 @@ func kill(t: Unit, src: Unit) -> void:
 	corpses.append(t)
 	if t.team == 1:
 		var e := t as Enemy
+		if e.is_boss:
+			Game.crumb("boss death %s #%d (bosses left %d)" % [e.kind, e.twin_index, boss_units.filter(func(b): return b.alive).size()])
 		e.on_death()
 		if not e.no_reward:
 			stats["kills"] += 1
@@ -535,6 +580,8 @@ func kill(t: Unit, src: Unit) -> void:
 		fx("death_burst", {"pos": e.pos, "size": e.radius * 2.0, "color": Art.palette.get("ember", Color.ORANGE)})
 		if e.is_boss:
 			shake(0.6)
+			Game.crumb("boss death handled")
+			Game.watch_frames("boss death %s #%d" % [e.kind, e.twin_index])
 	else:
 		fx("death_burst", {"pos": t.pos, "size": t.radius * 2.0})
 
@@ -560,6 +607,7 @@ func _log_wave(what: String) -> void:
 
 func _hero_died() -> void:
 	_log_wave("death")
+	Game.crumb("hero died")
 	hero.dead = true
 	hero.set_state("death", true)
 	stats["deaths"] += 1
@@ -817,6 +865,8 @@ func resolve_pos(u: Unit, p: Vector3, old: Vector3) -> Vector3:
 			d = d.normalized() * minr
 			p.x = pl.x + d.x
 			p.z = pl.z + d.y
+	if barrels:
+		p = barrels.resolve(u, p)
 	var r := Vector2(p.x, p.z).length()
 	var lim2 := DB.ARENA_R - u.radius - 0.3
 	if r > lim2:
@@ -853,6 +903,8 @@ func resolve_pos(u: Unit, p: Vector3, old: Vector3) -> Vector3:
 
 ## Steering toward a point with pillar avoidance. Returns a normalized direction.
 func steer_dir(u: Unit, goal: Vector3) -> Vector3:
+	if barrels and u.pos.z < 30.0:
+		goal = barrels.waypoint(u, goal)
 	var to := _flat(goal - u.pos)
 	var dist := to.length()
 	if dist < 0.01:
@@ -860,6 +912,24 @@ func steer_dir(u: Unit, goal: Vector3) -> Vector3:
 	var dir := to / dist
 	if u.pos.z > 30.0:
 		return dir
+	if barrels:
+		# walk around pens instead of into them (unless threading one's gap)
+		for i in barrels.pens.size():
+			if i == barrels.through_pen:
+				continue
+			var pen: Dictionary = barrels.pens[i]
+			var rel0 := _flat(pen["c"] - u.pos)
+			var pr: float = pen["r"] + DB.BARREL_R + u.radius + 0.25
+			if rel0.length() < pr or _flat(goal - pen["c"]).length() < pr:
+				continue
+			var along0 := rel0.dot(dir)
+			if along0 <= 0.0 or along0 > dist + pr:
+				continue
+			var perp0 := rel0 - dir * along0
+			if perp0.length() < pr and rel0.length() < pr + 6.0:
+				var side0 := -perp0.normalized() if perp0.length() > 0.01 else Vector3(dir.z, 0, -dir.x)
+				var w0 := 1.0 - clampf((rel0.length() - pr) / 6.0, 0.0, 1.0)
+				dir = (dir + side0 * (0.7 + 1.4 * w0)).normalized()
 	for pl in DB.PILLARS:
 		var rel := _flat(pl - u.pos)
 		var along := rel.dot(dir)
@@ -974,14 +1044,18 @@ func _process(delta: float) -> void:
 	if result != "" and phase in ["victory", "defeat"]:
 		_update_camera(delta)
 		return
+	Game.mark(1)
 	_num_budget = minf(10.0, _num_budget + delta * 40.0)
 	var t0 := Time.get_ticks_usec()
-	var n := maxi(1, ceili(delta / SUBSTEP))
-	var dt := delta / n
+	# after a long hitch, don't try to catch the whole gap up in one frame (that frame would be even longer)
+	var sim_delta := minf(delta, 0.25 * Engine.time_scale)
+	var n := maxi(1, ceili(sim_delta / SUBSTEP))
+	var dt := sim_delta / n
 	for i in n:
 		_step(dt)
 		if result != "":
 			break
+	Game.mark(14)
 	# per-frame simulation cost (normalized to one 1/60 s step so accelerated runs stay comparable)
 	var us := float(Time.get_ticks_usec() - t0) / maxf(1.0, delta * 60.0)
 	sim_us_sum += us
@@ -997,14 +1071,16 @@ func _process(delta: float) -> void:
 	hero.sync_visual()
 	for c in corpses:
 		pass
+	Game.mark(15)
 	_update_camera(delta)
 	_sync_state()
+	Game.mark(16)
 
 
 func _step(dt: float) -> void:
 	_step_n += 1
 	run_time += dt
-	# timers
+	Game.mark(2)
 	if timers.size() > 0:
 		var due := []
 		var keep := []
@@ -1018,6 +1094,7 @@ func _step(dt: float) -> void:
 		for c in due:
 			if c.is_valid():
 				c.call()
+	Game.mark(3)
 	match phase:
 		"prep":
 			_tick_prep(dt)
@@ -1034,19 +1111,29 @@ func _step(dt: float) -> void:
 					_end_run("defeat")
 					return
 				_after_death()
+	Game.mark(4)
 	_tick_hero(dt)
+	Game.mark(5)
 	if hero.kit:
 		hero.kit.tick(dt)
+	Game.mark(6)
 	for e in enemies:
 		if e.alive:
 			e.tick(dt)
+	Game.mark(7)
 	_tick_allies_generic(dt)
+	Game.mark(8)
 	_separate(dt)
+	Game.mark(9)
 	_tick_projectiles(dt)
+	Game.mark(10)
 	_tick_walls_pools(dt)
+	Game.mark(11)
 	_tick_burns(dt)
+	Game.mark(12)
 	_tick_corpses(dt)
 	if bot:
+		Game.mark(13)
 		bot.tick(dt)
 
 
@@ -1079,6 +1166,10 @@ func _tick_corpses(dt: float) -> void:
 		boss_units = kb
 		if not warders.is_empty():
 			warders = warders.filter(func(w): return w.alive)
+		if not chanters.is_empty():
+			chanters = chanters.filter(func(w): return w.alive)
+		if not drummers.is_empty():
+			drummers = drummers.filter(func(w): return w.alive)
 	var dead_a := false
 	for a in allies:
 		if not a.alive:
@@ -1189,9 +1280,11 @@ func _tick_hero(dt: float) -> void:
 			mi = mi.normalized()
 		if mi.length() > 0.12:
 			var v := Vector3(mi.x, 0, mi.y) * h.speed() * clampf(mi.length() * 1.25, 0.35, 1.0)
+			var before := h.pos
 			move_unit(h, v * dt)
 			h.face(v)
 			moved = true
+			_check_bump(h, v, before, dt)
 			if h.focus != null and mi.length() > 0.5:
 				h.focus = null
 		elif h.focus != null and h.focus.alive and not h.focus.untargetable:
@@ -1201,6 +1294,8 @@ func _tick_hero(dt: float) -> void:
 				move_unit(h, dir * h.speed() * dt)
 				h.face(dir)
 				moved = true
+	if h.move_input.length() <= 0.5:
+		h.bump_t = 0.0
 	h.moving = moved
 	if moved:
 		h.still_t = 0.0
@@ -1227,22 +1322,49 @@ func _tick_hero(dt: float) -> void:
 			h.set_state("idle")
 
 
+## Pushing into a barrel with the stick for a moment swings at it.
+func _check_bump(h: Hero, v: Vector3, before: Vector3, dt: float) -> void:
+	var want := v.length() * dt
+	if want < 0.001 or _flat(h.pos - before).length() > want * 0.6:
+		h.bump_t = 0.0
+		return
+	var b := barrels.barrel_near(h.pos + v.normalized() * (h.radius + 0.3), 0.35)
+	if b == null:
+		h.bump_t = 0.0
+		return
+	h.bump_t += dt
+	if h.bump_t >= 0.3:
+		h.bump = b
+
+
 func _pick_hero_target() -> Unit:
 	var h := hero
 	var reach := h.atk_range + h.radius
+	if h.bump != null:
+		if h.bump.alive and h.bump_t > 0.0 and h.edge_dist(h.bump) <= h.atk_range + 0.3:
+			return h.bump
+		h.bump = null
 	if h.focus != null and h.focus.alive and not h.focus.untargetable:
 		if h.edge_dist(h.focus) <= h.atk_range + 0.3:
 			return h.focus
+	# nearest enemy in reach, skipping ones a Ward Chanter makes immune when there's anything else
 	var best: Unit = null
 	var bd := 1e9
+	var best_any: Unit = null
+	var bd_any := 1e9
 	for e in enemies:
 		if not e.alive or e.untargetable:
 			continue
 		var d: float = _flat(e.pos - h.pos).length() - e.radius
-		if d <= reach and d < bd:
+		if d > reach:
+			continue
+		if d < bd_any:
+			bd_any = d
+			best_any = e
+		if d < bd and not is_sheltered(e):
 			bd = d
 			best = e
-	return best
+	return best if best != null else best_any
 
 
 func _hero_attack_resolve() -> void:
@@ -1251,6 +1373,10 @@ func _hero_attack_resolve() -> void:
 	if t == null or not t.alive or t.untargetable:
 		return
 	if h.edge_dist(t) > h.atk_range + 1.2:
+		return
+	if t is Barrel:
+		barrels.hit(t, h)
+		Audio.play("hit")
 		return
 	var crit := rng.randf() < 0.1
 	var dmg := h.atk_dmg * rng.randf_range(0.92, 1.08) * (1.8 if crit else 1.0)
@@ -1528,11 +1654,15 @@ func start_wave() -> void:
 	if phase != "prep":
 		return
 	phase = "wave"
+	Game.crumb("wave start")
 	wave_time = 0.0
 	wave_died = false
 	wave_gold = 0
 	pit_enraged = false
 	warders.clear()
+	chanters.clear()
+	drummers.clear()
+	barrels.reset()
 	hero.aegis_ready = true
 	max_wave_reached = maxi(max_wave_reached, wave)
 	if hud and hud.has_method("close_shop"):
@@ -1567,6 +1697,7 @@ func start_wave() -> void:
 	else:
 		banner_requested.emit("Wave %d" % wave, "Survive!")
 		Audio.play("wave")
+		schedule(3.0, hint_once.bind("pens", "Barrel pens: smash one barrel (tap it, or push into it) and fight from inside. Foes must come through the gap one by one."))
 	spawn_queue.sort_custom(func(a, b): return a["t"] < b["t"])
 
 
@@ -1590,6 +1721,7 @@ func _tick_wave(dt: float) -> void:
 		else:
 			_roll_elite(e)
 		if e.is_boss:
+			Game.crumb("boss spawn %s #%d" % [e.kind, e.twin_index])
 			fx("teleport", {"pos": e.pos})
 			shake(0.4)
 		alive_n += 1
@@ -1619,6 +1751,7 @@ func _wave_cleared() -> void:
 		bonus += DB.boss_gold(wave)
 		stats["bosses"] += 1
 	_log_wave("clear")
+	Game.crumb("wave cleared")
 	var flawless := 0
 	if not wave_died:
 		flawless = int(round((wave_gold + bonus) * 0.10))
@@ -1637,6 +1770,7 @@ func _wave_cleared() -> void:
 
 
 func _return_to_camp() -> void:
+	Game.crumb("return to camp")
 	wave += 1
 	_clear_arena(false)
 	if hero.kit:
@@ -1688,6 +1822,8 @@ func _clear_arena(fx_burst: bool) -> void:
 	enemies.clear()
 	boss_units.clear()
 	warders.clear()
+	chanters.clear()
+	drummers.clear()
 	pit_enraged = false
 	for p in projs:
 		_release_proj(p)
@@ -1726,6 +1862,7 @@ func _end_run(res: String) -> void:
 		return
 	result = res
 	phase = res
+	Game.crumb("run ended: " + res)
 	if res == "victory":
 		max_wave_reached = DB.TOTAL_WAVES
 		hero.set_state("idle", true)

@@ -31,13 +31,29 @@ static func _toggle(text: String, key: String) -> CheckButton:
 static func title_screen(on_play: Callable) -> Control:
 	var root := _base()
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var shade := ColorRect.new()
+	# darken the right side only: the bonfire scene stays bright on the left
+	var shade := TextureRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shade.color = Color(0.03, 0.02, 0.01, 0.35)
+	var gt := GradientTexture2D.new()
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.42, 0.7])
+	g.colors = PackedColorArray([Color(0.03, 0.02, 0.01, 0.7), Color(0.03, 0.02, 0.01, 0.45), Color(0.03, 0.02, 0.01, 0.0)])
+	gt.gradient = g
+	gt.fill_from = Vector2(1, 0.5)
+	gt.fill_to = Vector2(0, 0.5)
+	gt.width = 256
+	gt.height = 4
+	shade.texture = gt
+	shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(shade)
 	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.anchor_left = 0.54
+	center.anchor_right = 1.0
+	center.anchor_top = 0.0
+	center.anchor_bottom = 1.0
+	center.offset_right = -UIK.safe_margins((Engine.get_main_loop() as SceneTree).root).z
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(center)
 	var v := VBoxContainer.new()
@@ -73,7 +89,34 @@ static func title_screen(on_play: Callable) -> Control:
 	var tip := _outlined(UIK.label("Survive 20 waves in the Pit. 3 lives. Shop between waves.", "SmallLabel", 20, UIK.col("dim", Color(0.75, 0.7, 0.62))), 6)
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(tip)
+	if not Game.prev_crash.is_empty():
+		v.add_child(_crash_notice())
 	return root
+
+
+## Shown after a session that closed unexpectedly: copies the crash trail so the player can paste it to us.
+static func _crash_notice() -> Control:
+	var p := UIK.panel()
+	p.name = "CrashNotice"
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 16)
+	p.add_child(h)
+	var l := UIK.label("The last game closed unexpectedly.", "SmallLabel", 20, UIK.col("text", Color(0.95, 0.92, 0.85)))
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(l)
+	var copy := UIK.button("Copy report", "", Vector2(200, 64))
+	copy.pressed.connect(func():
+		DisplayServer.clipboard_set(Game.crash_report_text())
+		copy.text = "Copied")
+	h.add_child(copy)
+	var dismiss := UIK.button("Dismiss", "", Vector2(160, 64))
+	dismiss.pressed.connect(func():
+		Game.prev_crash = {}
+		p.queue_free())
+	h.add_child(dismiss)
+	var c := CenterContainer.new()
+	c.add_child(p)
+	return c
 
 
 # ---------------------------------------------------------------- hero select

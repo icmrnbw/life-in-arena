@@ -17,6 +17,12 @@ var display_name := ""
 var elite := ""                # elite affix id (DB.ELITE_AFFIXES), "" = normal
 var swings := 0
 var bashing := false
+var support := false           # Chanter / Drummer: hangs back behind the pack
+var aura_fx: Node = null
+var _immune_t := -10.0
+var _support_goal := Vector3.ZERO
+var _support_n := 0
+var _support_t := 0.0
 
 
 func init_enemy(k: String, w: int, r: Run) -> void:
@@ -40,6 +46,7 @@ func init_enemy(k: String, w: int, r: Run) -> void:
 	xp_val = float(data["xp"]) * DB.xp_mult(w)
 	gold_val = float(data["gold"]) * DB.gold_mult(w)
 	blocks_front = k == "shieldbearer"
+	support = data.get("support", false)
 	if k == "shieldbearer":
 		turn_rate = 2.4
 	atk_cd = randf_range(0.2, 0.8)
@@ -55,6 +62,9 @@ func post_visual() -> void:
 		collides = false
 		if node:
 			node.visible = false
+	if DB.AURAS.has(kind) and node:
+		var a: Dictionary = DB.AURAS[kind]
+		aura_fx = run.fx("buff_aura", {"target": node, "radius": a["radius"], "color": a["color"]})
 
 
 ## Turns this enemy into an elite with `affix` (see DB.ELITE_AFFIXES).
@@ -86,10 +96,24 @@ func speed() -> float:
 
 
 func damage_taken_mult() -> float:
+	if run.is_sheltered(self):
+		return 0.0
 	return DB.WARD_DAMAGE_TAKEN if run.is_warded(self) else 1.0
 
 
+## Floating "Immune" when the hero hits something a Chanter protects (rate-limited per enemy).
+func show_immune() -> void:
+	if run.run_time - _immune_t < 1.0 or run.run_time - run.immune_shown_t < 0.35:
+		return
+	_immune_t = run.run_time
+	run.immune_shown_t = run.run_time
+	flash(Color(1.0, 0.9, 0.5))
+	run.fx("damage_number", {"pos": pos + Vector3(0, 2.0, 0), "text": "Immune", "color": DB.AURAS["chanter"]["color"]})
+
+
 func on_death() -> void:
+	run.fx_stop(aura_fx)
+	aura_fx = null
 	if elite == "volatile":
 		run.volatile_burst(pos, atk_dmg * 3.0)
 	if kind == "bloater":
@@ -99,7 +123,8 @@ func on_death() -> void:
 
 
 func on_removed() -> void:
-	pass
+	run.fx_stop(aura_fx)
+	aura_fx = null
 
 
 func pick_target() -> Unit:
@@ -123,6 +148,8 @@ func pick_target() -> Unit:
 		if d < bd:
 			bd = d
 			best = a
+	if run.barrels:
+		best = run.barrels.detour(self, best)
 	return best
 
 
@@ -142,6 +169,8 @@ func tick(dt: float) -> void:
 		return
 	if kind == "hexcaster":
 		_ai_ranged(dt)
+	elif support:
+		_ai_support(dt)
 	elif kind == "burrower" and burrowed:
 		_ai_burrow(dt)
 	else:
@@ -272,6 +301,48 @@ func _ai_ranged(dt: float) -> void:
 			set_state("cast")
 		else:
 			set_state("idle")
+
+
+## Buffers keep a few metres behind the pack (away from the hero) and back off when the hero closes in.
+## With no pack around they just fight.
+func _ai_support(dt: float) -> void:
+	var t := target
+	_support_t -= dt
+	if _support_t <= 0.0:
+		_support_t = 0.4
+		var c := Vector3.ZERO
+		var n := 0
+		for e in run.enemies:
+			if e == self or not e.alive or e.untargetable or (e as Enemy).support or e.is_boss:
+				continue
+			if run._flat(e.pos - pos).length() < 14.0:
+				c += e.pos
+				n += 1
+		_support_n = n
+		if n > 0:
+			c /= n
+			var back := run._flat(c - t.pos)
+			_support_goal = c + (back.normalized() if back.length() > 0.1 else Vector3(0, 0, -1)) * 2.5
+	if _support_n == 0 or t is Barrel or atk_wind > 0.0 or edge_dist(t) <= atk_range + 0.2 or run.wave_time > 50.0:
+		_ai_melee(dt)
+		return
+	var d := run._flat(t.pos - pos).length()
+	var mv := Vector3.ZERO
+	if d < 3.2:
+		mv = run._flat(pos - t.pos).normalized()
+		if Vector2(pos.x, pos.z).length() > DB.ARENA_R - 3.0:
+			mv = Vector3(-mv.z, 0, mv.x)
+	elif run._flat(_support_goal - pos).length() > 1.0:
+		mv = run.steer_dir(self, _support_goal)
+	if mv.length() > 0.01:
+		run.move_unit(self, mv * speed() * (0.8 if d < 3.2 else 1.0) * dt)
+		turn_toward(mv, dt)
+		set_state("run")
+		moving = true
+	else:
+		moving = false
+		turn_toward(t.pos - pos, dt)
+		set_state("idle")
 
 
 func _ai_burrow(dt: float) -> void:

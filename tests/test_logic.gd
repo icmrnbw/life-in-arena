@@ -59,6 +59,7 @@ func _main() -> void:
 	await test_waves()
 	await test_gold()
 	await test_difficulty()
+	await test_barrels_buffers()
 	print("\n==== RESULT: %d passed, %d failed" % [passed, failed])
 	for f in fails:
 		print("FAILED: ", f)
@@ -729,3 +730,111 @@ func test_difficulty() -> void:
 	_g().god = false
 	free_run(r2)
 	await get_tree().process_frame
+
+
+# ------------------------------------------------------------------ barrels + buffers
+func test_barrels_buffers() -> void:
+	section("buffers and barrels")
+	var r := make_run("ashwarden", 10)
+	await get_tree().process_frame
+	r.phase = "wave"
+	r.hero.in_camp = false
+	r.hero.pos = Vector3(0, 0, 3)
+	var h := r.hero
+	check(DB.wave_bursts(9).any(func(b): return b["units"].has("chanter")) and not DB.wave_bursts(6).any(func(b): return b["units"].has("drummer")),
+		"buffers join from mid waves")
+	# chanter: neighbours immune, itself and far ones not
+	var ch := r.spawn_enemy("chanter", Vector3(-6, 0, 0), 10)
+	var nb := r.spawn_enemy("gnawer", Vector3(-6, 0, 2), 10)
+	var far_e := r.spawn_enemy("gnawer", Vector3(6, 0, -3), 10)
+	check(near(r.damage(nb, 50.0, h, "Test", "magic"), 0.0), "chanter makes neighbours immune")
+	check(near(r.damage(far_e, 50.0, h, "Test", "magic"), 50.0), "far from the chanter takes damage")
+	check(r.damage(ch, 50.0, h, "Test", "magic") > 0.0, "chanter itself can be hurt")
+	h.pos = Vector3(-6, 0, 1)
+	check(r._pick_hero_target() == ch, "auto-attack skips immune foes")
+	r.kill(ch, h)
+	r._tick_corpses(0.0)
+	check(r.damage(nb, 50.0, h, "Test", "magic") > 0.0, "immunity ends when the chanter dies")
+	# drummer: neighbours hit twice as hard
+	h.pos = Vector3(0, 0, 3)
+	var base := r.damage(h, 40.0, far_e, "Hit", "magic")
+	h.hp = h.max_hp
+	r.spawn_enemy("drummer", Vector3(6, 0, -1), 10)
+	var drummed := r.damage(h, 40.0, far_e, "Hit", "magic")
+	check(near(drummed, base * DB.DRUM_DMG), "drummer doubles neighbours' damage", "%f vs %f" % [drummed, base])
+	h.hp = h.max_hp
+	r._clear_arena(false)
+	# pens: sealed until a barrel breaks; the hero breaks one in two swings
+	var bf := r.barrels
+	bf.reset()
+	check(bf.gaps(0).is_empty() and bf.intact(0) == DB.PENS[0]["n"], "pens start sealed")
+	var b: Barrel = bf.pens[0]["barrels"][0]
+	r.damage(b, 10.0, h, "Attack")
+	check(b.alive, "barrel survives one hero swing")
+	r.damage(b, 10.0, h, "Attack")
+	check(not b.alive and bf.gaps(0).size() == 1, "second swing opens a gap")
+	var gw: float = bf.gaps(0)[0]["width"]
+	var gn := r.spawn_enemy("gnawer", Vector3(-6, 0, 12), 10)
+	var sb := r.spawn_enemy("shieldbearer", Vector3(-7, 0, 12), 10)
+	check(gw > gn.radius * 2.0 and gw < 2.0 * float(DB.ENEMIES["pit_brute"]["radius"]), "one-barrel gap fits regular foes, not big ones", "gap %.2f" % gw)
+	# collision: can't walk through an intact barrel
+	var b2: Barrel = bf.pens[0]["barrels"][4]
+	var c: Vector3 = bf.pens[0]["c"]
+	var outside := c + (b2.pos - c) * 1.5
+	gn.pos = outside
+	var q := r.resolve_pos(gn, b2.pos, outside)
+	check(BarrelField._flat(q - b2.pos).length() >= gn.radius + DB.BARREL_R - 0.01, "barrels block movement")
+	# with a gap they path in; a sealed pen gets broken into
+	h.pos = c
+	check(gn.pick_target() == h, "foes path to the gap when there is one")
+	bf.reset()
+	check(sb.pick_target() is Barrel, "a sealed pen gets broken into")
+	# queue: with the hero inside, only a couple of gnawers reach it at once
+	r._clear_arena(false)
+	bf.reset()
+	r.damage(bf.pens[0]["barrels"][0], 99.0, h, "Attack")
+	r.damage(bf.pens[0]["barrels"][0], 99.0, h, "Attack")
+	var gdir: Vector3 = bf.gaps(0)[0]["dir"]
+	_g().god = true
+	h.pos = c - gdir * 0.3
+	for i in 7:
+		r.spawn_enemy("gnawer", c + gdir * 6.0 + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)), 10)
+	var max_adj := 0
+	var inside_n := 0
+	for i in 150:
+		h.pos = c - gdir * 0.3
+		h.move_input = Vector2.ZERO
+		h.atk_cd = 99.0
+		r._step(1.0 / 30.0)
+		var adj := 0
+		for e in r.enemies:
+			if e.alive and h.edge_dist(e) < 0.6:
+				adj += 1
+		max_adj = maxi(max_adj, adj)
+		inside_n = 0
+		for e in r.enemies:
+			if bf.pen_at(e.pos) == 0:
+				inside_n += 1
+	check(inside_n >= 1, "gnawers get in through the gap", str(inside_n))
+	check(max_adj <= 4, "the pen limits how many reach the hero", str(max_adj))
+	_g().god = false
+	r._clear_arena(false)
+	# kegs: blast after the fuse, hurts foes and the hero, breaks barrels nearby
+	bf.reset()
+	var k: Barrel = bf.kegs[0]
+	var foe := r.spawn_enemy("shieldbearer", k.pos + Vector3(1.5, 0, 0), 10)
+	h.pos = k.pos + Vector3(-1.5, 0, 0)
+	h.hp = h.max_hp
+	r.damage(k, 99.0, h, "Attack")
+	r.damage(k, 99.0, h, "Attack")
+	check(not k.alive and k.lit, "broken keg starts its fuse")
+	for i in int(DB.KEG_FUSE * 30.0) + 3:
+		h.pos = k.pos + Vector3(-1.5, 0, 0)
+		r._step(1.0 / 30.0)
+	check(not foe.alive or foe.hp < foe.max_hp * 0.6, "keg blast hurts nearby foes", "%f / %f" % [foe.hp, foe.max_hp])
+	check(h.hp < h.max_hp, "keg blast hurts the hero too")
+	bf.reset()
+	check(k.alive and bf.gaps(0).is_empty(), "barrels restored on reset")
+	free_run(r)
+	await get_tree().process_frame
+

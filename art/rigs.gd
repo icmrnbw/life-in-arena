@@ -40,7 +40,7 @@ class RB extends "res://art/mesh_kit.gd":
 
 ## Per-kind segment detail so rigs stay inside the triangle budgets
 ## (hero ~3k, enemy ~1.2k, boss ~6k). Small on-screen enemies lose little from fewer segments.
-const DETAIL := {"ashwarden": 0.85, "hivemother": 0.62, "gnawer": 0.7, "shieldbearer": 0.5,
+const DETAIL := {"chanter": 0.8, "drummer": 0.7, "ashwarden": 0.85, "hivemother": 0.62, "gnawer": 0.7, "shieldbearer": 0.5,
 	"hexcaster": 0.85, "burrower": 0.7, "bloater": 0.5, "broodling": 0.5}
 
 static func get_rig(kind: String) -> Dictionary:
@@ -65,6 +65,8 @@ static func get_rig(kind: String) -> Dictionary:
 		"broodling": r = _broodling()
 		"ember_totem": r = _ember_totem()
 		"choir_add": r = _choir_add()
+		"chanter": r = _chanter()
+		"drummer": r = _drummer()
 		"afterimage":
 			r = get_rig("riftdancer").duplicate()
 			var p: Dictionary = r["params"].duplicate()
@@ -861,6 +863,96 @@ static func _choir_add() -> Dictionary:
 	var p := _base_params()
 	p.merge({"style": "float", "radius": 0.45, "height": 1.6, "glow": Color("8fd8ff"), "rim": Color(0.6, 0.85, 1.0),
 		"attack": "bite", "atk_dur": 0.4}, true)
+	return k.finish(p)
+
+## Ward Chanter: tall pale-gold robed priest with a halo and a hanging bell-lantern. Shields nearby foes.
+static func _chanter() -> Dictionary:
+	var k := RB.new()
+	var robe := Color("d8c8a0"); var robe_d := Color("8a7450"); var trim := Color("f2c14e"); var skin := Color("9a8a7a")
+	var glow := Color("ffd860"); var dark := Color("120c06"); var chain := Color("6a5a40")
+	k.bone("root", "", Vector3.ZERO)
+	k.bone("hips", "root", Vector3(0, 0.75, 0))
+	k.bone("chest", "hips", Vector3(0, 1.12, 0))
+	k.bone("head", "chest", Vector3(0, 1.45, -0.03))
+	k.bone("arm_l", "chest", Vector3(-0.25, 1.32, 0))
+	k.bone("arm_r", "chest", Vector3(0.25, 1.32, 0))
+	k.bone("orb", "root", Vector3(0.0, 1.25, -0.5))
+	k.on("hips")
+	k.cyl(0.18, 0.46, 0.8, Vector3(0, 0.4, 0), robe, Vector3.ZERO, -1, 10)
+	k.torus(0.41, 0.48, Vector3(0, 0.05, 0), trim, Vector3.ZERO, -1, 10, 4)
+	k.box(Vector3(0.18, 0.7, 0.03), Vector3(0, 0.42, -0.33), trim, Vector3(-14, 0, 0))
+	k.box(Vector3(0.1, 0.1, 0.02), Vector3(0, 0.5, -0.35), glow, Vector3(-14, 0, 45), 2.2)
+	k.on("chest")
+	k.ball(1.0, Vector3(0, 1.12, 0), robe, Vector3(0.26, 0.3, 0.21), Vector3.ZERO, -1, 8, 5)
+	k.ball(1.0, Vector3(0, 1.3, 0), robe_d, Vector3(0.34, 0.12, 0.26), Vector3.ZERO, -1, 8, 5)
+	k.torus(0.12, 0.2, Vector3(0, 1.36, 0), trim, Vector3.ZERO, -1, 10, 4)
+	k.on("head")
+	k.ball(1.0, Vector3(0, 1.5, 0), robe, Vector3(0.18, 0.2, 0.2), Vector3.ZERO, -1, 8, 5)
+	k.ball(1.0, Vector3(0, 1.47, -0.14), dark, Vector3(0.12, 0.12, 0.05), Vector3.ZERO, -1, 6, 4)
+	for s in [-1.0, 1.0]:
+		k.box(Vector3(0.04, 0.02, 0.02), Vector3(s * 0.045, 1.49, -0.18), glow, Vector3.ZERO, 3.0)
+	k.torus(0.26, 0.31, Vector3(0, 1.82, 0.08), glow, Vector3(75, 0, 0), 2.6, 12, 4)
+	for i in 6:
+		var a := TAU * i / 6.0
+		k.prism(Vector3(0.05, 0.12, 0.05), Vector3(cos(a) * 0.29, 1.82 + sin(a) * 0.29, 0.08 + sin(a) * 0.07), trim, Vector3(0, 0, rad_to_deg(a) - 90.0), 1.4)
+	for s in [-1.0, 1.0]:
+		k.on("arm_l" if s < 0 else "arm_r")
+		k.tube(Vector3(s * 0.26, 1.32, 0), Vector3(s * 0.2, 0.95, -0.28), 0.07, 0.15, robe, -1, 7)
+		k.ball(0.06, Vector3(s * 0.16, 0.92, -0.34), skin, Vector3.ONE, Vector3.ZERO, -1, 6, 4)
+	k.on("orb")
+	var oc := Vector3(0.0, 1.25, -0.5)
+	k.cyl(0.015, 0.015, 0.34, oc + Vector3(0, -0.12, 0.08), chain, Vector3(-25, 0, 0), -1, 4)
+	k.cyl(0.07, 0.17, 0.26, oc + Vector3(0, -0.4, 0.0), trim, Vector3.ZERO, -1, 8)
+	k.ball(0.09, oc + Vector3(0, -0.52, 0.0), glow, Vector3.ONE, Vector3.ZERO, 3.0, 8, 5)
+	var p := _base_params()
+	p.merge({"style": "robe", "radius": 0.5, "height": 1.95, "glow": glow, "rim": Color(1.0, 0.92, 0.6),
+		"attack": "thrust", "run_freq": 6.0, "atk_dur": 0.5}, true)
+	return k.finish(p)
+
+## War Drummer: squat horned brute with a war drum on its belly and two bone mallets. Doubles nearby foes' damage.
+static func _drummer() -> Dictionary:
+	var k := RB.new()
+	var hide := Color("7a3a2a"); var hide_d := Color("4a2018"); var skin := Color("8a5a48"); var drum := Color("c8a070")
+	var rim := Color("6a4a2a"); var paint := Color("ff3a20"); var bone := Color("e8dcc0"); var dark := Color("1a0c08")
+	k.bone("root", "", Vector3.ZERO)
+	k.bone("hips", "root", Vector3(0, 0.78, 0))
+	k.bone("chest", "hips", Vector3(0, 1.05, 0))
+	k.bone("head", "chest", Vector3(0, 1.42, -0.06))
+	k.bone("arm_l", "chest", Vector3(-0.38, 1.32, 0))
+	k.bone("arm_r", "chest", Vector3(0.38, 1.32, 0))
+	k.bone("weapon_l", "arm_l", Vector3(-0.42, 0.82, -0.2))
+	k.bone("weapon_r", "arm_r", Vector3(0.42, 0.82, -0.2))
+	k.bone("leg_l", "hips", Vector3(-0.17, 0.78, 0))
+	k.bone("leg_r", "hips", Vector3(0.17, 0.78, 0))
+	for s in [-1.0, 1.0]:
+		k.on("leg_l" if s < 0 else "leg_r")
+		k.limb(Vector3(s * 0.17, 0.78, 0), Vector3(s * 0.2, 0.12, 0.02), 0.13, hide_d, -1, 6)
+		k.box(Vector3(0.22, 0.12, 0.32), Vector3(s * 0.2, 0.06, -0.06), dark)
+	k.on("hips")
+	k.cyl(0.3, 0.33, 0.24, Vector3(0, 0.8, 0), hide, Vector3.ZERO, -1, 8)
+	k.on("chest")
+	k.ball(1.0, Vector3(0, 1.12, 0.04), skin, Vector3(0.4, 0.36, 0.32), Vector3.ZERO, -1, 8, 5)
+	k.box(Vector3(0.5, 0.06, 0.06), Vector3(0, 1.22, -0.27), hide_d, Vector3(0, 0, 30))
+	k.cyl(0.3, 0.3, 0.34, Vector3(0, 1.0, -0.36), drum, Vector3(90, 0, 0), -1, 12)
+	k.torus(0.28, 0.33, Vector3(0, 1.0, -0.2), rim, Vector3(90, 0, 0), -1, 12, 3)
+	k.torus(0.28, 0.33, Vector3(0, 1.0, -0.53), rim, Vector3(90, 0, 0), -1, 12, 3)
+	k.cyl(0.24, 0.24, 0.01, Vector3(0, 1.0, -0.54), paint, Vector3(90, 0, 0), 1.6, 12)
+	k.on("head")
+	k.ball(1.0, Vector3(0, 1.5, -0.08), skin, Vector3(0.2, 0.19, 0.2), Vector3.ZERO, -1, 8, 5)
+	k.box(Vector3(0.24, 0.04, 0.02), Vector3(0, 1.52, -0.27), paint, Vector3.ZERO, 2.4)
+	for s in [-1.0, 1.0]:
+		k.spike(Vector3(s * 0.15, 1.6, -0.06), Vector3(s * 0.38, 1.82, 0.02), 0.07, bone)
+		k.box(Vector3(0.04, 0.02, 0.02), Vector3(s * 0.06, 1.48, -0.27), Color("ffd060"), Vector3.ZERO, 3.0)
+	for s in [-1.0, 1.0]:
+		k.on("arm_l" if s < 0 else "arm_r")
+		k.ball(1.0, Vector3(s * 0.4, 1.36, 0), hide, Vector3(0.16, 0.12, 0.16))
+		k.limb(Vector3(s * 0.38, 1.32, 0), Vector3(s * 0.42, 0.85, -0.18), 0.1, skin, -1, 6)
+		k.on("weapon_l" if s < 0 else "weapon_r")
+		k.limb(Vector3(s * 0.42, 0.82, -0.2), Vector3(s * 0.3, 0.98, -0.58), 0.03, bone, -1, 5)
+		k.ball(0.07, Vector3(s * 0.3, 0.98, -0.6), bone, Vector3.ONE, Vector3.ZERO, -1, 6, 4)
+	var p := _base_params()
+	p.merge({"radius": 0.55, "height": 1.8, "glow": paint, "rim": Color(1.0, 0.6, 0.4),
+		"attack": "slam2", "run_freq": 8.0, "stride": 0.5, "arm_swing": 0.4, "lean": 0.1, "atk_dur": 0.55}, true)
 	return k.finish(p)
 
 static func _generic() -> Dictionary:

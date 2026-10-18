@@ -91,6 +91,18 @@ func build_world(parent: Node3D) -> Dictionary:
 		return {"shop": null, "fountain": null}
 	return World.build(parent)
 
+## Title-screen campsite (ledge, bench, tent, props) with the bonfire at `pos`.
+func menu_camp(parent: Node3D, pos: Vector3) -> Node3D:
+	if parent == null:
+		return null
+	return World.menu_camp(parent, pos)
+
+## Title-screen bonfire (stone ring, log teepee, flames, sparks, smoke, flickering light) at `pos`.
+func bonfire(parent: Node3D, pos: Vector3) -> Node3D:
+	if parent == null:
+		return null
+	return World.bonfire(parent, pos)
+
 # ------------------------------------------------------------------ units
 
 func create_unit(kind: String) -> Node3D:

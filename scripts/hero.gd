@@ -33,6 +33,8 @@ var sprint_t := 0.0
 var regen_buff := []      # [{hp_per_s, mana_per_s, t}]
 var move_input := Vector2.ZERO
 var focus: Unit = null
+var bump: Unit = null           # barrel the player is pushing into (gets swung at)
+var bump_t := 0.0
 var kit: HeroKit
 var feathers_bought := 0
 var still_t := 0.0
