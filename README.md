@@ -7,6 +7,10 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - Riftdancer runs on momentum and combos.
   - Hivemother commands a brood.
 - 20 waves, with bosses on waves 5, 10, 15 and 20, and 3 lives.
+- Every wave has a name and a twist, shown in camp before it starts (for example Bloodthirsty: their hits heal them; Spellwarded: they take half magic damage; Phantoms: they dodge a third of weapon attacks; Powder Keg: elites explode).
+- Every regular wave is led by a captain: a bigger, named version of the wave's signature enemy with a telegraphed slam and a gold bounty.
+- Wave 20 is a gauntlet: at 75%, 50% and 25% HP the Warden steps back and echoes of the Pit Brute, the Twin Matrons and the Hollow Choir return. He comes back when they fall.
+- Waves 1-12 hit much harder than before, and gold income is up, so you have to shop to keep pace. Skills and dodging alone won't carry the early game.
 - The Pit fights back:
   - From wave 4, elite enemies spawn with an affix: Frenzied (fast), Volatile (explodes on death, step out of the glow) or Warding (shields nearby foes, kill it first).
   - A wave that drags on enrages the survivors: they hit harder and move faster.
@@ -27,7 +31,7 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
 - All art is procedural and original, generated in code.
 
 ## Install (Android)
-Download `builds/emberpit-0.3.0-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.4.0-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.

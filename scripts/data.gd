@@ -131,7 +131,7 @@ const ENEMIES := {
 	"pit_brute": {"name": "Pit Brute", "hp": 3400.0, "dmg": 38.0, "atk_time": 1.6, "range": 2.2, "speed": 3.6, "armor": 4.0, "radius": 1.5, "xp": 400.0, "gold": 0.0, "boss": true},
 	"matron": {"name": "Twin Matron", "hp": 3600.0, "dmg": 34.0, "atk_time": 1.5, "range": 2.0, "speed": 3.4, "armor": 4.0, "radius": 1.3, "xp": 350.0, "gold": 0.0, "boss": true},
 	"hollow_choir": {"name": "The Hollow Choir", "hp": 12000.0, "dmg": 50.0, "atk_time": 2.0, "range": 2.5, "speed": 1.6, "armor": 5.0, "radius": 1.8, "xp": 900.0, "gold": 0.0, "boss": true},
-	"warden": {"name": "The Warden of the Pit", "hp": 26000.0, "dmg": 70.0, "atk_time": 1.5, "range": 2.6, "speed": 3.6, "armor": 8.0, "radius": 1.9, "xp": 0.0, "gold": 0.0, "boss": true},
+	"warden": {"name": "The Warden of the Pit", "hp": 23000.0, "dmg": 70.0, "atk_time": 1.5, "range": 2.6, "speed": 3.6, "armor": 8.0, "radius": 1.9, "xp": 0.0, "gold": 0.0, "boss": true},
 }
 
 ## Elite affixes (wave 4+). Elites are tinted, tougher and pay more; each affix asks for a different answer.
@@ -177,7 +177,7 @@ const KEG_FUSE := 0.9
 const KEG_CHAIN_FUSE := 0.25
 
 ## Pit pressure: a wave that drags on enrages the enemies still alive (more damage, faster).
-const BOSS_ENRAGE_TIME := {5: 100.0, 10: 120.0, 15: 150.0, 20: 210.0}
+const BOSS_ENRAGE_TIME := {5: 100.0, 10: 120.0, 15: 150.0, 20: 300.0}
 const ENRAGE_DMG := 1.3
 const ENRAGE_SPEED := 1.2
 
@@ -192,6 +192,94 @@ const BOSS_HINTS := {5: "Glowing ground means a slam or a charge is coming. Step
 	15: "The Choir's beam sweeps the arena. Keep moving around it.",
 	20: "The Warden uses every trick in the Pit. Stay sharp!"}
 
+## Every wave has a name and a gimmick, previewed in camp so the prep phase is a build decision.
+## mods: extra units per kind (added to the base mix); rule: the wave's twist (see WAVE_RULES);
+## captain: the kind that leads the wave as a tougher, named captain ("" on boss waves).
+const WAVES := {
+	1: {"name": "The Hungry Pack", "captain": "gnawer", "rule": "", "mods": {},
+		"desc": "Gnawers and their alpha. Kill the captain for a bounty."},
+	2: {"name": "Shield Wall", "captain": "shieldbearer", "rule": "", "mods": {"shieldbearer": 2},
+		"desc": "Shieldbearers block hits from the front. Flank them."},
+	3: {"name": "The Hexwood", "captain": "hexcaster", "rule": "", "mods": {"hexcaster": 2},
+		"desc": "Hexcasters from range. Their bolts halve your healing."},
+	4: {"name": "Bloodthirsty", "captain": "gnawer", "rule": "bloodthirsty", "mods": {"gnawer": 4},
+		"desc": "Every hit they land heals them. Don't trade blows bare-handed."},
+	5: {"name": "The Pit Brute", "captain": "", "rule": "", "mods": {}, "desc": "Boss. Glowing ground means a slam or a charge."},
+	6: {"name": "Ambush", "captain": "burrower", "rule": "", "mods": {"burrower": 2},
+		"desc": "Burrowers tunnel under the sand and burst up beside you."},
+	7: {"name": "Powder Keg", "captain": "bloater", "rule": "explosive", "mods": {"bloater": 1},
+		"desc": "Many elites, and every elite explodes when it dies."},
+	8: {"name": "Phantoms", "captain": "gnawer", "rule": "evasive", "mods": {"gnawer": 4},
+		"desc": "They dodge a third of weapon attacks. Spells always land."},
+	9: {"name": "The Choir Gate", "captain": "chanter", "rule": "", "mods": {},
+		"desc": "Ward Chanters make their pack immune. Cut through to them."},
+	10: {"name": "Twin Matrons", "captain": "", "rule": "", "mods": {}, "desc": "Boss. The Matrons heal each other while close."},
+	11: {"name": "Stunners", "captain": "shieldbearer", "rule": "stunning", "mods": {"shieldbearer": 2},
+		"desc": "Shieldbearers bash every second swing. Armor up."},
+	12: {"name": "Blood Drums", "captain": "drummer", "rule": "bloodthirsty", "mods": {"drummer": 1},
+		"desc": "Drummers double their damage, and every hit heals them."},
+	13: {"name": "Spellwarded", "captain": "shieldbearer", "rule": "spellward", "mods": {"shieldbearer": 1},
+		"desc": "They shrug off half of all magic damage. Bring weapons, not spells."},
+	14: {"name": "Hexstorm", "captain": "hexcaster", "rule": "warded", "mods": {"hexcaster": 3},
+		"desc": "Hexcasters behind Warding elites. Kill the warders first."},
+	15: {"name": "The Hollow Choir", "captain": "", "rule": "", "mods": {}, "desc": "Boss. The beam sweeps the arena. Keep moving."},
+	16: {"name": "Frenzy", "captain": "gnawer", "rule": "frenzy", "mods": {"gnawer": 4},
+		"desc": "Everything moves 20% faster and attacks faster."},
+	17: {"name": "Silent Wall", "captain": "shieldbearer", "rule": "spellward", "mods": {"chanter": 1, "shieldbearer": 1},
+		"desc": "Spellwarded shields and Chanters. Weapons win this one."},
+	18: {"name": "Chain Reaction", "captain": "bloater", "rule": "explosive", "mods": {"bloater": 2},
+		"desc": "Bloaters and exploding elites. Don't fight in a crowd."},
+	19: {"name": "Mutants", "captain": "burrower", "rule": "mutants", "mods": {},
+		"desc": "Half of them are elites with random affixes."},
+	20: {"name": "The Warden's Gauntlet", "captain": "", "rule": "", "mods": {},
+		"desc": "Final boss. As he weakens, the Pit's earlier bosses come back."},
+}
+const WAVE_RULES := {
+	"bloodthirsty": {"name": "Bloodthirsty", "color": Color(1.0, 0.35, 0.35)},
+	"explosive": {"name": "Explosive", "color": Color(1.0, 0.7, 0.3)},
+	"spellward": {"name": "Spellwarded", "color": Color(0.55, 0.8, 1.0)},
+	"stunning": {"name": "Stunning", "color": Color(0.75, 0.8, 1.0)},
+	"evasive": {"name": "Evasive", "color": Color(0.8, 0.7, 1.0)},
+	"warded": {"name": "Warded", "color": Color(0.5, 0.85, 1.55)},
+	"frenzy": {"name": "Frenzied", "color": Color(1.0, 0.5, 0.4)},
+	"mutants": {"name": "Mutants", "color": Color(0.7, 1.0, 0.5)},
+}
+const BLOODTHIRST_HEAL := 0.4     # share of damage dealt that a Bloodthirsty enemy heals
+const SPELLWARD_MAGIC := 0.5      # magic damage taken on Spellwarded waves
+const EVADE_CHANCE := 0.33
+const FRENZY_SPEED := 1.2
+
+## Captains: every regular wave is led by a named, tougher version of its signature enemy.
+const CAPTAIN_NAMES := {"gnawer": "Alpha Gnawer", "shieldbearer": "Shield Sergeant", "hexcaster": "Hex Matriarch",
+	"burrower": "Tunnel King", "bloater": "Plague Belly", "chanter": "High Chanter", "drummer": "Drum Major"}
+const CAPTAIN_HP := 650.0         # wave-1 captain HP, scaled by hp_mult
+const CAPTAIN_DMG_MULT := 1.9
+const CAPTAIN_SCALE := 1.5
+
+
+static func wave_info(w: int) -> Dictionary:
+	return WAVES.get(w, {"name": "Wave %d" % w, "captain": "gnawer", "rule": "", "mods": {}, "desc": ""})
+
+
+static func wave_rule(w: int) -> String:
+	return wave_info(w).get("rule", "")
+
+
+static func captain_hp(w: int) -> float:
+	return CAPTAIN_HP * pow(hp_mult(w), 0.8)
+
+
+static func captain_gold(w: int) -> int:
+	return 45 + 15 * w
+
+
+## Final gauntlet: below each HP threshold the Warden withdraws and an echo of an earlier boss returns.
+const GAUNTLET := [
+	{"at": 0.75, "boss": "pit_brute", "hp": 0.45, "title": "Echo of the Pit Brute"},
+	{"at": 0.5, "boss": "matron", "hp": 0.35, "title": "Echoes of the Twin Matrons"},
+	{"at": 0.25, "boss": "hollow_choir", "hp": 0.25, "title": "Echo of the Hollow Choir"},
+]
+
 const GATES := {"N": Vector3(0, 0, -21.0), "E": Vector3(21.0, 0, 0), "W": Vector3(-21.0, 0, 0), "NE": Vector3(14.8, 0, -14.8)}
 const GATE_NAMES := ["N", "E", "W", "NE"]
 const PILLARS := [Vector3(-9, 0, -6), Vector3(9, 0, -6), Vector3(0, 0, 10)]
@@ -205,7 +293,7 @@ const CAMP_SPAWN := Vector3(0, 0, 37)
 const ARENA_SPAWN := Vector3(0, 0, 15)
 
 const TOTAL_WAVES := 20
-const START_GOLD := 300
+const START_GOLD := 400
 const START_LIVES := 3
 const PREP_TIME := 20.0
 const FIRST_PREP_TIME := 30.0
@@ -213,8 +301,20 @@ const FIRST_PREP_TIME := 30.0
 
 static func hp_mult(w: int) -> float:
 	var x := float(w - 1)
-	# gentle early (waves 4-6), steeper late (12-20)
-	return 1.0 + 0.10 * x + 0.014 * x * x + 0.0009 * x * x * x
+	# steeper late (12-20); the early bump is in early_pressure()
+	return (1.0 + 0.10 * x + 0.014 * x * x + 0.0009 * x * x * x) * (1.0 + EARLY_HP * early_pressure(w))
+
+
+## 0..1: how hard the early waves lean on you. Peaks on waves 4-9, when the shop should already be paying off,
+## and fades out by wave 13 where the regular curve takes over. Skills and dodging alone can't keep up.
+static func early_pressure(w: int) -> float:
+	if w <= 9:
+		return minf(1.0, float(w) / 4.0)
+	return clampf(float(13 - w) / 4.0, 0.0, 1.0)
+
+
+const EARLY_HP := 0.3
+const EARLY_DMG := 0.4
 
 
 ## Enemy damage is a notch higher since barrel pens let you fight the pack one at a time.
@@ -224,7 +324,7 @@ const BOSS_DMG_BASE := 1.1
 
 static func dmg_mult(w: int) -> float:
 	var x := float(w - 1)
-	return DMG_BASE * (1.0 + 0.05 * x + 0.006 * x * x + 0.0001 * x * x * x)
+	return DMG_BASE * (1.0 + 0.05 * x + 0.006 * x * x + 0.0001 * x * x * x) * (1.0 + EARLY_DMG * early_pressure(w))
 
 
 ## Seconds into wave w before the survivors enrage.
@@ -249,7 +349,7 @@ static func elite_affixes(w: int) -> Array:
 
 
 static func gold_mult(w: int) -> float:
-	return 1.0 + 0.09 * float(w - 1)
+	return 1.2 + 0.09 * float(w - 1)
 
 
 static func xp_mult(w: int) -> float:
@@ -261,7 +361,7 @@ static func xp_to_next(level: int) -> float:
 
 
 static func wave_clear_gold(w: int) -> int:
-	return 70 + 18 * w
+	return 100 + 20 * w
 
 
 static func boss_gold(w: int) -> int:
@@ -284,6 +384,9 @@ static func wave_bursts(w: int) -> Array:
 		counts["drummer"] = 1 + int(w >= 16)
 	if w >= AURAS["chanter"]["from_wave"]:
 		counts["chanter"] = 1 + int(w >= 18)
+	var mods: Dictionary = wave_info(w).get("mods", {})
+	for k in mods:
+		counts[k] = int(counts.get(k, 0)) + int(mods[k])
 	if BOSS_WAVES.has(w):
 		# boss waves: lighter escort
 		for k in counts.keys():

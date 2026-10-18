@@ -139,7 +139,7 @@ func test_menu_flow() -> void:
 	await frames(2)
 	main.start_run("riftdancer", 1)
 	await frames(3)
-	check(main.run != null and main.run.hero_id == "riftdancer" and main.run.wave == 1 and main.run.lives == 3 and main.run.gold == 300, "new run starts fresh")
+	check(main.run != null and main.run.hero_id == "riftdancer" and main.run.wave == 1 and main.run.lives == 3 and main.run.gold == DB.START_GOLD, "new run starts fresh")
 
 
 # ------------------------------------------------------------------ touch

@@ -14,6 +14,7 @@ var adds: Array = []
 var enraged := false
 var last_pattern := ""
 var chain_charge := false
+var withdrawn := false         # Warden's gauntlet: out of the fight while echoes of earlier bosses fight
 
 
 func init_enemy(k: String, w: int, r: Run) -> void:
@@ -47,7 +48,7 @@ func pick_target() -> Unit:
 
 
 func damage_taken_mult() -> float:
-	return 0.0 if phase_invuln > 0.0 else 1.0
+	return 0.0 if phase_invuln > 0.0 or withdrawn else 1.0
 
 
 func on_death() -> void:
@@ -79,6 +80,11 @@ func tick(dt: float) -> void:
 	if kind == "matron":
 		_matron_link(dt)
 	if kind == "warden":
+		if withdrawn:
+			set_state("cast")
+			return
+		if _gauntlet_check():
+			return
 		_warden_phase()
 	if not beam.is_empty():
 		_tick_beam(dt)
@@ -474,3 +480,43 @@ func _warden_phase() -> void:
 		run.shake(0.7)
 		run.banner_requested.emit("The Warden enrages", "Phase %d" % phase)
 		set_state("cast", true)
+
+
+# ------------------------------------------------------------ final gauntlet
+## Below each DB.GAUNTLET threshold the Warden steps back to the north wall, untouchable, and an echo of an
+## earlier boss takes his place. He returns when the echo falls.
+func _gauntlet_check() -> bool:
+	if run.gauntlet_i >= DB.GAUNTLET.size():
+		return false
+	var step: Dictionary = DB.GAUNTLET[run.gauntlet_i]
+	if hp > max_hp * float(step["at"]):
+		return false
+	run.gauntlet_i += 1
+	hp = max_hp * float(step["at"])
+	withdrawn = true
+	untargetable = true
+	collides = false
+	charge = {}
+	_stop_beam()
+	clear_mark()
+	run.fx("teleport", {"pos": pos})
+	pos = Vector3(0, 0, -18.5)
+	face(Vector3(0, 0, 1))
+	if node:
+		node.position = pos
+	run.fx("teleport", {"pos": pos})
+	set_state("cast", true)
+	run.start_echo(step)
+	return true
+
+
+func return_from_gauntlet() -> void:
+	withdrawn = false
+	untargetable = false
+	collides = true
+	phase_invuln = 1.0
+	busy_t = 1.0
+	pattern_t = 2.0
+	run.fx("level_up", {"pos": pos})
+	run.shake(0.6)
+	run.banner_requested.emit("The Warden returns", "Finish him!" if run.gauntlet_i >= DB.GAUNTLET.size() else "")

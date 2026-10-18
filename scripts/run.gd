@@ -23,6 +23,10 @@ var timers: Array = []     # [time_left, Callable]
 var spawn_queue: Array = []
 var boss_units: Array = []
 var boss_title := ""
+var wave_rule := ""        # this wave's twist (DB.WAVE_RULES), "" = none
+var captain: Enemy = null  # the wave's captain while it lives
+var gauntlet_i := 0        # next DB.GAUNTLET step on the final wave
+var echoes: Array = []     # gauntlet echo bosses alive
 var pit_enraged := false
 var warders: Array = []    # alive Warding elites
 var chanters: Array = []   # alive Ward Chanters (foes near them take no damage)
@@ -384,9 +388,18 @@ func spawn_enemy(kind: String, p: Vector3, w := -1) -> Enemy:
 ## Rolls whether a freshly spawned wave enemy becomes an elite.
 func _roll_elite(e: Enemy) -> void:
 	var chance := DB.elite_chance(wave) * (0.5 if boss_title != "" else 1.0)
-	if e.is_boss or e.support or rng.randf() >= chance:
+	match wave_rule:
+		"explosive", "warded":
+			chance = maxf(0.18, chance * 1.6)
+		"mutants":
+			chance = 0.5
+	if e.is_boss or e.support or e.captain or rng.randf() >= chance:
 		return
 	var affixes := DB.elite_affixes(wave)
+	if wave_rule == "explosive":
+		affixes = ["volatile"]
+	elif wave_rule == "warded":
+		affixes = ["warding"] if e.kind != "shieldbearer" else ["frenzied"]
 	if e.kind == "shieldbearer":
 		affixes.erase("warding")   # a warded wall of shields stalls the wave
 	if affixes.is_empty():
@@ -485,6 +498,13 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 			a *= DB.ENRAGE_DMG
 		if is_drummed(src):
 			a *= DB.DRUM_DMG
+	if t.team == 1 and not t.is_boss and src != null and src.team == 0:
+		if wave_rule == "evasive" and opts.get("attack", false) and rng.randf() < DB.EVADE_CHANCE:
+			if rng.randf() < 0.5:
+				fx("damage_number", {"pos": t.pos + Vector3(0, 2.0, 0), "text": "Miss", "color": DB.WAVE_RULES["evasive"]["color"]})
+			return 0.0
+		if wave_rule == "spellward" and dtype == "magic" and not opts.get("attack", false):
+			a *= DB.SPELLWARD_MAGIC
 	if dtype == "phys":
 		a *= armor_factor(t.armor)
 	if t.team == 1 and t is Enemy:
@@ -512,6 +532,8 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 			shake(0.25 + minf(0.5, a / hero.max_hp))
 		if a >= 3.0:
 			damage_number(t.pos, a, false, Art.palette.get("danger", Color.RED))
+		if wave_rule == "bloodthirsty" and src != null and src.team == 1 and src.alive and a > 0.0:
+			src.hp = minf(src.max_hp, src.hp + a * DB.BLOODTHIRST_HEAL)
 	if a <= 0.0:
 		return 0.0
 	t.hp -= a
@@ -567,6 +589,14 @@ func kill(t: Unit, src: Unit) -> void:
 		if e.is_boss:
 			Game.crumb("boss death %s #%d (bosses left %d)" % [e.kind, e.twin_index, boss_units.filter(func(b): return b.alive).size()])
 		e.on_death()
+		if e == captain:
+			captain = null
+			var cg := DB.captain_gold(wave)
+			add_gold(cg)
+			fx("gold", {"pos": e.pos + Vector3(0, 2.0, 0), "amount": cg})
+			toast("%s slain! +%d gold" % [e.display_name, cg], Art.palette.get("gold", Color.GOLD))
+		if e in echoes:
+			_echo_died()
 		if not e.no_reward:
 			stats["kills"] += 1
 			var g := int(round(e.gold_val))
@@ -1673,15 +1703,24 @@ func start_wave() -> void:
 		hero.kit.on_wave_start()
 	# build the spawn queue
 	spawn_queue.clear()
+	captain = null
+	echoes.clear()
+	gauntlet_i = 0
+	var info := DB.wave_info(wave)
+	wave_rule = info.get("rule", "")
 	var bursts := DB.wave_bursts(wave)
 	var t := 1.0
-	for b in bursts:
+	for i in bursts.size():
+		var b: Dictionary = bursts[i]
 		t += float(b["delay"])
 		var k := 0
 		var gate: Vector3 = DB.GATES[b["gate"]]
 		for kind in b["units"]:
 			spawn_queue.append({"t": t + k * 0.16, "kind": kind, "gate": gate})
 			k += 1
+		# the captain leads the second burst in
+		if i == mini(1, bursts.size() - 1) and info.get("captain", "") != "":
+			spawn_queue.append({"t": t + 0.5, "kind": info["captain"], "gate": gate, "captain": true})
 	boss_title = ""
 	if DB.BOSS_WAVES.has(wave):
 		boss_title = DB.BOSS_TITLES[wave]
@@ -1695,7 +1734,12 @@ func start_wave() -> void:
 		schedule(2.6, toast.bind(DB.BOSS_HINTS.get(wave, ""), Art.palette.get("gold", Color.GOLD)))
 		Audio.play("boss")
 	else:
-		banner_requested.emit("Wave %d" % wave, "Survive!")
+		var sub := String(info.get("name", "Survive!"))
+		if wave_rule != "":
+			sub += "  ·  " + String(DB.WAVE_RULES[wave_rule]["name"])
+		banner_requested.emit("Wave %d" % wave, sub)
+		if wave_rule != "":
+			schedule(2.6, toast.bind(String(info.get("desc", "")), DB.WAVE_RULES[wave_rule]["color"]))
 		Audio.play("wave")
 		schedule(3.0, hint_once.bind("pens", "Barrel pens: smash one barrel (tap it, or push into it) and fight from inside. Foes must come through the gap one by one."))
 	spawn_queue.sort_custom(func(a, b): return a["t"] < b["t"])
@@ -1718,6 +1762,11 @@ func _tick_wave(dt: float) -> void:
 		if s.get("tint", false):
 			e.set_tint(Color(0.75, 0.85, 1.25))
 			e.twin_index = 1
+		elif s.get("captain", false):
+			e.make_captain()
+			captain = e
+			fx("teleport", {"pos": e.pos})
+			toast("%s leads the wave!" % e.display_name, Art.palette.get("gold", Color.GOLD))
 		else:
 			_roll_elite(e)
 		if e.is_boss:
@@ -1741,6 +1790,39 @@ func _enrage() -> void:
 	for e in enemies:
 		if e.alive:
 			e.flash(Color(1.0, 0.3, 0.2))
+
+
+## Final gauntlet: spawn the echo(es) of an earlier boss while the Warden stands back.
+func start_echo(step: Dictionary) -> void:
+	var kind: String = step["boss"]
+	var spots := [Vector3(-6, 0, -10), Vector3(6, 0, -10)] if kind == "matron" else [Vector3(0, 0, -9)]
+	for i in spots.size():
+		var e: Enemy = spawn_enemy(kind, spots[i])
+		e.max_hp *= float(step["hp"])
+		e.hp = e.max_hp
+		e.display_name = "Echo of " + e.display_name
+		if i == 1:
+			e.set_tint(Color(0.75, 0.85, 1.25))
+			e.twin_index = 1
+		echoes.append(e)
+		fx("teleport", {"pos": e.pos})
+	boss_title = step["title"]
+	shake(0.6)
+	Audio.play("boss")
+	banner_requested.emit("The Warden withdraws", step["title"])
+	schedule(2.4, toast.bind(DB.BOSS_HINTS.get({"pit_brute": 5, "matron": 10, "hollow_choir": 15}.get(kind, 20), ""), Art.palette.get("gold", Color.GOLD)))
+
+
+func _echo_died() -> void:
+	for e in echoes:
+		if e.alive:
+			return
+	echoes.clear()
+	boss_units = boss_units.filter(func(b): return b.alive)
+	boss_title = DB.BOSS_TITLES.get(wave, boss_title)
+	for b in boss_units:
+		if b is Boss and (b as Boss).withdrawn:
+			(b as Boss).return_from_gauntlet()
 
 
 func _wave_cleared() -> void:
@@ -1821,6 +1903,8 @@ func _clear_arena(fx_burst: bool) -> void:
 			e.node = null
 	enemies.clear()
 	boss_units.clear()
+	captain = null
+	echoes.clear()
 	warders.clear()
 	chanters.clear()
 	drummers.clear()
@@ -1934,6 +2018,8 @@ func boss_hp() -> Vector2:
 	var cur := 0.0
 	var mx := 0.0
 	for b in boss_units:
+		if b is Boss and (b as Boss).withdrawn:
+			continue
 		if b.alive:
 			cur += b.hp
 		mx += b.max_hp

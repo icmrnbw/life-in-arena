@@ -47,7 +47,7 @@ func _draw() -> void:
 	for e in run.enemies:
 		if not e.alive or e.untargetable:
 			continue
-		var elite: bool = e.is_boss or e.elite != "" or float(DB.ENEMIES.get(e.kind, {}).get("hp", 0.0)) >= 200.0
+		var elite: bool = e.is_boss or e.captain or e.elite != "" or float(DB.ENEMIES.get(e.kind, {}).get("hp", 0.0)) >= 200.0
 		var recent: bool = now - e.hurt_at < 3.0 and e.hp < e.max_hp - 0.5
 		if e == focus:
 			_bar(cam, e, 52.0 if not e.is_boss else 110.0, hpc, 0.3, 6.0, 1.0)
@@ -55,6 +55,8 @@ func _draw() -> void:
 			SkillButton.ring(self, sp, 30.0 + e.radius * 8.0, UIK.col("gold", Color.GOLD))
 		elif e.is_boss:
 			_bar(cam, e, 110.0, hpc, 0.3, 6.0, 0.85)
+		elif e.captain:
+			_bar(cam, e, 72.0, UIK.col("gold", Color.GOLD), 0.4, 6.0, 0.95)
 		elif e.elite != "":
 			# elites always show a bar in their affix colour
 			var tc: Color = DB.ELITE_AFFIXES[e.elite]["tint"]
