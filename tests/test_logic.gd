@@ -311,6 +311,10 @@ func test_cooldowns() -> void:
 			var sid: String = hh.skill_ids[s]
 			for k3 in 4:
 				rr.spawn_enemy("shieldbearer", Vector3(k3 * 2 - 3, 0, 1), 5)
+			if sid == "raise_dead" or sid == "corpse_blast":
+				# graves come from kills
+				for en in rr.enemies.slice(0, 3):
+					rr.kill(en, hh)
 			if sid == "shatter_mark":
 				for en in rr.enemies:
 					en.mark_t = 5.0
@@ -325,6 +329,15 @@ func test_cooldowns() -> void:
 			# a few ticks of simulation after each cast
 			for i in 10:
 				rr._step(1.0 / 30.0)
+		if hid == "twinhide":
+			# Shift (cast above) put it in beast form: its Q/W are Rend and Pounce now
+			check(hh.skill_ids[0] == "rend" and hh.skill_ids[1] == "pounce" and hh.kit.beast(), "twinhide shift swaps to beast skills", str(hh.skill_ids))
+			for s2 in 2:
+				hh.mana = hh.max_mana
+				hh.cds[s2] = 0.0
+				check(rr.try_cast(s2), "twinhide beast skill %s casts" % hh.skill_ids[s2])
+				for i in 15:
+					rr._step(1.0 / 30.0)
 		free_run(rr)
 		await get_tree().process_frame
 

@@ -157,6 +157,7 @@ func _build_top_left() -> void:
 	mana_bar = mana_stack[0]
 	mana_label = mana_stack[1]
 	bars.add_child(mana_stack[2])
+	mana_stack[2].visible = not run.hero.data.get("no_mana", false)
 	xp_bar = UIK.bar("XpBar", UIK.col("xp", Color(0.65, 0.36, 0.88)), Vector2(330, 10))
 	bars.add_child(xp_bar)
 	meter_box = HBoxContainer.new()
@@ -172,7 +173,7 @@ func _build_top_left() -> void:
 	meter_box.add_child(meter_bar)
 	var m := run.hero.kit.hud_meter()
 	meter_box.visible = not m.is_empty()
-	meter_bar.visible = m.get("type", "") == "flow"
+	meter_bar.visible = m.get("type", "") in ["flow", "bar"]
 
 
 func _bar_with_label(variation: String, color: Color, sz: Vector2) -> Array:
@@ -434,6 +435,12 @@ func _process(_delta: float) -> void:
 			meter_bar.value = float(m["value"]) / float(m["max"])
 		"brood":
 			meter_label.text = "Brood %d / %d" % [int(m["count"]), int(m["cap"])]
+		"bar":
+			meter_label.text = String(m.get("label", ""))
+			meter_bar.value = float(m["value"]) / maxf(0.001, float(m["max"]))
+			meter_bar.self_modulate = m.get("color", Color.WHITE)
+		"count":
+			meter_label.text = String(m.get("label", ""))
 	if run.gold != _last_gold:
 		_last_gold = run.gold
 		gold_label.text = str(run.gold)

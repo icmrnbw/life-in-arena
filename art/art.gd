@@ -17,6 +17,8 @@ var palette := {
 	# extras (safe to ignore)
 	"flow": Color("3ff0dc"), "heal": Color("6cff7a"), "bronze": Color("b0773a"), "bronze_dark": Color("4a3020"),
 	"ashwarden": Color("ff7a2f"), "riftdancer": Color("3ff0dc"), "hivemother": Color("9cff3a"),
+	"sanguine": Color("e0263c"), "snarewright": Color("c8d24a"), "twinhide": Color("c86bff"), "twinhide_beast": Color("c86bff"),
+	"gravekeeper": Color("8affc8"), "stoneshaper": Color("d9a066"), "gunsmith": Color("4fb8ff"), "sunspeaker": Color("ffe680"),
 }
 
 var _fx_root: Node3D
