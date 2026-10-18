@@ -178,6 +178,7 @@ func make_visual(kind: String) -> Node3D:
 func fx(fx_name: String, opts: Dictionary) -> Node:
 	if not Art.has_method("fx"):
 		return null
+	Game.note_fx(fx_name)
 	var n = Art.fx(fx_name, opts)
 	if n is Node and is_instance_valid(n):
 		return n

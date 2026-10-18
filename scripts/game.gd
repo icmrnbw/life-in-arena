@@ -31,6 +31,11 @@ var _quitting := false
 var _trail: Array = []
 var _watch: Array = []      # [frames_left, label]: crumbs a few frames after a risky moment (boss death)
 var _beat_t := 0.0
+var _live: Array = []      # last few "live" snapshots (every 0.5 s in a wave), to see the moment before a crash
+var _live_t := 0.0
+var _frame_ms := 0       # ticks at the previous frame, for the longest-frame figure
+var _max_frame := 0      # longest frame (ms) since the last snapshot
+var _fx_recent := {}       # fx name -> spawns since the last snapshot
 var _trail_on := false      # off under test hooks (they quit abruptly), unless --trail is passed
 
 const TRAIL_PATH := "user://crash_trail.json"
@@ -265,6 +270,12 @@ func crumb(what: String) -> void:
 	_write_trail(true)
 
 
+## Counts an effect spawn for the next live snapshot.
+func note_fx(fx_name: String) -> void:
+	if _trail_on:
+		_fx_recent[fx_name] = int(_fx_recent.get(fx_name, 0)) + 1
+
+
 ## Leaves crumbs 1, 10 and 60 frames after a risky moment, to tell a crash in the same frame from one in rendering.
 func watch_frames(label: String) -> void:
 	for n in [1, 10, 60]:
@@ -272,6 +283,10 @@ func watch_frames(label: String) -> void:
 
 
 func _tick_trail(delta: float) -> void:
+	var now := Time.get_ticks_msec()
+	if _frame_ms > 0:
+		_max_frame = maxi(_max_frame, now - _frame_ms)
+	_frame_ms = now
 	if not _watch.is_empty():
 		var keep := []
 		for w in _watch:
@@ -286,6 +301,21 @@ func _tick_trail(delta: float) -> void:
 		if _beat_t <= 0.0:
 			_beat_t = 5.0
 			crumb("wave beat: %d enemies, %d bosses, hp %d, fps %d" % [run.enemies.size(), run.boss_units.size(), int(run.hero.hp), int(Engine.get_frames_per_second())])
+		_live_t -= delta
+		if _live_t <= 0.0:
+			_live_t = 0.5
+			var fxs := []
+			for k in _fx_recent:
+				fxs.append("%s x%d" % [k, _fx_recent[k]])
+			_fx_recent.clear()
+			_live.append("%7.2f w%d t%.1f: %d enemies, %d allies, %d corpses, %d projectiles, %d hazards, %d nodes, %.0f MB, fps %d, longest frame %d ms | %s" % [
+				real_seconds(), run.wave, run.wave_time, run.enemies.size(), run.allies.size(), run.corpses.size(), run.projs.size(),
+				run.hazards.size(), int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
+				Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, int(Engine.get_frames_per_second()), _max_frame, ", ".join(fxs)])
+			_max_frame = 0
+			if _live.size() > 6:
+				_live.remove_at(0)
+			_write_trail(true)
 
 
 func _write_trail(open: bool) -> void:
@@ -298,7 +328,7 @@ func _write_trail(open: bool) -> void:
 		_logger.mutex.unlock()
 	var f := FileAccess.open(TRAIL_PATH, FileAccess.WRITE)
 	if f:
-		f.store_string(JSON.stringify({"open": open, "trail": _trail, "errors": errs}))
+		f.store_string(JSON.stringify({"open": open, "trail": _trail, "live": _live, "errors": errs}))
 		f.close()
 
 
@@ -329,6 +359,10 @@ func _prev_log_tail(n: int) -> Array:
 func crash_report_text() -> String:
 	var out := ["Emberpit crash report"]
 	out.append_array(prev_crash.get("trail", []))
+	var live: Array = prev_crash.get("live", [])
+	if not live.is_empty():
+		out.append("-- last moments")
+		out.append_array(live)
 	var errs: Array = prev_crash.get("errors", [])
 	if not errs.is_empty():
 		out.append("-- errors")
