@@ -35,7 +35,7 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
 - All art is procedural and original, generated in code.
 
 ## Install (Android)
-Download `builds/emberpit-0.3.0-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.4.0-heroes-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.

@@ -54,12 +54,12 @@ const HEROES := {
 	"snarewright": {
 		"name": "Snarewright", "title": "The Trapper", "role": "Traps / planning", "tag": "Traps", "difficulty": 2,
 		"playstyle": "Wins before the fight starts: lay traps, timed charges and tripwires where the pack will walk, then pick off the snared.",
-		"primary": "agi", "str": 17.0, "agi": 23.0, "int": 16.0, "str_g": 1.8, "agi_g": 2.8, "int_g": 1.7,
-		"dmg": 17.0, "range": 8.0, "atk_time": 1.35, "speed": 5.4, "armor": 2.0, "ranged": true,
+		"primary": "agi", "str": 21.0, "agi": 23.0, "int": 16.0, "str_g": 2.2, "agi_g": 2.8, "int_g": 1.7,
+		"dmg": 17.0, "range": 8.0, "atk_time": 1.35, "speed": 5.4, "armor": 3.0, "ranged": true,
 		"skills": ["snare_trap", "blast_charge", "tripwire", "killing_field"],
 		"skill_order": [0, 1, 0, 2, 0, 3, 1, 0, 1, 1, 3, 2, 2, 2, 3],
 		"build": ["iron_knuckles", "swift_gloves", "vigor_charm", "emberbrand", "runners_boots", "bloodthirst_fang", "hide_vest", "focus_pendant", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "sage_circlet", "focus_pendant", "hivecore_sigil"],
-		"bot": {"ranged": true, "keep": 7.0, "retreat": 0.4, "orbit": 0.4},
+		"bot": {"ranged": true, "keep": 7.0, "retreat": 0.5, "orbit": 0.4},
 	},
 	"twinhide": {
 		"name": "Twinhide", "title": "The Two-Souled", "role": "Shapeshifter", "tag": "Forms", "difficulty": 3,
@@ -84,7 +84,7 @@ const HEROES := {
 	},
 	"stoneshaper": {
 		"name": "Stoneshaper", "title": "The Mountain's Hand", "role": "Terrain / control", "tag": "Impact", "difficulty": 2,
-		"playstyle": "Uses the arena as a weapon: shove foes into pillars, walls and each other. A body that hits something takes heavy damage and is stunned.",
+		"playstyle": "Uses the arena as a weapon: shove foes into pillars, walls and each other. A body that hits something takes heavy damage and is stunned. Skin of stone: takes 20% less damage.",
 		"primary": "str", "str": 26.0, "agi": 12.0, "int": 15.0, "str_g": 3.1, "agi_g": 1.3, "int_g": 1.6,
 		"dmg": 28.0, "range": 2.3, "atk_time": 1.4, "speed": 4.8, "armor": 4.0, "ranged": false,
 		"skills": ["rock_shove", "stone_ridge", "quake", "avalanche"],
@@ -95,22 +95,22 @@ const HEROES := {
 	"gunsmith": {
 		"name": "Gunsmith", "title": "The Deadshot", "role": "Long range", "tag": "Ammo", "difficulty": 2,
 		"playstyle": "Longest reach in the Pit, but eight shots to a magazine. Reload on an empty chamber for incendiary rounds, and keep the pack at mortar range.",
-		"primary": "agi", "str": 18.0, "agi": 25.0, "int": 14.0, "str_g": 2.0, "agi_g": 3.1, "int_g": 1.4,
-		"dmg": 20.0, "range": 10.5, "atk_time": 0.9, "speed": 5.2, "armor": 2.0, "ranged": true,
+		"primary": "agi", "str": 21.0, "agi": 25.0, "int": 14.0, "str_g": 2.3, "agi_g": 3.1, "int_g": 1.4,
+		"dmg": 20.0, "range": 10.5, "atk_time": 0.9, "speed": 5.2, "armor": 3.0, "ranged": true,
 		"skills": ["hot_reload", "scattershot", "mortar", "deadeye"],
 		"skill_order": [1, 0, 2, 1, 2, 3, 1, 2, 1, 2, 3, 0, 0, 0, 3],
 		"build": ["iron_knuckles", "swift_gloves", "vigor_charm", "emberbrand", "runners_boots", "bloodthirst_fang", "hide_vest", "focus_pendant", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "sage_circlet", "focus_pendant", "hivecore_sigil"],
-		"bot": {"ranged": true, "keep": 8.5, "retreat": 0.42, "orbit": 0.45},
+		"bot": {"ranged": true, "keep": 8.5, "retreat": 0.5, "orbit": 0.45},
 	},
 	"sunspeaker": {
 		"name": "Sunspeaker", "title": "The Channeler", "role": "Stand-and-cast", "tag": "Channel", "difficulty": 3,
 		"playstyle": "Stand your ground: Radiance builds while you stay still and powers every beam. Moving bleeds it away.",
-		"primary": "int", "str": 17.0, "agi": 11.0, "int": 26.0, "str_g": 1.9, "agi_g": 1.1, "int_g": 3.2,
-		"dmg": 14.0, "range": 8.5, "atk_time": 1.55, "speed": 5.0, "armor": 1.0, "ranged": true,
+		"primary": "int", "str": 21.0, "agi": 11.0, "int": 26.0, "str_g": 2.3, "agi_g": 1.1, "int_g": 3.2,
+		"dmg": 14.0, "range": 8.5, "atk_time": 1.55, "speed": 5.0, "armor": 2.5, "ranged": true,
 		"skills": ["sunbeam", "solar_flare", "sanctum", "dawn_lance"],
 		"skill_order": [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3],
 		"build": ["focus_pendant", "vigor_charm", "sage_circlet", "hivecore_sigil", "hide_vest", "bulwark_plate", "runners_boots", "focus_pendant", "wayfarer_treads", "stout_belt", "wardens_aegis", "iron_knuckles", "vigor_charm", "bloodthirst_fang"],
-		"bot": {"ranged": true, "keep": 8.0, "retreat": 0.45, "orbit": 0.1},
+		"bot": {"ranged": true, "keep": 8.0, "retreat": 0.5, "orbit": 0.1},
 	},
 }
 

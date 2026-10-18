@@ -10,6 +10,11 @@ var ridges: Array = []  # run wall dicts
 var boulder := {}       # {pos, dir, left, node, hit: {}}
 
 
+## Skin of stone: 20% less damage taken.
+func incoming_damage(a: float, _src: Unit) -> float:
+	return a * 0.8
+
+
 func impact_dmg() -> float:
 	return 65.0 + 45.0 * maxi(1, rank(0)) + 1.0 * hero.str_v
 
