@@ -18,6 +18,8 @@ var elite := ""                # elite affix id (DB.ELITE_AFFIXES), "" = normal
 var swings := 0
 var bashing := false
 var support := false           # Chanter / Drummer: hangs back behind the pack
+var captain := false           # leads the wave: tougher, named, slams every third swing
+var bash_r := 1.5
 var aura_fx: Node = null
 var _immune_t := -10.0
 var _support_goal := Vector3.ZERO
@@ -49,6 +51,8 @@ func init_enemy(k: String, w: int, r: Run) -> void:
 	support = data.get("support", false)
 	if k == "shieldbearer":
 		turn_rate = 2.4
+	if r.wave_rule == "frenzy" and not is_boss:
+		atk_time *= 0.85
 	atk_cd = randf_range(0.2, 0.8)
 	retarget_t = randf() * 0.3
 
@@ -88,10 +92,29 @@ func make_elite(affix: String) -> void:
 	radius *= 1.1
 
 
+## Turns this enemy into the wave's captain (see DB.CAPTAIN_NAMES).
+func make_captain() -> void:
+	captain = true
+	max_hp = DB.captain_hp(wave) * (0.75 if kind == "hexcaster" else (0.6 if support else 1.0))
+	hp = max_hp
+	atk_dmg *= DB.CAPTAIN_DMG_MULT
+	armor += 2.0
+	xp_val *= 5.0
+	gold_val = 0.0   # paid as a bounty on death (Run.kill)
+	bash_r = 2.2
+	display_name = DB.CAPTAIN_NAMES.get(kind, "Captain " + display_name)
+	set_tint(Color(1.35, 1.1, 0.55))
+	if node:
+		node.scale *= DB.CAPTAIN_SCALE
+	radius *= 1.3
+
+
 func speed() -> float:
 	var s := super.speed()
 	if run.pit_enraged:
 		s *= DB.ENRAGE_SPEED
+	if run.wave_rule == "frenzy" and not is_boss:
+		s *= DB.FRENZY_SPEED
 	return s
 
 
@@ -219,7 +242,8 @@ func _ai_melee(dt: float) -> void:
 			atk_cd = atk_time
 			atk_wind = 0.32
 			swings += 1
-			bashing = kind == "shieldbearer" and swings % 3 == 0
+			var every := 2 if run.wave_rule == "stunning" else 3
+			bashing = (kind == "shieldbearer" or captain) and swings % every == 0
 			if bashing:
 				_bash_start()
 			set_state("attack")
@@ -248,21 +272,21 @@ func _bash_center() -> Vector3:
 func _bash_start() -> void:
 	atk_wind = 0.75
 	var c := _bash_center()
-	run.fx_timed("telegraph_circle", {"pos": c, "radius": 1.5, "duration": 0.75, "color": Color(0.7, 0.8, 1.0)}, 0.75)
-	run.add_hazard({"type": "circle", "pos": c, "r": 1.5, "t": 0.8})
+	run.fx_timed("telegraph_circle", {"pos": c, "radius": bash_r, "duration": 0.75, "color": Color(0.7, 0.8, 1.0)}, 0.75)
+	run.add_hazard({"type": "circle", "pos": c, "r": bash_r, "t": 0.8})
 
 
 func _bash_hit() -> void:
 	bashing = false
 	var c := _bash_center()
-	run.fx("slam", {"pos": c, "radius": 1.5})
+	run.fx("slam", {"pos": c, "radius": bash_r})
 	for u in run.hero_side_targets():
 		var off := run._flat(u.pos - c)
-		if off.length() <= 1.5 + u.radius * 0.5:
+		if off.length() <= bash_r + u.radius * 0.5:
 			run.damage(u, atk_dmg * 1.3, self, display_name, "phys", {"melee": true})
 			if u.alive:
 				u.stun_t = maxf(u.stun_t, 0.7)
-			if u == run.hero:
+			if u == run.hero and kind == "shieldbearer":
 				run.hint_once("bash", "Shield bash! Shieldbearers stun every third swing.")
 
 
@@ -273,8 +297,13 @@ func _ai_ranged(dt: float) -> void:
 		atk_wind -= dt
 		turn_toward(t.pos - pos, dt)
 		if atk_wind <= 0.0 and t.alive:
-			run.fire_projectile("hex_bolt", pos + Vector3(0, 1.3, 0), t, Vector3.ZERO, 11.0, atk_dmg, 1, self, display_name,
-				{"slow": 0.3, "slow_t": 1.6, "hex": DB.HEX_TIME, "dtype": "magic", "life": 2.0, "color": Color(0.7, 0.4, 1.0)})
+			var bolt := {"slow": 0.3, "slow_t": 1.6, "hex": DB.HEX_TIME, "dtype": "magic", "life": 2.0, "color": Color(0.7, 0.4, 1.0)}
+			run.fire_projectile("hex_bolt", pos + Vector3(0, 1.3, 0), t, Vector3.ZERO, 11.0, atk_dmg, 1, self, display_name, bolt)
+			if captain:
+				# the Matriarch throws a fan: two unguided side bolts
+				var d0 := run._flat(t.pos - pos).normalized()
+				for ang in [-0.35, 0.35]:
+					run.fire_projectile("hex_bolt", pos + Vector3(0, 1.3, 0), null, d0.rotated(Vector3.UP, ang), 11.0, atk_dmg * 0.7, 1, self, display_name, bolt)
 		return
 	if d > atk_range - 0.5:
 		var dir := run.steer_dir(self, t.pos)

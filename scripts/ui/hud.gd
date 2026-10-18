@@ -24,6 +24,11 @@ var prep_label: Label
 var fight_btn: Button
 var shop_btn: Button
 var boss_box: Control
+var preview_box: Control
+var preview_name: Label
+var preview_rule: Label
+var preview_desc: Label
+var _preview_wave := -1
 var boss_bar: ProgressBar
 var boss_label: Label
 var gold_label: Label
@@ -210,6 +215,7 @@ func _build_top_center() -> void:
 	wave_label.add_theme_constant_override("outline_size", 8)
 	wave_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	top_center.add_child(wave_label)
+	_build_preview()
 	# prep row (Shop / countdown / Fight!) lives in the right column, under gold & lives
 	prep_box = HBoxContainer.new()
 	prep_box.alignment = BoxContainer.ALIGNMENT_END
@@ -240,6 +246,62 @@ func _build_top_center() -> void:
 	boss_bar = UIK.bar("BossBar", UIK.col("danger", Color(0.9, 0.2, 0.2)), Vector2(380, 22))
 	boss_box.add_child(boss_bar)
 	boss_box.visible = false
+
+
+## Camp preview of the next wave: its name, twist and captain, so the shop visit is a decision.
+func _build_preview() -> void:
+	preview_box = UIK.panel("DarkPanel")
+	preview_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.07, 0.05, 0.035, 0.82)
+	sb.border_color = UIK.col("frame", Color(0.54, 0.42, 0.23))
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(8)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 8
+	preview_box.add_theme_stylebox_override("panel", sb)
+	top_center.add_child(preview_box)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 2)
+	preview_box.add_child(v)
+	preview_name = UIK.label("", "", 24, UIK.col("gold", Color.GOLD))
+	preview_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(preview_name)
+	preview_rule = UIK.label("", "", 19, Color(1, 1, 1))
+	preview_rule.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(preview_rule)
+	preview_desc = UIK.label("", "", 19, Color(1, 0.93, 0.82))
+	preview_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preview_desc.custom_minimum_size = Vector2(372, 0)
+	v.add_child(preview_desc)
+	preview_box.visible = false
+
+
+func _refresh_preview() -> void:
+	if _preview_wave == run.wave:
+		return
+	_preview_wave = run.wave
+	var info := DB.wave_info(run.wave)
+	preview_name.text = "Next: " + String(info.get("name", ""))
+	var bits := []
+	var rule: String = info.get("rule", "")
+	if rule != "":
+		bits.append(String(DB.WAVE_RULES[rule]["name"]))
+		preview_rule.add_theme_color_override("font_color", DB.WAVE_RULES[rule]["color"])
+	else:
+		preview_rule.add_theme_color_override("font_color", Color(1, 0.85, 0.55))
+	var cap: String = info.get("captain", "")
+	if cap != "":
+		bits.append("Captain: " + String(DB.CAPTAIN_NAMES.get(cap, cap)))
+	elif DB.BOSS_WAVES.has(run.wave):
+		bits.append("Boss wave")
+	preview_rule.text = "  ·  ".join(bits)
+	preview_rule.visible = not bits.is_empty()
+	preview_desc.text = String(info.get("desc", ""))
 
 
 func _build_top_right() -> void:
@@ -446,8 +508,11 @@ func _process(_delta: float) -> void:
 		if DB.BOSS_WAVES.has(run.wave):
 			prep_label.text = "BOSS wave\n%d s" % int(ceil(run.prep_t))
 		shop_btn.visible = true
+		_refresh_preview()
+		preview_box.visible = shop == null
 	else:
 		prep_box.visible = false
+		preview_box.visible = false
 		if ph == "wave" or ph == "clear":
 			wave_label.text = "Wave %d / %d  ·  %d left" % [run.wave, DB.TOTAL_WAVES, run.enemies.size() + run.spawn_queue.size()]
 	var bh := run.boss_hp()
@@ -455,6 +520,10 @@ func _process(_delta: float) -> void:
 	if boss_box.visible:
 		boss_bar.value = bh.x / bh.y
 		boss_label.text = "%s  %d%%" % [run.boss_title, int(ceil(100.0 * bh.x / bh.y))]
+	elif run.captain != null and run.captain.alive and ph == "wave":
+		boss_box.visible = true
+		boss_bar.value = run.captain.hp / maxf(1.0, run.captain.max_hp)
+		boss_label.text = "%s  %d%%" % [run.captain.display_name, int(ceil(100.0 * boss_bar.value))]
 	# inventory (icons are drawn by slot_overlay)
 	for i in 6:
 		var b: Button = slot_nodes[i]

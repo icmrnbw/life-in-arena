@@ -60,6 +60,7 @@ func _main() -> void:
 	await test_gold()
 	await test_difficulty()
 	await test_barrels_buffers()
+	await test_wave_identities()
 	print("\n==== RESULT: %d passed, %d failed" % [passed, failed])
 	for f in fails:
 		print("FAILED: ", f)
@@ -74,7 +75,7 @@ func test_data() -> void:
 	section("data")
 	check(DB.TOTAL_WAVES == 20, "20 waves")
 	check(DB.BOSS_WAVES.keys().size() == 4 and DB.BOSS_WAVES.has(5) and DB.BOSS_WAVES.has(10) and DB.BOSS_WAVES.has(15) and DB.BOSS_WAVES.has(20), "bosses at 5/10/15/20")
-	check(DB.START_LIVES == 3 and DB.START_GOLD == 300, "3 lives, 300 start gold")
+	check(DB.START_LIVES == 3 and DB.START_GOLD == 400, "3 lives, 400 start gold")
 	check(DB.ITEM_ORDER.size() == 18, "18 items", str(DB.ITEM_ORDER.size()))
 	var kinds := {"basic": 0, "advanced": 0, "consumable": 0}
 	for id in DB.ITEMS:
@@ -620,6 +621,7 @@ func test_gold() -> void:
 	for b in DB.wave_bursts(3):
 		for k in b["units"]:
 			expect_kill += round(DB.ENEMIES[k]["gold"] * DB.gold_mult(3))
+	expect_kill += DB.captain_gold(3)   # the captain pays a bounty instead of kill gold
 	var expect_total := int(expect_kill) + clear + int(round((expect_kill + clear) * 0.10))
 	check(abs(earned - expect_total) <= 2, "flawless wave pays kills + clear + 10%", "earned=%d expected=%d" % [earned, expect_total])
 	check(r.stats["gold_earned"] == earned, "gold_earned stat matches")
@@ -838,3 +840,80 @@ func test_barrels_buffers() -> void:
 	free_run(r)
 	await get_tree().process_frame
 
+
+
+# ------------------------------------------------------------------ wave identities, captains, final gauntlet
+func test_wave_identities() -> void:
+	section("wave identities")
+	var ok := true
+	for w in range(1, DB.TOTAL_WAVES + 1):
+		var info := DB.wave_info(w)
+		var cap: String = info.get("captain", "")
+		var rule: String = info.get("rule", "")
+		if String(info.get("name", "")) == "" or String(info.get("desc", "")) == "":
+			ok = false
+		if DB.BOSS_WAVES.has(w) != (cap == ""):
+			ok = false
+		if cap != "" and not DB.CAPTAIN_NAMES.has(cap):
+			ok = false
+		if rule != "" and not DB.WAVE_RULES.has(rule):
+			ok = false
+	check(ok, "every wave has a name, a description, a captain or a boss, and a known rule")
+	check(DB.dmg_mult(6) > DB.dmg_mult(5) and DB.early_pressure(6) == 1.0 and DB.early_pressure(14) == 0.0, "early pressure peaks mid-game and fades")
+	var r := make_run("ashwarden", 3)
+	await get_tree().process_frame
+	r.start_wave()
+	var caps := r.spawn_queue.filter(func(q): return q.get("captain", false))
+	check(caps.size() == 1 and caps[0]["kind"] == "hexcaster", "wave 3 queues one Hex Matriarch captain", str(caps))
+	var h := r.hero
+	h.pos = Vector3(0, 0, 0)
+	var c := r.spawn_enemy("hexcaster", Vector3(8, 0, 0))
+	c.make_captain()
+	r.captain = c
+	check(near(c.max_hp, DB.captain_hp(3) * 0.75) and c.display_name == "Hex Matriarch", "captain stats and name", "%f %s" % [c.max_hp, c.display_name])
+	var g0 := r.gold
+	r.kill(c, h)
+	check(r.gold - g0 == DB.captain_gold(3) and r.captain == null, "captain bounty paid", str(r.gold - g0))
+	# rules
+	var e := r.spawn_enemy("gnawer", Vector3(-8, 0, 0))
+	e.max_hp = 1e6
+	e.hp = 1e6
+	r.wave_rule = "spellward"
+	var dm := r.damage(e, 100.0, h, "Test", "magic")
+	var dp := r.damage(e, 100.0, h, "Test", "magic", {"attack": true})
+	check(near(dm, 100.0 * DB.SPELLWARD_MAGIC) and near(dp, 100.0), "spellward halves skill magic, not attacks", "%f %f" % [dm, dp])
+	r.wave_rule = "evasive"
+	var miss := 0
+	for i in 300:
+		if r.damage(e, 10.0, h, "Test", "magic", {"attack": true}) == 0.0:
+			miss += 1
+	check(miss > 60 and miss < 140, "evasive dodges about a third of attacks", str(miss))
+	check(r.damage(e, 10.0, h, "Test", "magic") > 0.0, "spells always land on evasive waves")
+	r.wave_rule = "bloodthirsty"
+	e.hp = 1000.0
+	var dealt := r.damage(h, 50.0, e, "Hit", "magic")
+	check(near(e.hp, 1000.0 + dealt * DB.BLOODTHIRST_HEAL), "bloodthirsty hits heal the attacker", str(e.hp))
+	r.wave_rule = ""
+	free_run(r)
+	await get_tree().process_frame
+	# final gauntlet
+	r = make_run("ashwarden", 20)
+	await get_tree().process_frame
+	r.phase = "wave"
+	r.hero.in_camp = false
+	var wd := r.spawn_enemy("warden", Vector3(0, 0, -10)) as Boss
+	wd.hp = wd.max_hp * 0.7
+	wd.tick(1.0 / 30.0)
+	check(wd.withdrawn and wd.untargetable and r.echoes.size() == 1 and r.echoes[0].kind == "pit_brute", "Warden withdraws at 75% and the Pit Brute echo returns")
+	check(near(r.echoes[0].max_hp, DB.ENEMIES["pit_brute"]["hp"] * DB.GAUNTLET[0]["hp"]) and near(wd.hp, wd.max_hp * 0.75), "echo HP scaled, Warden HP clamped")
+	check(r.damage(wd, 500.0, r.hero, "Test", "magic") == 0.0, "withdrawn Warden takes no damage")
+	check(r.boss_title == DB.GAUNTLET[0]["title"], "boss bar follows the echo")
+	r.kill(r.echoes[0], r.hero)
+	check(not wd.withdrawn and r.echoes.is_empty() and r.boss_title == DB.BOSS_TITLES[20], "Warden returns when the echo falls")
+	wd.hp = wd.max_hp * 0.45
+	wd.phase_invuln = 0.0
+	wd.busy_t = 0.0
+	wd.tick(1.0 / 30.0)
+	check(wd.withdrawn and r.echoes.size() == 2 and r.echoes[0].kind == "matron", "second step: twin Matron echoes")
+	free_run(r)
+	await get_tree().process_frame

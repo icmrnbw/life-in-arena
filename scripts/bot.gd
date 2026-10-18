@@ -13,6 +13,8 @@ var last_pos := Vector3.ZERO
 var orbit_sign := 1.0
 var orbit_flip_t := 4.0
 var passive := false
+## --noshop=N: buy nothing before wave N+1 (checks that skills and movement alone can't carry the early waves).
+var noshop := 0
 ## Barrel pen play (smart bot, regular waves): smash the barrel facing the arena, hold just inside the gap.
 var use_pens := true
 var pen_wave := -1
@@ -28,6 +30,7 @@ func setup(r: Run) -> void:
 	run = r
 	passive = Game.autoplay_mode == "passive"
 	use_pens = Game.arg("pens", "1") != "0"
+	noshop = int(Game.arg("noshop", "0"))
 
 
 func tick(dt: float) -> void:
@@ -96,6 +99,8 @@ func _prep(_dt: float) -> void:
 
 func _shop() -> void:
 	var h := run.hero
+	if run.wave <= noshop:
+		return
 	# make room for the build: sell potions when the bag is nearly full
 	if h.items.size() >= 5 and not run.build_needs().is_empty():
 		for i in range(h.items.size() - 1, -1, -1):
@@ -246,7 +251,7 @@ func _move(dt: float) -> void:
 		# target: boss first, else nearest
 		var tgt: Unit = null
 		for b in run.boss_units:
-			if b.alive:
+			if b.alive and not b.untargetable:
 				tgt = b
 		if tgt == null or (run._flat(tgt.pos - h.pos).length() > 6.0 and near_n >= 3):
 			tgt = run.nearest_enemy(h.pos, 60.0)
