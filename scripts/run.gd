@@ -1048,14 +1048,18 @@ func _process(delta: float) -> void:
 	if result != "" and phase in ["victory", "defeat"]:
 		_update_camera(delta)
 		return
+	Game.mark(1)
 	_num_budget = minf(10.0, _num_budget + delta * 40.0)
 	var t0 := Time.get_ticks_usec()
-	var n := maxi(1, ceili(delta / SUBSTEP))
-	var dt := delta / n
+	# after a long hitch, don't try to catch the whole gap up in one frame (that frame would be even longer)
+	var sim_delta := minf(delta, 0.25 * Engine.time_scale)
+	var n := maxi(1, ceili(sim_delta / SUBSTEP))
+	var dt := sim_delta / n
 	for i in n:
 		_step(dt)
 		if result != "":
 			break
+	Game.mark(14)
 	# per-frame simulation cost (normalized to one 1/60 s step so accelerated runs stay comparable)
 	var us := float(Time.get_ticks_usec() - t0) / maxf(1.0, delta * 60.0)
 	sim_us_sum += us
@@ -1071,14 +1075,16 @@ func _process(delta: float) -> void:
 	hero.sync_visual()
 	for c in corpses:
 		pass
+	Game.mark(15)
 	_update_camera(delta)
 	_sync_state()
+	Game.mark(16)
 
 
 func _step(dt: float) -> void:
 	_step_n += 1
 	run_time += dt
-	# timers
+	Game.mark(2)
 	if timers.size() > 0:
 		var due := []
 		var keep := []
@@ -1092,6 +1098,7 @@ func _step(dt: float) -> void:
 		for c in due:
 			if c.is_valid():
 				c.call()
+	Game.mark(3)
 	match phase:
 		"prep":
 			_tick_prep(dt)
@@ -1108,19 +1115,29 @@ func _step(dt: float) -> void:
 					_end_run("defeat")
 					return
 				_after_death()
+	Game.mark(4)
 	_tick_hero(dt)
+	Game.mark(5)
 	if hero.kit:
 		hero.kit.tick(dt)
+	Game.mark(6)
 	for e in enemies:
 		if e.alive:
 			e.tick(dt)
+	Game.mark(7)
 	_tick_allies_generic(dt)
+	Game.mark(8)
 	_separate(dt)
+	Game.mark(9)
 	_tick_projectiles(dt)
+	Game.mark(10)
 	_tick_walls_pools(dt)
+	Game.mark(11)
 	_tick_burns(dt)
+	Game.mark(12)
 	_tick_corpses(dt)
 	if bot:
+		Game.mark(13)
 		bot.tick(dt)
 
 

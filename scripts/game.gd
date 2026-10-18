@@ -37,6 +37,17 @@ var _frame_ms := 0       # ticks at the previous frame, for the longest-frame fi
 var _max_frame := 0      # longest frame (ms) since the last snapshot
 var _fx_recent := {}       # fx name -> spawns since the last snapshot
 var _trail_on := false      # off under test hooks (they quit abruptly), unless --trail is passed
+## Freeze watchdog: a thread that notices when frames stop coming and records which part of the frame was running.
+## Main-thread code only writes plain ints (heartbeat time, mark code), so the thread never reads a half-written value.
+const MARKS := ["engine/rendering", "game", "timers", "wave logic", "hero", "hero kit", "enemies", "allies", "separation",
+	"projectiles", "walls/pools", "burns", "corpses", "bot", "visual sync", "camera", "hud"]
+const STUCK_PATH := "user://crash_stuck.json"
+var _mark := 0
+var _hb_ms := 0
+var _wd_active := false
+var _wd_run := false
+var _wd_thread: Thread = null
+var _wd_stuck := false      # set by the thread while frames are missing; cleared by the main thread when they resume
 
 const TRAIL_PATH := "user://crash_trail.json"
 
@@ -72,6 +83,7 @@ class ErrLogger extends Logger:
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	process_priority = 1000
 	_start_ms = Time.get_ticks_msec()
 	_logger = ErrLogger.new()
 	OS.add_logger(_logger)
@@ -79,6 +91,12 @@ func _ready() -> void:
 	_load_settings()
 	_trail_on = args.is_empty() or args.has("trail")
 	_load_prev_trail()
+	if _trail_on:
+		_hb_ms = Time.get_ticks_msec()
+		_wd_active = true
+		_wd_run = true
+		_wd_thread = Thread.new()
+		_wd_thread.start(_watchdog)
 	crumb("app start %s, %s, %s" % [ProjectSettings.get_setting("application/config/version", "?"), OS.get_model_name(), RenderingServer.get_video_adapter_name()])
 
 
@@ -141,6 +159,15 @@ func real_seconds() -> float:
 
 func _process(delta: float) -> void:
 	var real := real_seconds()
+	# Game processes last (process_priority): everything after this, until the next frame, is the engine/renderer
+	_hb_ms = Time.get_ticks_msec()
+	_mark = 0
+	if _wd_stuck:
+		_wd_stuck = false
+		var d = JSON.parse_string(FileAccess.get_file_as_string(STUCK_PATH)) if FileAccess.file_exists(STUCK_PATH) else null
+		if d is Dictionary:
+			crumb("recovered from a %d ms freeze in %s" % [int(d.get("ms", 0)), d.get("mark", "?")])
+		DirAccess.remove_absolute(STUCK_PATH)
 	_tick_trail(delta)
 	# fps sampling (after warm-up)
 	_fps_t += delta / maxf(0.01, Engine.time_scale)
@@ -270,6 +297,31 @@ func crumb(what: String) -> void:
 	_write_trail(true)
 
 
+## Which part of the frame is running, for the freeze watchdog (index into MARKS).
+func mark(code: int) -> void:
+	_mark = code
+
+
+func _watchdog() -> void:
+	while _wd_run:
+		OS.delay_msec(250)
+		if not _wd_active:
+			continue
+		var gap := Time.get_ticks_msec() - _hb_ms
+		if gap > 1500:
+			_wd_stuck = true
+			var f := FileAccess.open(STUCK_PATH, FileAccess.WRITE)
+			if f:
+				f.store_string(JSON.stringify({"ms": gap, "mark": MARKS[clampi(_mark, 0, MARKS.size() - 1)], "at": real_seconds()}))
+				f.close()
+
+
+func _exit_tree() -> void:
+	_wd_run = false
+	if _wd_thread and _wd_thread.is_started():
+		_wd_thread.wait_to_finish()
+
+
 ## Counts an effect spawn for the next live snapshot.
 func note_fx(fx_name: String) -> void:
 	if _trail_on:
@@ -339,6 +391,11 @@ func _load_prev_trail() -> void:
 	if d is Dictionary and d.get("open", false):
 		prev_crash = d
 		prev_crash["log"] = _prev_log_tail(25)
+		if FileAccess.file_exists(STUCK_PATH):
+			var st = JSON.parse_string(FileAccess.get_file_as_string(STUCK_PATH))
+			if st is Dictionary:
+				prev_crash["stuck"] = st
+	DirAccess.remove_absolute(STUCK_PATH)
 
 
 ## Last lines of the previous session's engine log (Godot rotates logs/godot.log to a timestamped name on start).
@@ -359,6 +416,9 @@ func _prev_log_tail(n: int) -> Array:
 func crash_report_text() -> String:
 	var out := ["Emberpit crash report"]
 	out.append_array(prev_crash.get("trail", []))
+	if prev_crash.has("stuck"):
+		var st: Dictionary = prev_crash["stuck"]
+		out.append("-- froze for %d ms in: %s (at %.2f)" % [int(st.get("ms", 0)), st.get("mark", "?"), float(st.get("at", 0.0))])
 	var live: Array = prev_crash.get("live", [])
 	if not live.is_empty():
 		out.append("-- last moments")
@@ -377,7 +437,10 @@ func crash_report_text() -> String:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_WM_CLOSE_REQUEST:
+			_wd_active = false
 			crumb("app paused / closing")
 			_write_trail(false)
 		NOTIFICATION_APPLICATION_RESUMED:
+			_hb_ms = Time.get_ticks_msec()
+			_wd_active = _trail_on
 			crumb("app resumed")
