@@ -14,7 +14,7 @@ var _sway := 0.0
 const FIRE_POS := Vector3(-4.0, 0, 72.0)
 const SEAT_POS := Vector3(-5.56, 0, 70.83)
 const CAM_POS := Vector3(-3.9, 2.3, 77.6)
-const CAM_LOOK := Vector3(-7.4, 1.0, 70.6)
+const CAM_LOOK := Vector3(-2.0, 1.0, 70.6)
 
 
 func _ready() -> void:
@@ -122,10 +122,10 @@ func _ensure_backdrop() -> void:
 		Art.set_fx_root(w)
 	if Art.has_method("menu_camp"):
 		Art.menu_camp(w, FIRE_POS)
-	# one of the heroes (random each visit) resting by the fire
-	menu_hero = Game.arg("menu-hero", "")
+	# a hero resting by the fire
+	menu_hero = Game.arg("menu-hero", "riftdancer")   # the swordsman rests by the fire
 	if not DB.HEROES.has(menu_hero):
-		menu_hero = DB.HERO_ORDER[randi() % DB.HERO_ORDER.size()]
+		menu_hero = "riftdancer"
 	var u = Art.create_unit(menu_hero) if Art.has_method("create_unit") else null
 	if u is Node3D:
 		w.add_child(u)

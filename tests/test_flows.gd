@@ -182,6 +182,17 @@ func test_touch() -> void:
 	check(h.cds[0] > 0.0, "tap-cast Q while joystick held (cooldown started)", "cd=%f" % h.cds[0])
 	check(_count_allies(run, "ember_totem") == totems_before + 1, "a totem was placed")
 	check(h.move_input.x > 0.8, "joystick still active during skill tap", str(h.move_input))
+	# press and hold Q: shows its description and does not cast on release
+	h.mana = h.max_mana
+	h.cds[0] = 0.0
+	touch(1, c0, true)
+	await wait(0.7)
+	await frames(2)
+	check(tc.tip != null and tc.tip.visible, "holding Q shows its description")
+	touch(1, c0, false)
+	await frames(2)
+	check(tc.tip == null, "releasing the hold hides the description")
+	check(h.cds[0] == 0.0, "releasing a hold does not cast", "cd=%f" % h.cds[0])
 	touch(0, Vector2(320, 560), false)
 	await frames(2)
 	check(h.move_input.length() < 0.01, "joystick release stops movement")

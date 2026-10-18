@@ -1,6 +1,7 @@
 extends Control
 ## Multi-touch controls: floating joystick (left), skill buttons in an arc (right), active-item buttons.
 ## Tap a skill = smart cast; drag out of a skill = aim (release to cast, drag back onto the button to cancel).
+## Press and hold a skill (without dragging) = show its description; releasing then doesn't cast.
 ## Keyboard/mouse fallback: arrows move (or hold right mouse), Q/W/E/R cast, Ctrl+Q/W/E/R rank up, 1-6 items.
 
 const JOY_R := 95.0
@@ -10,6 +11,7 @@ const ULT_D := 128.0
 const ITEM_D := 100.0
 const BADGE_HIT := 42.0
 const AIM_PIXELS := 190.0
+const HOLD_MS := 450
 
 var run: Run
 var hud: Node
@@ -28,6 +30,7 @@ var skill_touch := {}            # finger -> {slot, start, left, aim_fx, last_ai
 var tap_touch := {}              # finger -> {start, t}
 var _keys_move := Vector2.ZERO
 var _rmb := false
+var tip: PanelContainer = null
 
 
 func setup(r: Run, h: Node) -> void:
@@ -148,9 +151,12 @@ func _process(_delta: float) -> void:
 		h.move_input = mv
 	elif not enabled and not Game.autoplay:
 		h.move_input = Vector2.ZERO
-	# keep aim indicators following the hero
+	# keep aim indicators following the hero; a finger held still on a skill shows its description
 	for f in skill_touch:
 		var st: Dictionary = skill_touch[f]
+		if not st["left"] and not st["tip"] and Time.get_ticks_msec() - int(st["t"]) > HOLD_MS:
+			st["tip"] = true
+			_show_tip(st["slot"])
 		if st.get("left", false):
 			_update_aim(st, st["last_pos"])
 	queue_redraw()
@@ -288,7 +294,7 @@ func _touch_down(f: int, p: Vector2) -> void:
 			run.rank_up(s)
 			get_viewport().set_input_as_handled()
 			return
-		skill_touch[f] = {"slot": s, "start": p, "left": false, "aim_fx": null, "last_pos": p, "aim": {}}
+		skill_touch[f] = {"slot": s, "start": p, "left": false, "aim_fx": null, "last_pos": p, "aim": {}, "t": Time.get_ticks_msec(), "tip": false}
 		skill_buttons[s].pressed = true
 		skill_buttons[s].cancel = false
 		get_viewport().set_input_as_handled()
@@ -362,6 +368,9 @@ func _touch_drag(f: int, p: Vector2) -> void:
 		st["last_pos"] = p
 		var inside := p.distance_to(sb.center()) <= sb.radius() * 1.05
 		if not inside:
+			if st["tip"]:
+				st["tip"] = false
+				_hide_tip()
 			st["left"] = true
 			sb.cancel = false
 			_update_aim(st, p)
@@ -387,7 +396,9 @@ func _touch_up(f: int, p: Vector2) -> void:
 		sb.pressed = false
 		sb.cancel = false
 		skill_touch.erase(f)
-		if not st["left"]:
+		if st["tip"]:
+			_hide_tip()   # it was a hold to read the description, not a cast
+		elif not st["left"]:
 			run.try_cast(slot)
 		elif not inside:
 			var aim: Dictionary = _compute_aim(slot, p)
@@ -416,6 +427,7 @@ func _release_all() -> void:
 		_stop_aim(skill_touch[f])
 		skill_buttons[skill_touch[f]["slot"]].pressed = false
 	skill_touch.clear()
+	_hide_tip()
 	tap_touch.clear()
 
 
@@ -531,3 +543,54 @@ func _key(e: InputEventKey) -> void:
 		run.skip_prep()
 	elif e.keycode == KEY_B and hud and hud.has_method("toggle_shop"):
 		hud.toggle_shop()
+
+
+## Description card for a held skill button: name, rank, cost and what it does.
+func _show_tip(slot: int) -> void:
+	_hide_tip()
+	var h := run.hero
+	var sid: String = h.skill_ids[slot]
+	var sd: Dictionary = DB.SKILLS[sid]
+	var r: int = h.ranks[slot]
+	var ri := clampi(r - 1, 0, 3)
+	tip = UIK.panel()
+	tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bg := StyleBoxFlat.new()   # solid: the HUD behind must not show through the text
+	bg.bg_color = Color(0.09, 0.065, 0.045, 0.97)
+	bg.border_color = UIK.col("gold", Color(0.85, 0.65, 0.3))
+	bg.set_border_width_all(3)
+	bg.set_corner_radius_all(10)
+	bg.set_content_margin_all(18)
+	tip.add_theme_stylebox_override("panel", bg)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tip.add_child(v)
+	v.add_child(UIK.label(String(sd["name"]), "", 26, UIK.col("gold", Color.GOLD)))
+	var bits := ["Rank %d/%d" % [r, h.max_rank(slot)] if r > 0 else "Not learned yet"]
+	var mana: Array = sd.get("mana", [])
+	if not mana.is_empty():
+		bits.append("%d mana" % int(mana[mini(ri, mana.size() - 1)]))
+	var cds: Array = sd.get("cd", [])
+	if not cds.is_empty():
+		bits.append("%ss cooldown" % String.num(float(cds[mini(ri, cds.size() - 1)]), 1).trim_suffix(".0"))
+	v.add_child(UIK.label("  ·  ".join(bits), "SmallLabel", 18, UIK.col("dim", Color(0.75, 0.7, 0.62))))
+	var d := UIK.label(String(sd.get("desc", "")), "", 20, UIK.col("text", Color(0.95, 0.92, 0.85)))
+	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	d.custom_minimum_size = Vector2(440, 0)
+	v.add_child(d)
+	add_child(tip)
+	tip.reset_size()
+	# to the left of the button arc, level with the held button, kept on screen
+	var sb: SkillButton = skill_buttons[slot]
+	var vs := get_viewport_rect().size
+	var p := Vector2(sb.center().x - sb.radius() - 24.0 - tip.size.x, sb.center().y - sb.radius() - tip.size.y - 12.0)
+	if slot != 3:
+		p.x = minf(p.x, skill_buttons[3].center().x - skill_buttons[3].radius() - 24.0 - tip.size.x)
+	tip.position = Vector2(clampf(p.x, 16.0, vs.x - tip.size.x - 16.0), clampf(p.y, 16.0, vs.y - tip.size.y - 16.0))
+
+
+func _hide_tip() -> void:
+	if tip and is_instance_valid(tip):
+		tip.queue_free()
+	tip = null

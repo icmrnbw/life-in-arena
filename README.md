@@ -14,12 +14,14 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - Shieldbearers stun with a telegraphed shield bash every third swing, and Gnawers hit harder in packs.
   - A wounded Pit Brute charges twice in a row, and a wounded Hollow Choir fires denser rings.
   - Buffers hang back behind the pack and must die first: the Ward Chanter (wave 9+) makes nearby foes immune, the War Drummer (wave 7+) doubles their damage.
-  - Enemies hit 25% harder than in 0.2.0 (bosses 10%).
+  - Enemies hit 10% harder than in 0.2.0, and a bit less in the late waves (bosses 10% harder).
 - Barrels in the arena:
   - Three barrel pens. Smash one barrel (tap it, or push into it) and fight from inside: the pack has to come through the gap one at a time. Wide enemies smash the barrels beside the gap, a sealed pen gets broken open, and bosses crash straight through.
   - Powder kegs blow up shortly after you break them, hurting every enemy nearby (and you, if you stay close).
   - Everything is restored at the start of each wave.
-- The title screen shows one of the heroes resting by a bonfire.
+- The title screen shows the Riftdancer resting by a bonfire, with the menu on the right.
+- Press and hold a skill button in a fight to read what it does (releasing doesn't cast).
+- After a crash, the title screen offers a Copy report button with the crash trail.
 - A camp between waves with a shop of 18 items, including recipes.
 - Touch controls: a joystick, tap-to-cast and drag-to-aim.
 - All art is procedural and original, generated in code.
