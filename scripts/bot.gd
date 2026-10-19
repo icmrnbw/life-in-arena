@@ -84,9 +84,10 @@ func _prep(_dt: float) -> void:
 	if think_t <= 0.0:
 		think_t = 0.25
 		# fill the brood / prepare in camp
-		for s in 4:
-			if h.ranks[s] > 0 and h.kit.is_ready(s) and h.mana >= h.skill_mana(s) and s == 0 and h.hero_id == "hivemother" and h.kit.bot_wants(0):
-				run.try_cast(0)
+		var camp_cast: Array = h.kit.bot_profile().get("camp_cast", [])
+		for s in camp_cast:
+			if h.ranks[s] > 0 and h.kit.is_ready(s) and h.mana >= h.skill_mana(s) and h.kit.bot_wants(s):
+				run.try_cast(s)
 	var need_heal := h.hp < h.max_hp * 0.97 or h.mana < h.max_mana * 0.9
 	if need_heal:
 		var to := run._flat(DB.FOUNTAIN_POS - h.pos)
@@ -186,7 +187,9 @@ func _cast_careless() -> void:
 		if h.ranks[s] > 0 and h.kit.is_ready(s) and h.mana >= h.skill_mana(s):
 			if h.kit.free_cast(s):
 				continue
-			if h.hero_id == "hivemother" and s == 0 and not h.kit.bot_wants(0):
+			if s in h.kit.bot_profile().get("camp_cast", []) and not h.kit.bot_wants(s):
+				continue
+			if h.kit.blocked(s):
 				continue
 			if run.try_cast(s):
 				return
@@ -231,8 +234,14 @@ func _move(dt: float) -> void:
 		if e.alive and not e.untargetable:
 			enemies.append(e)
 	var hp_frac := h.hp / maxf(1.0, h.max_hp)
-	var hive := h.hero_id == "hivemother"
-	var rift := h.hero_id == "riftdancer"
+	var prof: Dictionary = h.kit.bot_profile()
+	var ranged: bool = prof.get("ranged", false)
+	var orbit: float = prof.get("orbit", 0.0)
+	# a channeling hero stands still (stick input would cancel the channel), unless something must be dodged
+	if h.kit.override_motion_active():
+		var hz0 := _hazard_push()
+		h.move_input = Vector2(hz0.x, hz0.z).normalized() if hz0.length() > 0.5 else Vector2.ZERO
+		return
 	orbit_flip_t -= dt
 	if orbit_flip_t <= 0.0:
 		orbit_flip_t = randf_range(3.0, 6.0)
@@ -260,33 +269,35 @@ func _move(dt: float) -> void:
 			var dist := to_t.length()
 			var dirt := to_t / maxf(0.01, dist)
 			var want := h.atk_range + tgt.radius + h.radius - 0.2
-			if hive:
-				want = 7.0
+			if ranged:
+				want = float(prof.get("keep", 7.0))
 			var boss_only := near_n <= 2 and tgt.is_boss
-			var retreat := hp_frac < (0.32 if not hive else 0.45) and not (boss_only and hp_frac > 0.2)
-			var crowd_limit := 7 if h.hero_id == "ashwarden" else (4 if rift else 2)
-			if retreat or (near_n >= crowd_limit and not hive):
+			var retreat := hp_frac < float(prof.get("retreat", 0.32)) and not (boss_only and hp_frac > 0.2)
+			var crowd_limit: int = prof.get("crowd", 2)
+			if retreat or (near_n >= crowd_limit and not ranged):
 				if near_n > 0:
 					var away := run._flat(h.pos - centroid)
 					v += (away.normalized() if away.length() > 0.1 else -dirt) * 1.5
 				else:
 					v -= dirt
-			elif hive:
+			elif ranged:
 				var nd := run._flat(run.nearest_enemy(h.pos, 60.0).pos - h.pos).length() if run.nearest_enemy(h.pos, 60.0) else 99.0
 				if nd < 5.5:
 					v -= dirt * 1.2
 				elif dist > want + 2.0:
 					v += dirt * 0.8
-				v += Vector3(-dirt.z, 0, dirt.x) * orbit_sign * 0.35
+				# shields block shots from the front: circle round to its side
+				var flank := 1.0 if tgt.blocks_front and tgt.facing.dot(-dirt) > 0.3 else orbit
+				v += Vector3(-dirt.z, 0, dirt.x) * orbit_sign * flank
 			else:
 				if dist > want + 0.3:
 					v += dirt
 				elif dist < want - 0.8:
 					v -= dirt * 0.5
-				if rift or tgt.is_boss:
-					v += Vector3(-dirt.z, 0, dirt.x) * orbit_sign * (0.8 if rift else 0.4)
+				if orbit >= 0.6 or tgt.is_boss:
+					v += Vector3(-dirt.z, 0, dirt.x) * orbit_sign * maxf(orbit, 0.4)
 		# ranged harassers: melee heroes go for hexcasters when nothing is close
-		if near_n == 0 and not hive:
+		if near_n == 0 and not ranged:
 			var hx := _nearest_kind("hexcaster")
 			if hx:
 				v += run._flat(hx.pos - h.pos).normalized() * 0.5
@@ -396,7 +407,7 @@ func _pen_play(dt: float) -> bool:
 		goal = c + BarrelField._ring_dir(pen, pen_slot) * (r + 1.1)
 	else:
 		var gdir: Vector3 = gs[0]["dir"]
-		var hold := r - 1.25 if h.hero_id != "hivemother" else 0.4
+		var hold := r - 1.25 if not h.kit.bot_profile().get("ranged", false) else 0.4
 		if hp_frac < 0.4:
 			hold = -0.8   # back off to the far side
 		goal = c + gdir * hold

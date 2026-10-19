@@ -518,6 +518,8 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 			var absorbed := minf(hero.shield, a)
 			hero.shield -= absorbed
 			a -= absorbed
+		if hero.kit:
+			a = hero.kit.incoming_damage(a, src)
 		if a >= hero.hp and hero.has_aegis and hero.aegis_ready:
 			hero.aegis_ready = false
 			hero.hp = 1.0
@@ -597,6 +599,8 @@ func kill(t: Unit, src: Unit) -> void:
 			toast("%s slain! +%d gold" % [e.display_name, cg], Art.palette.get("gold", Color.GOLD))
 		if e in echoes:
 			_echo_died()
+		if hero.kit:
+			hero.kit.on_enemy_killed(e)
 		if not e.no_reward:
 			stats["kills"] += 1
 			var g := int(round(e.gold_val))
@@ -795,11 +799,11 @@ func _proj_hit(p: Dictionary, u: Unit) -> void:
 
 
 # ---------------------------------------------------------------- walls & pools
-func add_wall(a: Vector3, b: Vector3, dur: float, dps: float, src: Unit, tag: String) -> Dictionary:
+func add_wall(a: Vector3, b: Vector3, dur: float, dps: float, src: Unit, tag: String, fx_name := "ash_wall") -> Dictionary:
 	a.y = 0
 	b.y = 0
 	var w := {"a": a, "b": b, "t": dur, "dps": dps, "src": src, "tag": tag, "tick": 0.0,
-		"fx": fx("ash_wall", {"from": a, "to": b, "duration": dur})}
+		"fx": fx(fx_name, {"from": a, "to": b, "duration": dur})}
 	walls.append(w)
 	return w
 
@@ -825,7 +829,7 @@ func _tick_walls_pools(dt: float) -> void:
 	for w in walls:
 		w["t"] -= dt
 		w["tick"] -= dt
-		if w["tick"] <= 0.0:
+		if w["tick"] <= 0.0 and w["dps"] > 0.0:
 			w["tick"] = 0.25
 			var mult := 1.0
 			var heal := 0.0
@@ -1336,7 +1340,7 @@ func _tick_hero(dt: float) -> void:
 		h.atk_wind -= dt
 		if h.atk_wind <= 0.0:
 			_hero_attack_resolve()
-	elif h.atk_cd <= 0.0 and not h.in_camp:
+	elif h.atk_cd <= 0.0 and not h.in_camp and (h.kit == null or h.kit.can_attack()):
 		var t := _pick_hero_target()
 		if t != null:
 			h.atk_target = t

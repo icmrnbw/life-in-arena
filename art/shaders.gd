@@ -415,6 +415,7 @@ uniform float intensity = 1.0;
 uniform vec2 size = vec2(2.0, 2.0);
 uniform float edge_w = 0.14;
 uniform float seed = 0.0;
+uniform float arc = 0.8;
 void fragment() {
 	vec2 uv = UV * 2.0 - 1.0;
 	float d = length(uv);
@@ -497,6 +498,38 @@ void fragment() {
 		float notch = step(0.93, fract(ang / 6.28318 * 3.0 + t * 0.05)) * step(1.0 - ew * 4.0, d) * step(d, 1.0 - ew * 1.6);
 		a = max(ring * (0.85 + 0.15 * sin(t * 2.4)), max(inner, notch * 0.9));
 		c = mix(color.rgb, color2.rgb, ring * 0.5);
+	} else if (mode == 10) { // cone wedge: forward = local -Z, arc = half angle (rad), fill = sweep 0..1
+		float s = atan(uv.x, -uv.y);
+		if (d > 1.0 || abs(s) > arc) { discard; }
+		float sw = mix(-arc, arc, fill);
+		float swept = step(s, sw + 0.001);
+		float lead = (1.0 - smoothstep(0.0, 0.14, abs(s - sw))) * step(0.02, fill) * (1.0 - step(0.999, fill));
+		float rim = smoothstep(0.84, 0.96, d) * (1.0 - smoothstep(0.98, 1.0, d));
+		float side = 1.0 - smoothstep(0.0, 0.05 / max(d, 0.08), arc - abs(s));
+		float n = texture(noise_tex, vec2(s * 0.9 + seed, d * 1.4 - t * 1.2)).r;
+		a = swept * (0.12 + 0.6 * d * d * (0.55 + 0.7 * n) + rim * 0.9 + side * 0.5) + lead * d * 0.9;
+		c = mix(color.rgb, color2.rgb, clamp(lead + rim * 0.8, 0.0, 1.0));
+	} else if (mode == 11) { // zone: soft glowing disc, crisp rim, slow swirl
+		if (d > 1.0) { discard; }
+		float rim = 1.0 - smoothstep(0.0, ew, abs(d - (1.0 - ew)));
+		float n = texture(noise_tex, vec2(ang * 0.5 + t * 0.04 + seed, d * 0.9 - t * 0.12)).r;
+		float body = (0.1 + 0.26 * smoothstep(0.15, 1.0, d)) * (0.55 + 0.9 * n);
+		float inner = 1.0 - smoothstep(0.0, ew * 0.6, abs(d - 0.78 - 0.015 * sin(t * 2.0)));
+		float ticks = step(0.86, fract(ang / 6.28318 * 12.0 - t * 0.05)) * step(0.82, d) * step(d, 0.9);
+		a = max(rim * 0.95, body + inner * 0.3 + ticks * 0.35);
+		c = mix(color.rgb, color2.rgb, max(rim, n * 0.4));
+	} else if (mode == 12) { // grave marker: mint glow, cracked earth, small tombstone glyph (top = -Z)
+		if (d > 1.0) { discard; }
+		vec2 q = uv;
+		float stone = max(step(abs(q.x), 0.27) * step(-0.12, q.y) * step(q.y, 0.48), step(length(q - vec2(0.0, -0.12)), 0.27));
+		float inner = max(step(abs(q.x), 0.17) * step(-0.12, q.y) * step(q.y, 0.38), step(length(q - vec2(0.0, -0.12)), 0.17));
+		float crs = max(step(abs(q.x), 0.04) * step(-0.24, q.y) * step(q.y, 0.24), step(abs(q.y + 0.06), 0.04) * step(abs(q.x), 0.13));
+		float n = texture(noise_tex, vec2(ang * 1.1 + seed, d * 0.5)).r;
+		float cr = (1.0 - smoothstep(0.0, 0.07, abs(fract(ang / 6.28318 * 5.0 + n * 0.7 + seed) - 0.5) * d)) * step(0.52, d) * (1.0 - smoothstep(0.78, 0.98, d));
+		float glow = pow(1.0 - d, 1.4) * 0.5;
+		float outline = stone - inner;
+		a = max(max(outline, crs * 0.85), max(cr * 0.75, glow));
+		c = mix(color.rgb, color2.rgb, max(outline, crs));
 	} else { // soft glow disc
 		if (d > 1.0) { discard; }
 		a = pow(1.0 - d, 2.0);
