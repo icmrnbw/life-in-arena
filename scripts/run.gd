@@ -1885,12 +1885,8 @@ func _return_to_camp() -> void:
 
 
 func _after_death() -> void:
-	# leftover enemies are cleared, the wave counts as survived
+	# leftover enemies are cleared and the same wave is fought again
 	_clear_arena(true)
-	# boss waves (5/10/15/20) must be beaten; other waves count as survived
-	var retry := wave >= DB.TOTAL_WAVES or DB.BOSS_WAVES.has(wave)
-	if not retry:
-		wave += 1
 	if hero.kit:
 		hero.kit.on_wave_end()
 	hero.alive = true
@@ -1907,7 +1903,7 @@ func _after_death() -> void:
 	hero.in_camp = true
 	phase = "prep"
 	prep_t = DB.PREP_TIME
-	banner_requested.emit("Respawned", ("Boss wave %d: try again" % wave) if retry else ("Wave %d next" % wave))
+	banner_requested.emit("Respawned", ("Boss wave %d: try again" % wave) if DB.BOSS_WAVES.has(wave) else ("Wave %d: try again" % wave))
 	Game.on_prep()
 
 
