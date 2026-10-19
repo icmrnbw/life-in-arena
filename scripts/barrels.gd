@@ -114,7 +114,8 @@ func gaps(pen_i: int) -> Array:
 			elif not run_slots.is_empty():
 				var k := run_slots.size()
 				var mid_a: float = pen["rot"] + TAU * (float(run_slots[0]) + (k - 1) * 0.5) / float(n)
-				var chord: float = 2.0 * pen["r"] * sin(PI * float(k + 1) / float(n))
+				# past half the ring the opening is as wide as the pen itself
+				var chord: float = 2.0 * pen["r"] * sin(minf(PI * float(k + 1) / float(n), PI * 0.5))
 				out.append({"dir": Vector3(cos(mid_a), 0, sin(mid_a)), "width": chord - 2.0 * DB.BARREL_R, "slots": run_slots})
 				run_slots = []
 	pen["gaps"] = out
@@ -139,9 +140,27 @@ func best_gap(pen_i: int, r: float, from: Vector3) -> Dictionary:
 	return best
 
 
+## True when a unit of radius `r` walking straight from `a` to `b` would bump an intact barrel of pen_i.
+## Broken barrels are gone: a pen with its barrels smashed out of the way doesn't block anything.
+func blocks(pen_i: int, a: Vector3, b: Vector3, r: float) -> bool:
+	var ab := _flat(b - a)
+	var l2 := ab.length_squared()
+	var reach := r + DB.BARREL_R + 0.05
+	for br in pens[pen_i]["barrels"]:
+		if not br.alive:
+			continue
+		var ap := _flat(br.pos - a)
+		var t := clampf(ap.dot(ab) / l2, 0.0, 1.0) if l2 > 0.0001 else 0.0
+		if (ap - ab * t).length() < reach:
+			return true
+	return false
+
+
 ## Where a unit at u.pos should walk next to reach `goal`, threading pen gaps. Sets through_pen.
 func waypoint(u: Unit, goal: Vector3) -> Vector3:
 	through_pen = -1
+	if u.is_boss and u.team == 1:
+		return goal   # bosses crash straight through (see _push); threading gaps made them dither on the ring
 	for i in pens.size():
 		var pen: Dictionary = pens[i]
 		var c: Vector3 = pen["c"]
@@ -152,6 +171,9 @@ func waypoint(u: Unit, goal: Vector3) -> Vector3:
 		var g_in := gd < r - 0.1
 		if u_in == g_in:
 			continue
+		if not blocks(i, u.pos, goal, u.radius):
+			through_pen = i
+			return goal
 		var outside := goal if u_in else u.pos
 		var g := best_gap(i, u.radius, outside)
 		if g.is_empty():

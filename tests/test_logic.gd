@@ -836,6 +836,32 @@ func test_barrels_buffers() -> void:
 				inside_n += 1
 	check(inside_n >= 1, "gnawers get in through the gap", str(inside_n))
 	check(max_adj <= 4, "the pen limits how many reach the hero", str(max_adj))
+	r._clear_arena(false)
+	# smashed barrels are gone: nobody walks around (or dithers at) a pen with no barrels left in the way
+	bf.reset()
+	for pb in bf.pens[0]["barrels"]:
+		bf.smash(pb, null)
+	h.pos = c + Vector3(-4.5, 0, 0)
+	var walker := r.spawn_enemy("gnawer", c + Vector3(5.5, 0, 0.3), 10)
+	check(r.steer_dir(walker, h.pos).dot(BarrelField._flat(h.pos - walker.pos).normalized()) > 0.98, "foes walk straight across a smashed pen")
+	r._clear_arena(false)
+	bf.reset()
+	var pen2: Dictionary = bf.pens[2]
+	for j in pen2["n"]:
+		if j % 2 == 0:
+			bf.smash(pen2["barrels"][j], null)
+	var hp2 := Vector3(2.25, 0, -8.6)
+	var brute := r.spawn_enemy("pit_brute", Vector3(-1.77, 0, -18.9), 10)
+	var reached := false
+	for i in 300:
+		h.pos = hp2
+		h.move_input = Vector2.ZERO
+		h.atk_cd = 99.0
+		r._step(1.0 / 30.0)
+		if h.edge_dist(brute) <= brute.atk_range + 0.3:
+			reached = true
+			break
+	check(reached, "a boss crashes through a broken pen to the hero", "edge %.2f" % h.edge_dist(brute))
 	_g().god = false
 	r._clear_arena(false)
 	# kegs: blast after the fuse, hurts foes and the hero, breaks barrels nearby
