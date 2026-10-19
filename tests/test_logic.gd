@@ -61,6 +61,7 @@ func _main() -> void:
 	await test_difficulty()
 	await test_barrels_buffers()
 	await test_wave_identities()
+	await test_shield_flank()
 	print("\n==== RESULT: %d passed, %d failed" % [passed, failed])
 	for f in fails:
 		print("FAILED: ", f)
@@ -960,3 +961,35 @@ func test_wave_identities() -> void:
 	check(wd.withdrawn and r.echoes.size() == 2 and r.echoes[0].kind == "matron", "second step: twin Matron echoes")
 	free_run(r)
 	await get_tree().process_frame
+
+
+# ------------------------------------------------------------------ shieldbearer flanking
+## A ranged hero circling a Shieldbearer at bow range gets round its shield.
+func test_shield_flank() -> void:
+	section("shieldbearer flanking")
+	for rng in [5.0, 7.0]:
+		var r := make_run("gunsmith", 2)
+		await get_tree().process_frame
+		r.set_process(false)
+		var h := r.hero
+		h.in_camp = false
+		h.pos = Vector3(0, 0, 4)
+		var e: Enemy = r.spawn_enemy("shieldbearer", Vector3(0, 0, -4), 2)
+		e.face(Vector3(0, 0, 1))
+		var dt := 1.0 / 60.0
+		var t := 0.0
+		var flanked := -1.0
+		while t < 8.0 and flanked < 0.0:
+			e.tick(dt)
+			e.atk_cd = 10.0
+			var to := r._flat(h.pos - e.pos)
+			var d := to.length()
+			var radial := to / maxf(d, 0.01)
+			var v := Vector3(-radial.z, 0, radial.x) + radial * clampf((rng - d) * 1.5, -1.0, 1.0)
+			r.move_unit(h, v.normalized() * h.speed() * dt)
+			if radial.dot(e.facing) <= 0.3:
+				flanked = t
+			t += dt
+		check(flanked >= 0.0 and flanked < (4.0 if rng < 6.0 else 6.5), "circling at %d m gets past the shield" % int(rng), "%.1f s" % flanked)
+		free_run(r)
+		await get_tree().process_frame

@@ -252,6 +252,8 @@ func build_report() -> Dictionary:
 		rep["items"] = run.hero.items.map(func(it): return it["id"])
 		rep["ranks"] = run.hero.ranks.duplicate()
 		rep["damage_by"] = run.stats["damage_by"].duplicate()
+		rep["shield_blocks"] = run.stats.get("shield_blocks", 0)
+		rep["shield_hits"] = run.stats.get("shield_hits", 0)
 		rep["wave_log"] = run.get_meta("wave_log", [])
 		rep["sim_ms_avg"] = snappedf(run.sim_us_sum / maxf(1.0, run.sim_frames) / 1000.0, 0.001)
 		rep["sim_ms_max_busy"] = snappedf(run.sim_us_max_busy / 1000.0, 0.001)
