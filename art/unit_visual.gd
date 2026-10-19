@@ -328,6 +328,30 @@ func flash(c: Color) -> void:
 	if mat:
 		mat.set_shader_parameter("flash", Color(c.r, c.g, c.b, 1.0))
 
+## Skin recolour (DB.SKINS entry): "hue" degrees, "sat" / "val" multipliers on the body colours,
+## optional "accent" (rim + ground ring + glow) and "glow" (emissive strength multiplier). {} restores the classic look.
+func apply_skin(sk: Dictionary) -> void:
+	var hue := deg_to_rad(float(sk.get("hue", 0.0)))
+	for m in [mat, mat2]:
+		if m == null:
+			continue
+		m.set_shader_parameter("skin_hue", hue)
+		m.set_shader_parameter("skin_sat", float(sk.get("sat", 1.0)))
+		m.set_shader_parameter("skin_val", float(sk.get("val", 1.0)))
+	if mat == null or P.get("ghost", false):
+		return
+	var glow: Color = sk.get("accent", P["glow"])
+	mat.set_shader_parameter("glow_color", glow)
+	mat.set_shader_parameter("glow_strength", 1.5 * float(sk.get("glow", 1.0)))
+	if mat2:
+		mat2.set_shader_parameter("glow_color", glow)
+	var hc = sk.get("accent", hero_color(kind, P))
+	if hc is Color:
+		mat.set_shader_parameter("rim_color", (hc as Color).lerp(Color.WHITE, 0.35))
+		if _ring_mat:
+			_ring_mat.set_shader_parameter("color", Color(hc.r, hc.g, hc.b, 1.0))
+			_ring_mat.set_shader_parameter("color2", (hc as Color).lerp(Color.WHITE, 0.5))
+
 func set_tint(c: Color) -> void:
 	tint = c
 	if mat:

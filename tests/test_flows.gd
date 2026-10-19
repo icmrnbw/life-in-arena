@@ -68,6 +68,7 @@ func _main() -> void:
 	get_tree().root.add_child(main)
 	await frames(3)
 	await test_menu_flow()
+	await test_hero_gallery()
 	await test_touch()
 	await test_pause_back_focus()
 	await test_shop_flow()
@@ -140,6 +141,65 @@ func test_menu_flow() -> void:
 	main.start_run("riftdancer", 1)
 	await frames(3)
 	check(main.run != null and main.run.hero_id == "riftdancer" and main.run.wave == 1 and main.run.lives == 3 and main.run.gold == DB.START_GOLD, "new run starts fresh")
+
+
+func test_hero_gallery() -> void:
+	section("title -> Heroes: browse, spin, preview and equip a skin, play with it")
+	var saved: Dictionary = game().settings.duplicate(true)
+	main.show_title()
+	await frames(2)
+	var hb := find_button(main.screen, "Heroes")
+	check(hb != null, "Heroes button on the title screen")
+	if hb == null:
+		return
+	hb.pressed.emit()
+	await frames(3)
+	var g = main.screen
+	check(game().state["phase"] == "gallery" and g is HeroGallery, "Heroes -> gallery")
+	check(g._model != null and g._model.get_parent() == g._turntable, "hero model on the turntable")
+	var yaw: float = g._turntable.rotation.y
+	await wait(0.3)
+	check(g._turntable.rotation.y > yaw, "turntable spins on its own")
+	g._on_stage_input(_drag_ev(Vector2(-200, 0)))
+	check(g._turntable.rotation.y < yaw, "dragging turns the model")
+	(g._tiles["gunsmith"] as Button).pressed.emit()
+	await frames(2)
+	check(g.hero_id == "gunsmith" and String(g._model.name).ends_with("gunsmith"), "tapping a portrait shows that hero")
+	check(find_button(g, "Cast") != null, "animation buttons")
+	g.tab = "skins"
+	g._rebuild_tab()
+	await frames(2)
+	var card: Button = g.find_child("Skin_redcoat", true, false)
+	check(card != null, "skin cards listed")
+	card.pressed.emit()
+	await frames(2)
+	check(g.skin_id == "redcoat" and not is_zero_approx(float(g._model.mat.get_shader_parameter("skin_hue"))), "tapping a skin previews it on the model")
+	var eq: Button = g.find_child("EquipButton", true, false)
+	check(eq != null and not eq.disabled, "Equip enabled for an owned skin")
+	eq.pressed.emit()
+	await frames(2)
+	check(Skins.equipped("gunsmith") == "redcoat", "Equip saves the skin")
+	(g.find_child("Skin_ghost_gunner", true, false) as Button).pressed.emit()
+	await frames(2)
+	eq = g.find_child("EquipButton", true, false)
+	check(eq.disabled and not Skins.owned("gunsmith", "ghost_gunner"), "store skins preview but can't be equipped")
+	find_button(g, "Back").pressed.emit()
+	await frames(2)
+	check(game().state["phase"] == "menu", "Back -> title")
+	main.start_run("gunsmith", 1)
+	await frames(3)
+	var hv = main.run.hero.node
+	check(hv != null and not is_zero_approx(float(hv.mat.get_shader_parameter("skin_hue"))), "the run uses the equipped skin")
+	main.show_title()
+	await frames(2)
+	game().settings = saved
+	game().save_settings()
+
+
+func _drag_ev(rel: Vector2) -> InputEventScreenDrag:
+	var e := InputEventScreenDrag.new()
+	e.relative = rel
+	return e
 
 
 # ------------------------------------------------------------------ touch

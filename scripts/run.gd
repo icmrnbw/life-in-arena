@@ -172,6 +172,7 @@ func make_visual(kind: String) -> Node3D:
 		var holder := Node3D.new()
 		holder.add_child(mi)
 		v = holder
+	Skins.apply_equipped(v, kind)
 	if kind == "gnawer" and v is Node3D:
 		v.scale *= 1.15   # read better on phones
 	units_root.add_child(v)

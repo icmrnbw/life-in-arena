@@ -16,6 +16,24 @@ void light() {
 }
 """
 
+# Skin recolour: rotate hue (radians) and scale saturation / brightness of the vertex colours in YIQ space.
+const SKIN_FN := """
+uniform float skin_hue = 0.0;
+uniform float skin_sat = 1.0;
+uniform float skin_val = 1.0;
+vec3 skin_col(vec3 c) {
+	if (skin_hue == 0.0 && skin_sat == 1.0 && skin_val == 1.0) { return c; }
+	float y = dot(c, vec3(0.299, 0.587, 0.114)) * skin_val;
+	float i = dot(c, vec3(0.596, -0.274, -0.322));
+	float q = dot(c, vec3(0.211, -0.523, 0.312));
+	float cs = cos(skin_hue) * skin_sat * skin_val;
+	float sn = sin(skin_hue) * skin_sat * skin_val;
+	float i2 = i * cs - q * sn;
+	float q2 = i * sn + q * cs;
+	return max(vec3(y + 0.956 * i2 + 0.621 * q2, y - 0.272 * i2 - 0.647 * q2, y - 1.106 * i2 + 1.703 * q2), vec3(0.0));
+}
+"""
+
 const UNIT := """
 shader_type spatial;
 render_mode cull_back, specular_disabled;
@@ -30,10 +48,12 @@ uniform float rim_pow = 2.6;
 uniform float dissolve = 0.0;
 uniform float ao_height = 1.8;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
+""" + SKIN_FN + """
 void fragment() {
 	float n = texture(noise_tex, UV2 * 0.45).r;
 	float n2 = texture(noise_tex, UV2 * 1.9 + vec2(0.37, 0.11)).r;
-	vec3 base = COLOR.rgb;
+	vec3 vcol = skin_col(COLOR.rgb);
+	vec3 base = vcol;
 	base *= 0.78 + 0.44 * n;
 	base = mix(base, base * vec3(1.08, 0.97, 0.88), n2 * 0.35);
 	float ao = mix(0.5, 1.0, clamp(UV2.y / (ao_height * 0.55), 0.0, 1.0)) * UV.y;
@@ -41,7 +61,7 @@ void fragment() {
 	base *= tint.rgb;
 	ALBEDO = mix(base, flash.rgb, flash.a * 0.65);
 	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), rim_pow);
-	vec3 em = COLOR.rgb * UV.x * (glow_strength + glow_boost * 2.5) * (0.8 + 0.4 * n);
+	vec3 em = vcol * UV.x * (glow_strength + glow_boost * 2.5) * (0.8 + 0.4 * n);
 	em += rim_color.rgb * fres * rim_strength * (0.6 + 0.4 * ao);
 	em += glow_color.rgb * glow_boost * fres * 1.5;
 	em += flash.rgb * flash.a * 0.9;
@@ -68,10 +88,11 @@ uniform float alpha = 0.55;
 uniform float ao_height = 1.8;
 uniform float use_vcol = 1.0;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
+""" + SKIN_FN + """
 void fragment() {
 	float n = texture(noise_tex, UV2 * 0.9 + vec2(TIME * 0.05, -TIME * 0.11)).r;
 	float fres = pow(1.0 - abs(dot(NORMAL, VIEW)), 1.6);
-	vec3 c = mix(glow_color.rgb, COLOR.rgb * glow_color.rgb * 1.6, use_vcol) * tint.rgb;
+	vec3 c = mix(glow_color.rgb, skin_col(COLOR.rgb) * glow_color.rgb * 1.6, use_vcol) * tint.rgb;
 	float a = alpha * (0.25 + 0.95 * fres) * (0.7 + 0.5 * n) * (1.0 - dissolve);
 	a *= 0.75 + 0.25 * sin(TIME * 7.0 + UV2.y * 9.0);
 	ALBEDO = c * a * (glow_strength + glow_boost) + flash.rgb * flash.a * 0.5;

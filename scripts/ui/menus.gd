@@ -28,7 +28,7 @@ static func _toggle(text: String, key: String) -> CheckButton:
 
 
 # ---------------------------------------------------------------- title
-static func title_screen(on_play: Callable) -> Control:
+static func title_screen(on_play: Callable, on_heroes := Callable()) -> Control:
 	var root := _base()
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# darken the right side only: the bonfire scene stays bright on the left
@@ -76,6 +76,14 @@ static func title_screen(on_play: Callable) -> Control:
 	var pc := CenterContainer.new()
 	pc.add_child(play)
 	v.add_child(pc)
+	if on_heroes.is_valid():
+		var heroes := UIK.button("Heroes", "", Vector2(360, 76))
+		heroes.add_theme_font_size_override("font_size", 30)
+		heroes.pressed.connect(on_heroes)
+		heroes.name = "HeroesButton"
+		var hc := CenterContainer.new()
+		hc.add_child(heroes)
+		v.add_child(hc)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 24)

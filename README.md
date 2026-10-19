@@ -33,13 +33,14 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - Everything is restored at the start of each wave.
 - The title screen shows the Riftdancer resting by a bonfire, with the menu on the right.
 - The (i) button next to pause opens a card with every skill's description, rank, mana and cooldown (the game pauses while it's open). Holding a skill button no longer shows its description, so it can't rank a skill up by accident.
+- A Heroes screen on the title menu shows every hero's model on a turntable (drag to spin, tap it or the buttons below to see it run, attack and cast), their skills, and their skins. Skins come in rarities (Common, Uncommon, Rare, Mythical, Legendary); each hero has a Classic look plus three example recolours. Uncommon and Mythical ones can be equipped now; Legendary ones can only be previewed until there's a store. The equipped skin is the one you play with.
 - After a crash, the title screen offers a Copy report button with the crash trail.
 - A camp between waves with a shop of 18 items, including recipes.
 - Touch controls: a joystick, tap-to-cast and drag-to-aim.
 - All art is procedural and original, generated in code.
 
 ## Install (Android)
-Download `builds/emberpit-0.4.5-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.4.6-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.

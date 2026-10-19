@@ -8,6 +8,7 @@ var run: Run
 var screen: Control
 var pause_ui: Control
 var menu_hero := ""
+var menu_unit: Node3D
 var _sway := 0.0
 
 ## Title scene: a hero resting by a bonfire on a ledge south of the camp; the camp and the Pit glow beyond.
@@ -35,6 +36,8 @@ func _ready() -> void:
 			show_title()
 		"hero_select":
 			show_hero_select()
+		"heroes", "gallery":
+			show_gallery(hero)
 		"shop":
 			start_run(hero if hero != "" else "ashwarden", maxi(1, wave))
 			get_tree().create_timer(0.6).timeout.connect(func():
@@ -138,6 +141,8 @@ func _ensure_backdrop() -> void:
 		w.add_child(u)
 		u.position = SEAT_POS + (Vector3(-0.32, 0, -0.24) if menu_hero == "hivemother" else Vector3.ZERO)
 		u.rotation.y = -2.21   # facing the fire
+		Skins.apply_equipped(u, menu_hero)
+		menu_unit = u
 		if u.has_method("set_state"):
 			u.call("set_state", "sit")
 	backdrop_cam = Camera3D.new()
@@ -160,7 +165,7 @@ func show_title() -> void:
 	_ensure_backdrop()
 	_clear_screen()
 	Game.state["phase"] = "menu"
-	screen = Menus.title_screen(show_hero_select)
+	screen = Menus.title_screen(show_hero_select, show_gallery)
 	ui.add_child(screen)
 
 
@@ -171,6 +176,23 @@ func show_hero_select() -> void:
 	Game.state["phase"] = "hero_select"
 	screen = Menus.hero_select(func(id): start_run(id, 1), show_title)
 	ui.add_child(screen)
+
+
+## Heroes screen: browse every hero's model, skills and skins.
+func show_gallery(first_hero := "") -> void:
+	_end_run_node()
+	_ensure_backdrop()
+	_clear_screen()
+	Game.state["phase"] = "gallery"
+	screen = HeroGallery.create(_close_gallery, first_hero)
+	ui.add_child(screen)
+
+
+## Leaving the Heroes screen: re-dress the hero resting by the fire in any newly equipped skin.
+func _close_gallery() -> void:
+	if menu_unit and is_instance_valid(menu_unit):
+		Skins.apply(menu_unit, menu_hero, Skins.equipped(menu_hero))
+	show_title()
 
 
 func start_run(hero_id: String, wave := 1) -> void:
@@ -300,7 +322,7 @@ func _on_back() -> void:
 			run.hud.close_shop()
 		else:
 			pause_game()
-	elif Game.state.get("phase", "") == "hero_select":
+	elif Game.state.get("phase", "") in ["hero_select", "gallery"]:
 		show_title()
 	else:
 		Game.quit_game()
