@@ -97,7 +97,8 @@ func _ready() -> void:
 		_wd_run = true
 		_wd_thread = Thread.new()
 		_wd_thread.start(_watchdog)
-	crumb("app start %s, %s, %s" % [ProjectSettings.get_setting("application/config/version", "?"), OS.get_model_name(), RenderingServer.get_video_adapter_name()])
+	crumb("app start %s, %s, %s, msaa %d" % [ProjectSettings.get_setting("application/config/version", "?"), OS.get_model_name(),
+		RenderingServer.get_video_adapter_name(), get_viewport().msaa_3d])
 
 
 func _parse_args() -> void:
@@ -352,7 +353,8 @@ func _tick_trail(delta: float) -> void:
 		_beat_t -= delta
 		if _beat_t <= 0.0:
 			_beat_t = 5.0
-			crumb("wave beat: %d enemies, %d bosses, hp %d, fps %d" % [run.enemies.size(), run.boss_units.size(), int(run.hero.hp), int(Engine.get_frames_per_second())])
+			crumb("wave beat: %d enemies, %d bosses, hp %d, fps %d, rss %d MB" % [run.enemies.size(), run.boss_units.size(), int(run.hero.hp),
+				int(Engine.get_frames_per_second()), rss_mb()])
 		_live_t -= delta
 		if _live_t <= 0.0:
 			_live_t = 0.5
@@ -360,14 +362,27 @@ func _tick_trail(delta: float) -> void:
 			for k in _fx_recent:
 				fxs.append("%s x%d" % [k, _fx_recent[k]])
 			_fx_recent.clear()
-			_live.append("%7.2f w%d t%.1f: %d enemies, %d allies, %d corpses, %d projectiles, %d hazards, %d nodes, %.0f MB, fps %d, longest frame %d ms | %s" % [
+			_live.append("%7.2f w%d t%.1f: %d enemies, %d allies, %d corpses, %d projectiles, %d hazards, %d nodes, %.0f MB, rss %d MB, fps %d, longest frame %d ms | %s" % [
 				real_seconds(), run.wave, run.wave_time, run.enemies.size(), run.allies.size(), run.corpses.size(), run.projs.size(),
 				run.hazards.size(), int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
-				Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, int(Engine.get_frames_per_second()), _max_frame, ", ".join(fxs)])
+				Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, rss_mb(), int(Engine.get_frames_per_second()), _max_frame, ", ".join(fxs)])
 			_max_frame = 0
 			if _live.size() > 6:
 				_live.remove_at(0)
 			_write_trail(true)
+
+
+## Whole-process resident memory (MB) from /proc, which includes the GPU driver's allocations that Godot's own
+## memory figure can't see; -1 where /proc isn't readable.
+func rss_mb() -> int:
+	var f := FileAccess.open("/proc/self/status", FileAccess.READ)
+	if f == null:
+		return -1
+	while not f.eof_reached():
+		var line := f.get_line()
+		if line.begins_with("VmRSS:"):
+			return int(line.substr(6).strip_edges().split(" ")[0]) / 1024
+	return -1
 
 
 func _write_trail(open: bool) -> void:
