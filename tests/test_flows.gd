@@ -182,17 +182,19 @@ func test_touch() -> void:
 	check(h.cds[0] > 0.0, "tap-cast Q while joystick held (cooldown started)", "cd=%f" % h.cds[0])
 	check(_count_allies(run, "ember_totem") == totems_before + 1, "a totem was placed")
 	check(h.move_input.x > 0.8, "joystick still active during skill tap", str(h.move_input))
-	# press and hold Q: shows its description and does not cast on release
+	# press and hold Q (still finger) then release: a cast, never a rank up; descriptions moved to the info button
 	h.mana = h.max_mana
 	h.cds[0] = 0.0
+	h.skill_points += 1
+	var held_ranks := h.ranks.duplicate()
 	touch(1, c0, true)
 	await wait(0.7)
 	await frames(2)
-	check(tc.tip != null and tc.tip.visible, "holding Q shows its description")
 	touch(1, c0, false)
 	await frames(2)
-	check(tc.tip == null, "releasing the hold hides the description")
-	check(h.cds[0] == 0.0, "releasing a hold does not cast", "cd=%f" % h.cds[0])
+	check(h.ranks == held_ranks, "holding Q with a skill point does not rank anything up", str(h.ranks))
+	check(h.cds[0] > 0.0, "releasing a held Q casts it", "cd=%f" % h.cds[0])
+	h.skill_points -= 1
 	touch(0, Vector2(320, 560), false)
 	await frames(2)
 	check(h.move_input.length() < 0.01, "joystick release stops movement")
@@ -293,6 +295,30 @@ func test_touch() -> void:
 		check(b.size.x >= 96.0 and b.size.y >= 96.0, "inventory slot button >= 96 px", str(b.size))
 		break
 	check(run.hud.pause_btn.size.x >= 96.0, "pause button >= 96", str(run.hud.pause_btn.size))
+	check(run.hud.info_btn.size.x >= 96.0, "skill info button >= 96", str(run.hud.info_btn.size))
+	# skill info: one button opens every skill's description, paused; Close resumes
+	run.hud.info_btn.pressed.emit()
+	await frames(2)
+	check(main.pause_ui != null and get_tree().paused, "info button opens the skill card and pauses")
+	if main.pause_ui != null:
+		var txt := _all_text(main.pause_ui)
+		for sid in run.hero.skill_ids:
+			check(txt.contains(String(DB.SKILLS[sid]["name"])), "skill card lists " + sid)
+		var close := find_button(main.pause_ui, "Close")
+		check(close != null, "skill card has Close")
+		if close:
+			close.pressed.emit()
+			await frames(2)
+	check(main.pause_ui == null and not get_tree().paused, "Close shuts the skill card and resumes")
+
+
+func _all_text(n: Node) -> String:
+	var out := ""
+	if n is Label:
+		out += n.text + "\n"
+	for c in n.get_children():
+		out += _all_text(c)
+	return out
 
 
 func _count_allies(run: Run, kind: String) -> int:

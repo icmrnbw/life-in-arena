@@ -2,6 +2,7 @@ extends CanvasLayer
 ## In-run HUD: bars, wave/prep info, gold & lives, boss bar, toasts, banner, item slots, shop, touch controls.
 
 signal pause_requested
+signal skills_info_requested
 
 var run: Run
 var root: Control
@@ -34,6 +35,7 @@ var boss_label: Label
 var gold_label: Label
 var lives_label: Label
 var pause_btn: Button
+var info_btn: Button
 var toast_box: VBoxContainer
 var banner_box: VBoxContainer
 var banner_label: Label
@@ -77,7 +79,7 @@ func setup(r: Run) -> void:
 	_build_slots()
 	_build_banner_toasts()
 
-	controls.blockers = [top_right, fight_btn, shop_btn, slots_box, pause_btn, prep_box]
+	controls.blockers = [top_right, fight_btn, shop_btn, slots_box, pause_btn, info_btn, prep_box]
 	run.toast_requested.connect(show_toast)
 	run.banner_requested.connect(show_banner)
 	root.resized.connect(_apply_safe_area)
@@ -346,6 +348,14 @@ func _build_top_right() -> void:
 	lives_label = UIK.label("3", "", 24, Color(1, 0.6, 0.55))
 	lives_label.custom_minimum_size = Vector2(28, 0)
 	ib.add_child(lives_label)
+	# one button for every skill's description (holding a skill button used to show it, and ranked it up by accident)
+	info_btn = UIK.button("", "SkillButton", Vector2(96, 96))
+	info_btn.icon = UIK.icon("info")
+	info_btn.expand_icon = true
+	info_btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info_btn.add_theme_constant_override("icon_max_width", 56)
+	info_btn.pressed.connect(func(): skills_info_requested.emit())
+	top_right.add_child(info_btn)
 	pause_btn = UIK.button("", "SkillButton", Vector2(96, 96))
 	pause_btn.icon = UIK.icon("pause")
 	pause_btn.expand_icon = true

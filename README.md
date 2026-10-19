@@ -32,14 +32,14 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - Powder kegs blow up shortly after you break them, hurting every enemy nearby (and you, if you stay close).
   - Everything is restored at the start of each wave.
 - The title screen shows the Riftdancer resting by a bonfire, with the menu on the right.
-- Press and hold a skill button in a fight to read what it does (releasing doesn't cast).
+- The (i) button next to pause opens a card with every skill's description, rank, mana and cooldown (the game pauses while it's open). Holding a skill button no longer shows its description, so it can't rank a skill up by accident.
 - After a crash, the title screen offers a Copy report button with the crash trail.
 - A camp between waves with a shop of 18 items, including recipes.
 - Touch controls: a joystick, tap-to-cast and drag-to-aim.
 - All art is procedural and original, generated in code.
 
 ## Install (Android)
-Download `builds/emberpit-0.4.4-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.4.5-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.

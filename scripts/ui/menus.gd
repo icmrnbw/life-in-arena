@@ -483,9 +483,97 @@ static func pause_menu(on_resume: Callable, on_quit: Callable) -> Control:
 	v.add_child(_toggle("Sound", "sound"))
 	v.add_child(_toggle("Screen shake", "shake"))
 	v.add_child(_toggle("Open shop when near", "auto_shop"))
-	var help := UIK.label("Left thumb: move.  Tap a skill: quick cast.\nDrag from a skill: aim, release to cast;\ndrag back onto it to cancel.  Tap + to rank up.", "SmallLabel", 19, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+	var help := UIK.label("Left thumb: move.  Tap a skill: quick cast.\nDrag from a skill: aim, release to cast;\ndrag back onto it to cancel.  Tap + to rank up.\nThe (i) button shows what every skill does.", "SmallLabel", 19, UIK.col("dim", Color(0.75, 0.7, 0.62)))
 	v.add_child(help)
 	var q := UIK.button("Quit to Title", "", Vector2(400, 88))
 	q.pressed.connect(on_quit)
 	v.add_child(q)
 	return root
+
+
+# ---------------------------------------------------------------- skill info
+## Every skill of the hero on one card: name, key, rank, cost, cooldown and what it does. Opened by the HUD's info button.
+static func skill_info(h: Hero, on_close: Callable) -> Control:
+	var root := _base()
+	root.process_mode = Node.PROCESS_MODE_ALWAYS
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0, 0, 0, 0.6)
+	root.add_child(shade)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(center)
+	var frame := UIK.panel("FramePanel")
+	center.add_child(frame)
+	var outer := VBoxContainer.new()
+	outer.add_theme_constant_override("separation", 10)
+	frame.add_child(outer)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 14)
+	outer.add_child(head)
+	var t := _outlined(UIK.label("%s skills" % DB.HEROES[h.hero_id]["name"], "TitleLabel", 36, UIK.col("gold", Color.GOLD)))
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(t)
+	var close := UIK.button("Close", "PrimaryButton", Vector2(150, 72))
+	close.pressed.connect(on_close)
+	head.add_child(close)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(1000, 520)
+	outer.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 12)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(list)
+	var keys := ["Q", "W", "E", "R"]
+	for slot in 4:
+		list.add_child(_skill_row(h, slot, keys[slot]))
+	# fit the card to the screen (phones are ~720 px tall at base size)
+	root.resized.connect(func():
+		var s := root.size
+		scroll.custom_minimum_size = Vector2(minf(1000.0, s.x - 120.0), minf(560.0, s.y - 200.0)))
+	return root
+
+
+static func _skill_row(h: Hero, slot: int, key: String) -> Control:
+	var sid: String = h.skill_ids[slot]
+	var sd: Dictionary = DB.SKILLS[sid]
+	var r: int = h.ranks[slot]
+	var ri := clampi(r - 1, 0, 3)
+	var row := PanelContainer.new()
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0.09, 0.065, 0.045, 0.97)
+	bg.border_color = UIK.col("frame", Color(0.54, 0.42, 0.23))
+	bg.set_border_width_all(2)
+	bg.set_corner_radius_all(10)
+	bg.set_content_margin_all(14)
+	row.add_theme_stylebox_override("panel", bg)
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 16)
+	row.add_child(hb)
+	var ic := UIK.icon_rect(sid, 84)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	if r == 0:
+		ic.modulate = Color(0.6, 0.6, 0.6)
+	hb.add_child(ic)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hb.add_child(v)
+	var name_line := "%s  ·  %s" % [String(sd["name"]), key + (" (ultimate)" if slot == 3 else "")]
+	v.add_child(UIK.label(name_line, "", 26, UIK.col("gold", Color.GOLD)))
+	var bits := ["Rank %d/%d" % [r, h.max_rank(slot)] if r > 0 else "Not learned yet"]
+	var mana: Array = sd.get("mana", [])
+	if not mana.is_empty():
+		bits.append("%d mana" % int(mana[mini(ri, mana.size() - 1)]))
+	var cds: Array = sd.get("cd", [])
+	if not cds.is_empty():
+		bits.append("%ss cooldown" % String.num(float(cds[mini(ri, cds.size() - 1)]), 1).trim_suffix(".0"))
+	if h.can_rank_up(slot):
+		bits.append("rank up ready: tap + on its button")
+	v.add_child(UIK.label("  ·  ".join(bits), "SmallLabel", 18, UIK.col("dim", Color(0.75, 0.7, 0.62))))
+	var d := UIK.label(String(sd.get("desc", "")), "", 20, UIK.col("text", Color(0.95, 0.92, 0.85)))
+	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	d.custom_minimum_size = Vector2(600, 0)
+	v.add_child(d)
+	return row

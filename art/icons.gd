@@ -148,7 +148,7 @@ static func all_ids() -> Array:
 		"emberbrand", "bulwark_plate", "wayfarer_treads", "hivecore_sigil", "bloodthirst_fang", "wardens_aegis",
 		"healing_draught", "mana_draught", "tome_of_might", "phoenix_feather",
 		"portrait_ashwarden", "portrait_riftdancer", "portrait_hivemother",
-		"gold", "life", "attack", "armor", "speed", "pause", "shop"] + WAVE2_IDS
+		"gold", "life", "attack", "armor", "speed", "pause", "info", "shop"] + WAVE2_IDS
 
 const WAVE2_IDS := ["crimson_cleave", "blood_rush", "hemorrhage", "undying_pact",
 	"snare_trap", "blast_charge", "tripwire", "killing_field",
@@ -425,6 +425,11 @@ static func _svg_for(id: String) -> String:
 		"pause":
 			return _plain('<rect x="28" y="20" width="26" height="88" rx="7" fill="#f4ead8"' + _o(6) + '/>'
 				+ '<rect x="74" y="20" width="26" height="88" rx="7" fill="#f4ead8"' + _o(6) + '/>')
+		"info":
+			return _plain('<circle cx="64" cy="64" r="50" fill="none" stroke="' + D + '" stroke-width="19"/>'
+				+ '<circle cx="64" cy="64" r="50" fill="none" stroke="#f4ead8" stroke-width="11"/>'
+				+ '<circle cx="64" cy="38" r="9" fill="#f4ead8"' + _o(4) + '/>'
+				+ '<rect x="56" y="54" width="16" height="44" rx="5" fill="#f4ead8"' + _o(4) + '/>')
 		"shop":
 			return _plain('<path d="M40 40 C36 30 46 22 52 30 L64 36 L76 30 C82 22 92 30 88 40 Z" fill="url(#leather)"' + _o(5) + '/>'
 				+ '<path d="M38 42 H90 C108 60 112 82 104 98 C98 110 30 110 24 98 C16 82 20 60 38 42 Z" fill="url(#leather)"' + _o(5) + '/>'

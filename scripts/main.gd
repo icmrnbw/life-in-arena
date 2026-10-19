@@ -43,6 +43,13 @@ func _ready() -> void:
 		"pause":
 			start_run(hero if hero != "" else "ashwarden", maxi(1, wave))
 			get_tree().create_timer(0.8).timeout.connect(pause_game)
+		"skills":
+			start_run(hero if hero != "" else "ashwarden", maxi(1, wave))
+			get_tree().create_timer(0.8).timeout.connect(func():
+				if run and run.hero:
+					run.hero.ranks[0] = 2
+					run.hero.ranks[1] = 1
+				show_skill_info())
 		"end", "victory":
 			start_run(hero if hero != "" else "ashwarden", maxi(1, wave))
 			get_tree().create_timer(0.8).timeout.connect(func():
@@ -71,7 +78,7 @@ func _shot_when_ready(sc: String) -> void:
 	var t := 0.0
 	while t < 8.0:
 		var ok := true
-		if sc in ["hud", "shop", "pause", "end", "victory"]:
+		if sc in ["hud", "shop", "pause", "skills", "end", "victory"]:
 			ok = run != null and is_instance_valid(run) and run.camera != null
 			if ok and sc == "shop":
 				ok = run.hud != null and run.hud.shop != null
@@ -176,6 +183,7 @@ func start_run(hero_id: String, wave := 1) -> void:
 	add_child(run)
 	run.run_ended.connect(_on_run_ended)
 	run.hud.pause_requested.connect(pause_game)
+	run.hud.skills_info_requested.connect(show_skill_info)
 
 
 func _end_run_node() -> void:
@@ -233,6 +241,18 @@ func pause_game() -> void:
 	_release_controls()
 	get_tree().paused = true
 	pause_ui = Menus.pause_menu(resume_game, func(): show_title())
+	ui.add_child(pause_ui)
+
+
+## Skill descriptions: pauses like the pause menu and shares its slot, so Back / Esc / resume close it too.
+func show_skill_info() -> void:
+	if run == null or not is_instance_valid(run) or run.result != "" or run.hero == null:
+		return
+	if pause_ui != null:
+		return
+	_release_controls()
+	get_tree().paused = true
+	pause_ui = Menus.skill_info(run.hero, resume_game)
 	ui.add_child(pause_ui)
 
 
