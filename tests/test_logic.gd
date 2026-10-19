@@ -517,6 +517,10 @@ func test_lives() -> void:
 	check(r.wave == 4, "next wave after death", str(r.wave))
 	check(r.enemies.is_empty(), "leftover enemies cleared")
 	check(near(h.hp, h.max_hp), "respawn at full HP")
+	await get_tree().create_timer(1.0).timeout
+	if h.node and "dead" in h.node:
+		check(not h.node.dead and h.node.dissolve < 0.01, "hero model comes back after respawn",
+			"dead=%s dissolve=%.2f" % [h.node.dead, h.node.dissolve])
 	# lose all lives
 	for k in 2:
 		r.skip_prep()

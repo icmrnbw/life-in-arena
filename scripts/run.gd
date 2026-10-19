@@ -1885,8 +1885,9 @@ func _after_death() -> void:
 	hero.slow_t = 0.0
 	hero.stun_t = 0.0
 	hero.burn_t = 0.0
-	hero.set_state("idle", true)
 	_teleport_hero(DB.CAMP_SPAWN)
+	# the model is still in its death pose (dead + dissolved); "spawn" revives it and rises it out of the ground
+	hero.set_state("spawn", true)
 	hero.in_camp = true
 	phase = "prep"
 	prep_t = DB.PREP_TIME

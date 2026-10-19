@@ -291,6 +291,9 @@ func set_state(s: String) -> void:
 			if s == "hit" and (one_shot == "attack" or one_shot == "cast" or one_shot == "spawn"):
 				flash(Color(1, 0.35, 0.3))
 				return
+			if one_shot == "spawn":
+				# an attack cuts the rise short: finish it, or the model stays half-dissolved
+				dissolve = 0.0
 			one_shot = s
 			os_t = 0.0
 			os_dur = P.get("atk_dur", 0.5) if s == "attack" else (P.get("cast_dur", 0.6) if s == "cast" else 0.28)
