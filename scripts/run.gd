@@ -47,7 +47,7 @@ var wave_died := false
 var wave_gold := 0
 var max_wave_reached := 0
 var feathers := 0
-var stats := {"kills": 0, "gold_earned": 0, "deaths": 0, "damage_by": {}, "damage_taken": 0.0, "bosses": 0}
+var stats := {"kills": 0, "gold_earned": 0, "deaths": 0, "damage_by": {}, "damage_taken": 0.0, "bosses": 0, "shield_blocks": 0, "shield_hits": 0}
 var result := ""
 
 var world: Node3D
@@ -767,9 +767,13 @@ func _proj_hit(p: Dictionary, u: Unit) -> void:
 	if u.blocks_front:
 		var incoming: Vector3 = -p["dir"]
 		if incoming.dot(u.facing) > 0.3:
+			stats["shield_blocks"] += 1
+			if p["src"] == hero:
+				hint_once("shield_turn", "Blocked! Shieldbearers turn slowly: circle round and hit their back.")
 			fx("hit", {"pos": u.pos + Vector3(0, 1.0, 0) + u.facing * u.radius, "color": Color(0.7, 0.75, 0.85)})
 			u.flash(Color(0.6, 0.7, 1.0))
 			return
+		stats["shield_hits"] += 1
 	fx("hit", {"pos": p["pos"], "color": opts.get("color", Art.palette.get("ember", Color.ORANGE))})
 	var o := {}
 	if opts.has("heal_hero_frac"):

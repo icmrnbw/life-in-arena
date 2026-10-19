@@ -282,12 +282,13 @@ func _move(dt: float) -> void:
 					v -= dirt
 			elif ranged:
 				var nd := run._flat(run.nearest_enemy(h.pos, 60.0).pos - h.pos).length() if run.nearest_enemy(h.pos, 60.0) else 99.0
-				if nd < 5.5:
+				var shielded := tgt.blocks_front and tgt.facing.dot(-dirt) > 0.3
+				if nd < (3.5 if shielded else 5.5):
 					v -= dirt * 1.2
 				elif dist > want + 2.0:
 					v += dirt * 0.8
 				# shields block shots from the front: circle round to its side
-				var flank := 1.0 if tgt.blocks_front and tgt.facing.dot(-dirt) > 0.3 else orbit
+				var flank := 1.0 if shielded else orbit
 				v += Vector3(-dirt.z, 0, dirt.x) * orbit_sign * flank
 			else:
 				if dist > want + 0.3:

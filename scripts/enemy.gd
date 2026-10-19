@@ -50,7 +50,7 @@ func init_enemy(k: String, w: int, r: Run) -> void:
 	blocks_front = k == "shieldbearer"
 	support = data.get("support", false)
 	if k == "shieldbearer":
-		turn_rate = 2.4
+		turn_rate = 0.5   # ~29 deg/s: slow enough to circle round at bow range
 	if r.wave_rule == "frenzy" and not is_boss:
 		atk_time *= 0.85
 	atk_cd = randf_range(0.2, 0.8)
@@ -231,7 +231,11 @@ func _ai_melee(dt: float) -> void:
 	var d := edge_dist(t)
 	if d > atk_range:
 		var dir := run.steer_dir(self, t.pos)
-		run.move_unit(self, dir * speed() * dt)
+		var spd := speed()
+		if blocks_front:
+			# a heavy shield turns slowly: it has to slow down to come round
+			spd *= clampf(0.5 + 0.5 * facing.dot(dir), 0.3, 1.0)
+		run.move_unit(self, dir * spd * dt)
 		turn_toward(dir, dt)
 		set_state("run")
 		moving = true

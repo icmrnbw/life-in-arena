@@ -24,6 +24,7 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - A wave that drags on enrages the survivors: they hit harder and move faster.
   - Hexcaster bolts halve your healing for a few seconds (your HP bar turns purple).
   - Shieldbearers stun with a telegraphed shield bash every third swing, and Gnawers hit harder in packs.
+  - Shieldbearers block shots from the front, but they turn slowly (and slow down to turn), so a ranged hero can circle round and shoot them in the back.
   - A wounded Pit Brute charges twice in a row, and a wounded Hollow Choir fires denser rings.
   - Buffers hang back behind the pack and must die first: the Ward Chanter (wave 9+) makes nearby foes immune, the War Drummer (wave 7+) doubles their damage.
   - Enemies hit 10% harder than in 0.2.0, and a bit less in the late waves (bosses 10% harder).
@@ -40,7 +41,7 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
 - All art is procedural and original, generated in code.
 
 ## Install (Android)
-Download `builds/emberpit-0.4.6-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.4.7-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.
