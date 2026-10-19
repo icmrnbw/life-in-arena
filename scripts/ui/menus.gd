@@ -150,24 +150,41 @@ static func hero_select(on_start: Callable, on_back: Callable) -> Control:
 	var start := UIK.button("Begin Run", "PrimaryButton", Vector2(220, 72))
 	start.add_theme_font_size_override("font_size", 28)
 	head.add_child(start)
-	var cards := HBoxContainer.new()
-	cards.add_theme_constant_override("separation", 14)
-	cards.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	v.add_child(cards)
-	var state := {"sel": DB.HERO_ORDER[0], "cards": {}}
+	# roster grid on the left (scrolls once the roster outgrows it), details of the selected hero on the right
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 14)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(body)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(5 * TILE_W + 4 * 8 + 12, 0)
+	body.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns = 5
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	scroll.add_child(grid)
+	var detail_holder := MarginContainer.new()
+	detail_holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	detail_holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_child(detail_holder)
+	var state := {"sel": DB.HERO_ORDER[0], "tiles": {}}
 	var refresh := func():
-		for id in state["cards"]:
-			var card: Control = state["cards"][id]
-			card.modulate = Color(1, 1, 1) if id == state["sel"] else Color(0.62, 0.6, 0.58)
-			var mark: Control = card.get_meta("mark")
-			mark.visible = id == state["sel"]
+		for id in state["tiles"]:
+			var tile: Control = state["tiles"][id]
+			var on: bool = id == state["sel"]
+			tile.modulate = Color(1, 1, 1) if on else Color(0.66, 0.63, 0.6)
+			(tile.get_meta("ring") as Control).visible = on
+		for c in detail_holder.get_children():
+			c.queue_free()
+		detail_holder.add_child(_hero_detail(state["sel"]))
 	for id in DB.HERO_ORDER:
-		var card := _hero_card(id)
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		cards.add_child(card)
-		state["cards"][id] = card
+		var tile := _hero_tile(id)
+		grid.add_child(tile)
+		state["tiles"][id] = tile
 		var hid: String = id
-		var btn: Button = card.get_meta("button")
+		var btn: Button = tile.get_meta("button")
 		btn.pressed.connect(func():
 			if state["sel"] == hid:
 				on_start.call(hid)
@@ -180,6 +197,9 @@ static func hero_select(on_start: Callable, on_back: Callable) -> Control:
 	return root
 
 
+const TILE_W := 136.0
+
+
 static func _fit(l: Label) -> Label:
 	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	l.clip_text = true
@@ -187,80 +207,119 @@ static func _fit(l: Label) -> Label:
 	return l
 
 
-static func _hero_card(id: String) -> Control:
+static func difficulty_name(n: int) -> String:
+	return ["Easy", "Easy", "Medium", "Hard"][clampi(n, 0, 3)]
+
+
+## Small roster tile: portrait, name, playstyle tag. The whole tile is a button.
+static func _hero_tile(id: String) -> Control:
 	var d: Dictionary = DB.HEROES[id]
+	var holder := MarginContainer.new()
+	holder.custom_minimum_size = Vector2(TILE_W, 0)
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var card := UIK.panel("FramePanel")
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(card)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 4)
+	v.add_theme_constant_override("separation", 0)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(v)
+	var por := UIK.icon_rect("portrait_" + id, 84)
+	por.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(por)
+	var n := _fit(_outlined(UIK.label(d["name"], "", 16 if String(d["name"]).length() <= 9 else 14, UIK.col("ember", Color(1, 0.55, 0.25))), 5))
+	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(n)
+	var t := _fit(UIK.label(d.get("tag", ""), "SmallLabel", 15, UIK.col("gold", Color.GOLD)))
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	# selection ring: a bright frame drawn over the tile
+	var ring := Panel.new()
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0)
+	sb.border_color = UIK.col("gold", Color.GOLD)
+	sb.set_border_width_all(4)
+	sb.set_corner_radius_all(10)
+	ring.add_theme_stylebox_override("panel", sb)
+	holder.add_child(ring)
+	var btn := Button.new()
+	btn.flat = true
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.mouse_filter = Control.MOUSE_FILTER_STOP
+	btn.tooltip_text = d["name"]
+	var empty := StyleBoxEmpty.new()
+	for st in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
+		btn.add_theme_stylebox_override(st, empty)
+	holder.add_child(btn)
+	holder.set_meta("button", btn)
+	holder.set_meta("ring", ring)
+	return holder
+
+
+## Details of one hero: who they are, how they play, and their skills.
+static func _hero_detail(id: String) -> Control:
+	var d: Dictionary = DB.HEROES[id]
+	var card := UIK.panel("FramePanel")
+	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	card.add_child(v)
 	var top := HBoxContainer.new()
-	top.add_theme_constant_override("separation", 10)
-	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_theme_constant_override("separation", 12)
 	v.add_child(top)
-	top.add_child(UIK.icon_rect("portrait_" + id, 104))
+	top.add_child(UIK.icon_rect("portrait_" + id, 96))
 	var names := VBoxContainer.new()
-	names.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	names.add_theme_constant_override("separation", 0)
 	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(names)
 	names.add_child(_fit(_outlined(UIK.label(d["name"], "TitleLabel", 32, UIK.col("ember", Color(1, 0.55, 0.25))), 6)))
-	names.add_child(_fit(UIK.label(d["title"], "", 20, UIK.col("text", Color(0.95, 0.9, 0.82)))))
+	names.add_child(_fit(UIK.label(d["title"], "", 19, UIK.col("text", Color(0.95, 0.9, 0.82)))))
 	var stat_names := {"str": "Strength", "agi": "Agility", "int": "Intellect"}
-	var role := UIK.label("%s · %s" % [d["role"], stat_names[d["primary"]]], "SmallLabel", 18, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+	var role := UIK.label("%s · %s · %s" % [d.get("tag", ""), d["role"], stat_names[d["primary"]]], "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))
 	role.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	role.custom_minimum_size = Vector2(120, 0)
 	names.add_child(role)
-	var mark := _fit(UIK.label("Selected - tap again to start", "SmallLabel", 18, UIK.col("gold", Color.GOLD)))
+	var diff := UIK.label("Difficulty: %s" % difficulty_name(int(d.get("difficulty", 1))), "SmallLabel", 17, UIK.col("gold", Color.GOLD))
+	names.add_child(diff)
+	var mark := _fit(UIK.label("Tap again to start", "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62))))
 	names.add_child(mark)
-	card.set_meta("mark", mark)
 	var ps := UIK.label(d["playstyle"], "", 17, UIK.col("text", Color(0.95, 0.9, 0.82)))
 	ps.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ps.add_theme_constant_override("line_spacing", -3)
 	ps.custom_minimum_size = Vector2(200, 0)
 	v.add_child(ps)
+	var skills: Array = d["skills"].duplicate()
 	var keys := ["Q", "W", "E", "R"]
-	for i in 4:
-		var sid: String = d["skills"][i]
+	if d.has("beast_skills"):
+		skills = [d["skills"][0], d["skills"][1], d["beast_skills"][0], d["beast_skills"][1], d["skills"][2], d["skills"][3]]
+		keys = ["Q", "W", "Q·beast", "W·beast", "E", "R"]
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 4)
+	v.add_child(grid)
+	for i in skills.size():
+		var sid: String = skills[i]
 		var sd: Dictionary = DB.SKILLS[sid]
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(row)
-		var sic := UIK.icon_rect(sid, 48)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(row)
+		var sic := UIK.icon_rect(sid, 46 if skills.size() <= 4 else 40)
 		sic.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		row.add_child(sic)
 		var tv := VBoxContainer.new()
 		tv.add_theme_constant_override("separation", 0)
-		tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(tv)
-		tv.add_child(UIK.label("%s  %s" % [keys[i], sd["name"]], "", 18, UIK.col("gold", Color.GOLD)))
-		var desc := String(sd["desc"])
-		var dl := UIK.label(desc, "SmallLabel", 16, UIK.col("text", Color(0.9, 0.86, 0.8)))
+		tv.add_child(UIK.label("%s  %s" % [keys[i], sd["name"]], "", 17, UIK.col("gold", Color.GOLD)))
+		var dl := UIK.label(String(sd["desc"]), "SmallLabel", 15 if skills.size() <= 4 else 14, UIK.col("text", Color(0.9, 0.86, 0.8)))
 		dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		dl.add_theme_constant_override("line_spacing", -3)
 		dl.custom_minimum_size = Vector2(150, 0)
 		tv.add_child(dl)
-	# whole card is a button
-	var btn := Button.new()
-	btn.flat = true
-	btn.focus_mode = Control.FOCUS_NONE
-	btn.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	btn.mouse_filter = Control.MOUSE_FILTER_STOP
-	var empty := StyleBoxEmpty.new()
-	for s in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
-		btn.add_theme_stylebox_override(s, empty)
-	card.set_meta("button", btn)
-	# overlay the button on the card
-	var holder := MarginContainer.new()
-	holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(card)
-	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	holder.add_child(btn)
-	holder.set_meta("button", btn)
-	holder.set_meta("mark", mark)
-	return holder
+	return card
 
 
 # ---------------------------------------------------------------- end screen

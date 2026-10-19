@@ -52,8 +52,8 @@ func set_tint(c: Color) -> void      # persistent tint (e.g. second Matron, elit
 ```
 Animations are procedural (tweens / _process on pivot nodes). "death" ends collapsed or dissolved; code frees the node ~1.2 s after setting "death". "attack" and "cast" play once then return to the previous loop state.
 
-Unit kinds: heroes `ashwarden`, `riftdancer`, `hivemother` (~1.8 m); enemies `gnawer`, `shieldbearer`, `hexcaster`, `burrower`, `bloater`; bosses `pit_brute`, `matron`, `hollow_choir`, `warden` (2.5–4× hero); summons `broodling`, `ember_totem`, `afterimage`, `choir_add`.
-Projectile kinds: `fire_bolt`, `spit`, `hex_bolt`, `boss_orb`, `hero_bolt`.
+Unit kinds: heroes `ashwarden`, `riftdancer`, `hivemother`, `sanguine`, `snarewright`, `twinhide` (caster form), `twinhide_beast` (beast form, radius 0.6, height 2.1), `gravekeeper`, `stoneshaper`, `gunsmith`, `sunspeaker` (~1.8 m; a hero gets its coloured ground ring from `UnitVisual.HERO_RING`, else from `Art.palette[kind]` for any non-enemy rig); enemies `gnawer`, `shieldbearer`, `hexcaster`, `burrower`, `bloater`; bosses `pit_brute`, `matron`, `hollow_choir`, `warden` (2.5–4× hero); summons `broodling`, `ember_totem`, `afterimage`, `choir_add`, `skeleton` (1.4 m biped), and static props (style "totem": no walk cycle, glow pulse, "attack" = a pulse/snap) `snare_trap` (r 0.5, h 0.3), `blast_charge` (r 0.45, h 0.6, lit fuse), `boulder` (r 0.9, h 1.6, centred at y 0.8; code may move/rotate the node), `stone_pillar` (r 0.9, h 2.6).
+Projectile kinds: `fire_bolt`, `spit`, `hex_bolt`, `boss_orb`, `hero_bolt`, `bullet`, `crossbow_bolt`, `spirit_lance`, `grave_bolt`, `blood_bolt` (all face −Z = travel direction; unknown kinds fall back to a generic bolt).
 
 Fx names; opts use Vector3 world positions (y ignored unless meaningful). Persistent fx return a Node with `func stop()` and optional `func set_params(opts)`; one-shot fx free themselves.
 | name | opts | kind |
@@ -64,27 +64,38 @@ Fx names; opts use Vector3 world positions (y ignored unless meaningful). Persis
 | `heal` | pos | one-shot |
 | `gold` | pos, amount | one-shot floating coin/number |
 | `damage_number` | pos, amount, crit? , color? | one-shot floating number |
-| `teleport` | pos | one-shot |
-| `telegraph_circle` | pos, radius, duration | persistent, fills over duration, auto-stops |
+| `teleport` | pos, color? | one-shot |
+| `telegraph_circle` | pos, radius, duration, color? | persistent, fills over duration, auto-stops; set_params({pos?, radius?, color?}) |
 | `telegraph_line` | from, to, width, duration | persistent, auto-stops |
 | `aim_circle` / `aim_line` | pos / from,to,width | persistent until stop(); skill aiming indicator (set_params each frame) |
 | `ash_wall` | from, to, duration | persistent |
-| `tether_pull` | pos, radius | one-shot |
+| `tether_pull` | pos, radius, color? | one-shot |
 | `foundry_aura` | target: Node3D, duration | persistent |
-| `slip_trail` | from, to | one-shot |
-| `mark` | target: Node3D | persistent until stop() |
-| `shatter` | pos | one-shot |
+| `slip_trail` | from, to, color? | one-shot |
+| `mark` | target: Node3D, color? | persistent until stop() |
+| `shatter` | pos, color? | one-shot |
 | `rift_strike` | pos | one-shot |
 | `brood_hatch` | pos | one-shot |
-| `rally_marker` | pos, duration | persistent |
-| `sacrifice_explosion` | pos, radius | one-shot |
+| `rally_marker` | pos, duration, color? | persistent |
+| `sacrifice_explosion` | pos, radius, color? | one-shot |
 | `carapace` | target, duration | persistent |
 | `bloater_pool` | pos, radius, duration | persistent |
-| `beam` | from, to, width, duration | persistent; set_params({from,to}) each frame |
-| `slam` | pos, radius | one-shot |
+| `beam` | from, to, width, duration, color? | persistent; set_params({from, to, width?, color?}) each frame |
+| `slam` | pos, radius, color? (crack glow + flash) | one-shot |
 | `fountain_heal` | pos | one-shot |
+| `buff_aura` | target: Node3D, radius?, color? | persistent until stop() |
+| `cone` | pos, dir: Vector3, range, angle (degrees, full width), color | one-shot sweeping wedge + sparks (cleaves, blasts, shoves) |
+| `zone` | pos, radius, duration, color | persistent ground circle with rim + motes; duration <= 0 = until stop(); set_params({pos?, radius?, color?}) |
+| `ring_burst` | pos, radius, color | one-shot expanding shockwave + dust/sparks |
+| `stone_ridge` | from, to, duration | persistent sandstone wall rising along the segment, auto-stops |
+| `blood_burst` | pos, size? | one-shot crimson splash |
+| `trap_snap` | pos | one-shot jaws snapping + olive sparks |
+| `explosion` | pos, radius, color? | one-shot fiery blast (bigger than hit) |
+| `soul_wisp` | from, to | one-shot mint wisp flying along an arc |
+| `form_shift` | pos | one-shot violet swirl + leaves |
+| `grave_marker` | pos, duration, size? (default 0.95 m), color? | persistent tiny mint tombstone glyph, one decal, no particles; fades over the last 1.5 s, auto-stops; up to 24 live (oldest recycled) |
 
-Icon ids: skills `ember_totem`, `ash_wall`, `tether_pull`, `foundry_heart`, `slip`, `shatter_mark`, `afterimage`, `rift_cascade`, `brood`, `rally_pheromone`, `volatile_sacrifice`, `queens_carapace`; items `iron_knuckles`, `swift_gloves`, `hide_vest`, `vigor_charm`, `focus_pendant`, `runners_boots`, `stout_belt`, `sage_circlet`, `emberbrand`, `bulwark_plate`, `wayfarer_treads`, `hivecore_sigil`, `bloodthirst_fang`, `wardens_aegis`, `healing_draught`, `mana_draught`, `tome_of_might`, `phoenix_feather`; portraits `portrait_ashwarden`, `portrait_riftdancer`, `portrait_hivemother`; misc `gold`, `life`, `attack`, `armor`, `speed`, `pause`, `shop`.
+Icon ids: skills `ember_totem`, `ash_wall`, `tether_pull`, `foundry_heart`, `slip`, `shatter_mark`, `afterimage`, `rift_cascade`, `brood`, `rally_pheromone`, `volatile_sacrifice`, `queens_carapace`; items `iron_knuckles`, `swift_gloves`, `hide_vest`, `vigor_charm`, `focus_pendant`, `runners_boots`, `stout_belt`, `sage_circlet`, `emberbrand`, `bulwark_plate`, `wayfarer_treads`, `hivecore_sigil`, `bloodthirst_fang`, `wardens_aegis`, `healing_draught`, `mana_draught`, `tome_of_might`, `phoenix_feather`; portraits `portrait_ashwarden`, `portrait_riftdancer`, `portrait_hivemother`; wave-2 skills `crimson_cleave`, `blood_rush`, `hemorrhage`, `undying_pact`, `snare_trap`, `blast_charge`, `tripwire`, `killing_field`, `spirit_lance`, `moonwell`, `rend`, `pounce`, `shift`, `twin_fury`, `raise_dead`, `corpse_blast`, `grave_chill`, `open_graves`, `rock_shove`, `stone_ridge`, `quake`, `avalanche`, `hot_reload`, `scattershot`, `mortar`, `deadeye`, `sunbeam`, `solar_flare`, `sanctum`, `dawn_lance`; portraits `portrait_sanguine`, `portrait_snarewright`, `portrait_twinhide`, `portrait_gravekeeper`, `portrait_stoneshaper`, `portrait_gunsmith`, `portrait_sunspeaker`; misc `gold`, `life`, `attack`, `armor`, `speed`, `pause`, `shop`.
 
 ## UI
 Code builds all UI (Control nodes, in scenes or code) and applies `Art.make_theme()` to the root Control. Use theme type variations visuals will define: `PanelContainer` variants `"FramePanel"`, `"DarkPanel"`; `Button` variants `"PrimaryButton"`, `"SkillButton"`, `"ShopItemButton"`; `Label` variants `"TitleLabel"`, `"BannerLabel"`, `"SmallLabel"`; `ProgressBar` variants `"HpBar"`, `"ManaBar"`, `"XpBar"`, `"BossBar"`, `"FlowBar"`. If a variation is missing, the default theme still works. Use `Art.palette` for any colors code sets directly. Touch targets ≥ 96 px in the 1280×720 base (≈ 48 dp). Default font: Godot's built-in; visuals may set font sizes/outline/shadow in the theme (no downloaded fonts).

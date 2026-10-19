@@ -103,7 +103,14 @@ func _process(_delta: float) -> void:
 		sb.is_ready = sb.learned and (kit.is_ready(i) or kit.free_cast(i))
 		if sb.is_ready and not was_ready:
 			sb.flash_ready()
-		sb.no_mana = sb.learned and not kit.free_cast(i) and h.mana < h.skill_mana(i)
+		sb.no_mana = sb.learned and not kit.free_cast(i) and (h.mana < h.skill_mana(i) or kit.blocked(i))
+		var sid: String = h.skill_ids[i]
+		if sb.get_meta("sid", "") != sid:
+			# skills can change mid-run (Twinhide's forms)
+			if sb.has_meta("sid"):
+				sb.icon_tex = UIK.icon(sid)
+				sb.queue_redraw()
+			sb.set_meta("sid", sid)
 		sb.can_rank = h.can_rank_up(i)
 		sb.charges = kit.charges(i)
 		sb.label_text = kit.skill_label(i)
