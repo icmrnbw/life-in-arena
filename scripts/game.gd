@@ -5,6 +5,7 @@ var state := {"phase": "menu", "wave": 0, "lives": DB.START_LIVES, "gold": 0, "l
 var args := {}
 var autoplay := false
 var autoplay_mode := "smart"
+var soak: Node = null      # --soak monitor of the current run (scripts/soak.gd)
 var god := false
 var timescale := 1.0
 var settings := {"auto_shop": true, "shake": true, "sound": true, "music": true, "skins": {}, "skins_owned": []}
@@ -257,6 +258,8 @@ func build_report() -> Dictionary:
 		rep["wave_log"] = run.get_meta("wave_log", [])
 		rep["sim_ms_avg"] = snappedf(run.sim_us_sum / maxf(1.0, run.sim_frames) / 1000.0, 0.001)
 		rep["sim_ms_max_busy"] = snappedf(run.sim_us_max_busy / 1000.0, 0.001)
+		if soak != null and is_instance_valid(soak):
+			rep["soak"] = soak.summary()
 		rep["sim_ms_avg_busy"] = snappedf(run.sim_us_busy_sum / maxf(1.0, run.sim_busy_frames) / 1000.0, 0.001)
 	elif last_result != "":
 		rep["result"] = last_result

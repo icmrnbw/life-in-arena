@@ -3,3 +3,4 @@
 qa/screens/
 build/
 !builds/*.apk
+qa/soak/

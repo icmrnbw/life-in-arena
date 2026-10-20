@@ -326,35 +326,42 @@ func test_touch() -> void:
 	# tap enemy to focus (let enemies walk in from the gates)
 	h.pos = Vector3(0, 0, -8)
 	await wait(5.0)
-	var target: Unit = null
-	for e in run.enemies:
-		if e.alive and not e.untargetable:
-			target = e
-			break
-	if target:
-		var sp: Vector2 = run.camera.unproject_position(target.pos + Vector3(0, 0.5, 0))
-		var vis: bool = Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size).has_point(sp)
-		if vis and sp.x > get_viewport().get_visible_rect().size.x * 0.45:
-			Engine.time_scale = 0.0
-			await frames(1)
-			sp = run.camera.unproject_position(target.pos + Vector3(0, 0.5, 0))
-			touch(4, sp, true)
-			touch(4, sp, false)
-			await frames(1)
-			Engine.time_scale = 1.0
-			await frames(2)
-			check(h.focus == target, "tap enemy sets focus", "sp=%s" % sp)
-		elif vis:
-			# left side starts the joystick instead (by design): report it
-			touch(4, sp, true)
-			await frames(1)
-			touch(4, sp, false)
-			await frames(2)
-			check(h.focus == target, "tap enemy on the LEFT 45% of screen sets focus", "sp=%s (left half starts joystick)" % sp)
-		else:
-			print("  info no enemy on screen to tap")
-	else:
-		print("  info no enemy to focus")
+	# freeze the world and tap a foe that no HUD panel, banner or button covers (taps on those are blocked by
+	# design, which used to make this check fail now and then); the left 45% starts the joystick unless the tap
+	# is on a foe, so try a foe on each side
+	Engine.time_scale = 0.0
+	await frames(1)
+	var vr := get_viewport().get_visible_rect().size
+	var tapped := 0
+	for right in [true, false]:
+		var target: Unit = null
+		var sp := Vector2.ZERO
+		for e in run.enemies:
+			if not e.alive or e.untargetable or run.camera.is_position_behind(e.pos):
+				continue
+			var p: Vector2 = run.camera.unproject_position(e.pos + Vector3(0, 0.5, 0))
+			if Rect2(Vector2.ZERO, vr).grow(-40).has_point(p) and (p.x > vr.x * 0.45) == right and not tc._blocked(p) \
+					and tc._skill_at(p) < 0 and tc._item_at(p) < 0:
+				target = e
+				sp = p
+				break
+		if target == null:
+			continue
+		tapped += 1
+		h.focus = null
+		h.move_input = Vector2.ZERO   # walking clears the focus
+		touch(4, sp, true)
+		touch(4, sp, false)
+		await frames(1)
+		var got: Unit = h.focus   # read it while the world is frozen
+		# in a crowd the tap can land on a neighbour standing in front of the target; that's a correct pick too
+		var picked: bool = got == target or (got != null and got.team == 1 and run._flat(got.pos - target.pos).length() < 2.0)
+		check(picked, "tap enemy sets focus (%s side)" % ("right" if right else "left"),
+			"sp=%s focus=%s" % [sp, got.kind if got else "none"])
+	Engine.time_scale = 1.0
+	await frames(2)
+	if tapped == 0:
+		print("  info no enemy on screen to tap")
 	# touch targets
 	var vs := get_viewport().get_visible_rect().size
 	for i in 4:
