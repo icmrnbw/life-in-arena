@@ -35,6 +35,13 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
 - The title screen shows the Riftdancer resting by a bonfire, with the menu on the right.
 - The (i) button next to pause opens a card with every skill's description, rank, mana and cooldown (the game pauses while it's open). Holding a skill button no longer shows its description, so it can't rank a skill up by accident.
 - A Heroes screen on the title menu shows every hero's model on a turntable (drag to spin, tap it or the buttons below to see it run, attack and cast), their skills, and their skins. Skins come in rarities (Common, Uncommon, Rare, Mythical, Legendary); each hero has a Classic look plus three example recolours. Uncommon and Mythical ones can be equipped now; Legendary ones can only be previewed until there's a store. The equipped skin is the one you play with.
+- Replayability:
+  - Your records are saved on the phone. Every hero and every tier is open from the start (the unlock-by-playing rules in `scripts/modes.gd` stay in the code, off, in case they're wanted later).
+  - A run in progress is saved every time you're back in camp. If the app closes, Continue on the title screen picks it up from that camp.
+  - Play opens a mode list: Classic (20 waves), Random Hero (the game picks your hero, +150 gold), Endless (past the Warden the waves and bosses keep coming, tougher each lap), Daily Run (the same hero, seed and twist for everyone that day, such as Glass Cannon or Swarm), Practice (any hero, any start wave, 99,999 gold, no lives lost, nothing recorded) and Training.
+  - Difficulty tiers: Normal (gentler foes, more gold), Hard (the tuning so far) and Extreme (one life, tougher foes, less gold, elites from wave 2).
+  - Every run gets a score. The Records screen shows totals, best waves per tier, Endless and the Daily Run, and every hero's record.
+- Training: the first time you press Play, the game offers a guided run with the Ashwarden. A coach card gives one step at a time and waits for you to do it: walk, learn and cast a skill, buy an item, fight a pack, level up, dig into a barrel stack, and dodge a captain's slam. You can't fall, and you can skip it at any time. It's also under Play.
 - After a crash, the title screen offers a Copy report button with the crash trail.
 - Weather: every wave rolls its weather, and you can already see it falling in camp, so the shop visit can answer it. From wave 3, a regular wave sometimes turns mid-fight.
   - Rain: everyone moves 10% slower, fire deals 40% less. Thunderstorm: rain plus telegraphed lightning that hurts foes and you alike.
@@ -46,7 +53,7 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
 - Music: three original medieval-style tunes, composed and synthesized in code by `tools/compose_music.py` (no samples or third-party recordings, so nothing to license). A tavern tune (lute, recorder, harp, drone; D Dorian) plays on the title screen and in camp, a battle tune (shawm, lute, tabor drum; E Dorian) during waves, and a boss tune (war drums, low voices, bell; D Phrygian) on boss waves. Tunes crossfade, duck while paused, and have their own Music toggle on the title and pause screens.
 
 ## Install (Android)
-Download `builds/emberpit-0.5.1-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.5.3-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.

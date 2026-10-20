@@ -142,6 +142,8 @@ func speed() -> float:
 		s *= 1.6
 	if kit:
 		s *= kit.speed_mult()
+	if run:
+		s *= run.hero_speed_mult
 	return s
 
 

@@ -95,7 +95,7 @@ func make_elite(affix: String) -> void:
 ## Turns this enemy into the wave's captain (see DB.CAPTAIN_NAMES).
 func make_captain() -> void:
 	captain = true
-	max_hp = DB.captain_hp(wave) * (0.75 if kind == "hexcaster" else (0.6 if support else 1.0))
+	max_hp = DB.captain_hp(wave) * (0.75 if kind == "hexcaster" else (0.6 if support else 1.0)) * run.hp_scale
 	hp = max_hp
 	atk_dmg *= DB.CAPTAIN_DMG_MULT
 	armor += 2.0

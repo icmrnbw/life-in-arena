@@ -64,6 +64,9 @@ func _ready() -> void:
 
 func _main() -> void:
 	Input.use_accumulated_input = false
+	# keep test runs out of the real saved profile
+	Profile.use_paths("user://test_profile.json", "user://test_saved_run.json")
+	Profile.reset()
 	main = load("res://scenes/main.tscn").instantiate()
 	get_tree().root.add_child(main)
 	await frames(3)
@@ -73,6 +76,7 @@ func _main() -> void:
 	await test_pause_back_focus()
 	await test_shop_flow()
 	await test_end_screens()
+	await test_modes_flow()
 	print("\n==== RESULT: %d passed, %d failed" % [passed, failed])
 	for f in fails:
 		print("FAILED: ", f)
@@ -107,7 +111,15 @@ func test_menu_flow() -> void:
 	if play:
 		play.pressed.emit()
 	await frames(2)
-	check(game().state["phase"] == "hero_select", "Play -> hero select")
+	check(main.overlay != null and find_button(main.overlay, "Start Training") != null, "first Play offers Training")
+	find_button(main.overlay, "Skip").pressed.emit()
+	await frames(2)
+	check(game().state["phase"] == "play" and main.overlay == null, "Skip -> mode list")
+	(main.screen.find_child("Mode_classic", true, false) as Button).pressed.emit()
+	await frames(2)
+	find_button(main.screen, "Choose Hero").pressed.emit()
+	await frames(2)
+	check(game().state["phase"] == "hero_select", "Classic -> Choose Hero -> hero select")
 	var begin := find_button(main.screen, "Begin Run")
 	check(begin != null, "Begin Run button")
 	var back := find_button(main.screen, "Back")
@@ -115,9 +127,8 @@ func test_menu_flow() -> void:
 	if back:
 		back.pressed.emit()
 		await frames(2)
-		check(game().state["phase"] == "menu", "Back -> title")
-		play = find_button(main.screen, "Play")
-		play.pressed.emit()
+		check(game().state["phase"] == "play", "Back -> mode list")
+		find_button(main.screen, "Choose Hero").pressed.emit()
 		await frames(2)
 		begin = find_button(main.screen, "Begin Run")
 	begin.pressed.emit()
@@ -448,7 +459,10 @@ func test_pause_back_focus() -> void:
 	await frames(2)
 	main.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
 	await frames(2)
-	check(game().state["phase"] == "menu", "back on hero select goes to title", "phase=%s" % game().state["phase"])
+	check(game().state["phase"] == "play", "back on hero select goes to the mode list", "phase=%s" % game().state["phase"])
+	main.notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+	await frames(2)
+	check(game().state["phase"] == "menu", "back on the mode list goes to title", "phase=%s" % game().state["phase"])
 	check(ProjectSettings.get_setting("application/config/quit_on_go_back") == false, "quit_on_go_back disabled")
 
 
@@ -522,3 +536,122 @@ func test_end_screens() -> void:
 			again.pressed.emit()
 			await frames(3)
 			check(game().state["phase"] == "hero_select", "%s: Play Again -> hero select" % res)
+
+
+# ------------------------------------------------------------------ modes, unlocks, training, continue
+func test_modes_flow() -> void:
+	section("modes: locks, training, random, daily, practice, continue, records")
+	Profile.reset()
+	check(Profile.is_unlocked("sanguine") and Profile.tier_unlocked("extreme"), "everything open from the start")
+	# lock heroes to test the lock UI that unlock rules would use
+	Profile.d()["unlocked"] = ["ashwarden", "riftdancer", "hivemother"]
+	main.show_hero_select()
+	await frames(2)
+	var hs = main.screen
+	# a locked hero can be looked at but not started
+	var tile: Control = null
+	for c in hs.find_children("*", "MarginContainer", true, false):
+		if c.has_meta("button") and (c.get_meta("button") as Button).tooltip_text == "Sanguine":
+			tile = c
+	check(tile != null, "Sanguine tile present")
+	if tile:
+		(tile.get_meta("button") as Button).pressed.emit()
+		await frames(2)
+		check(hs.find_child("LockLabel", true, false) != null, "locked hero shows how to unlock it")
+		check(find_button(hs, "Begin Run").disabled, "Begin Run disabled for a locked hero")
+		(tile.get_meta("button") as Button).pressed.emit()
+		await frames(2)
+		check(main.run == null, "tapping a locked hero again doesn't start a run")
+	# practice: every hero playable, start wave
+	main.show_play("practice")
+	await frames(2)
+	(main.screen.find_child("WavePlus", true, false) as Button).pressed.emit()
+	(main.screen.find_child("WavePlus", true, false) as Button).pressed.emit()
+	await frames(1)
+	find_button(main.screen, "Choose Hero").pressed.emit()
+	await frames(2)
+	hs = main.screen
+	for c in hs.find_children("*", "MarginContainer", true, false):
+		if c.has_meta("button") and (c.get_meta("button") as Button).tooltip_text == "Sanguine":
+			(c.get_meta("button") as Button).pressed.emit()
+	await frames(2)
+	check(not find_button(hs, "Begin Run").disabled, "Practice: locked heroes are playable")
+	find_button(hs, "Begin Run").pressed.emit()
+	await frames(3)
+	check(main.run != null and main.run.hero_id == "sanguine" and main.run.mode == "practice" and main.run.wave == 3 and main.run.gold == Modes.PRACTICE_GOLD,
+		"Practice run: chosen hero, wave 3, free gold")
+	# random hero and daily run start straight away
+	main.show_play("random")
+	await frames(2)
+	find_button(main.screen, "Start").pressed.emit()
+	await frames(3)
+	check(main.run != null and main.run.mode == "random" and main.run.gold == DB.START_GOLD + Modes.RANDOM_BONUS_GOLD, "Random Hero starts a run")
+	main.show_play("daily")
+	await frames(2)
+	find_button(main.screen, "Start").pressed.emit()
+	await frames(3)
+	var dd := Modes.daily(Modes.today())
+	check(main.run != null and main.run.mode == "daily" and main.run.hero_id == dd["hero"] and main.run.cfg["mod"] == dd["mod"], "Daily Run: today's hero and twist")
+	# a run saved in camp shows Continue on the title screen
+	var r: Run = main.run
+	r.skip_prep()
+	r._step(0.05)
+	game().god = true
+	for i in 1500:
+		for e in r.enemies.duplicate():
+			if e.alive:
+				r.damage(e, 1e8, r.hero, "Test", "magic")
+		r._step(1.0 / 30.0)
+		if r.phase == "prep" and r.wave == 2:
+			break
+	game().god = false
+	check(Profile.has_run(), "the run is saved in camp")
+	main.show_title()
+	await frames(2)
+	var cont := find_button(main.screen, "Continue")
+	check(cont != null and find_button(main.screen, "New Run") != null, "title shows Continue and New Run")
+	if cont:
+		cont.pressed.emit()
+		await frames(3)
+		check(main.run != null and main.run.wave == 2 and main.run.mode == "daily" and main.run.hero_id == dd["hero"], "Continue resumes the saved run")
+	# end screen shows mode, score and unlocks
+	main.run.end_info = {}
+	main.run._end_run("defeat")
+	await wait(1.6)
+	var sl: Label = main.screen.find_child("SummaryLabel", true, false) if main.screen else null
+	check(sl != null and sl.text.contains("Daily Run") and sl.text.contains("Score"), "end screen shows the mode and score", sl.text if sl else "")
+	check(Profile.d()["unlocked"].has("sanguine") or Profile.best_wave_any() < 3, "unlocks follow records")
+	# records
+	main.show_title()
+	await frames(2)
+	find_button(main.screen, "Records").pressed.emit()
+	await frames(2)
+	check(game().state["phase"] == "records", "Records screen opens")
+	find_button(main.screen, "Back").pressed.emit()
+	await frames(2)
+	# training from the first-run offer
+	Profile.reset()
+	main.show_title()
+	await frames(2)
+	find_button(main.screen, "Play").pressed.emit()
+	await frames(2)
+	find_button(main.overlay, "Start Training").pressed.emit()
+	await frames(4)
+	check(main.run != null and main.run.mode == "training" and main.run.tutorial != null, "Start Training starts the guided run")
+	var coach: Control = main.run.hud.root.find_child("Coach", true, false)
+	check(coach != null and coach.visible, "the coach card is on screen")
+	check(not main.run.hud.fight_btn.visible, "no Fight! button or countdown while training in camp")
+	find_button(main.run.hud.root, "Skip training").pressed.emit()
+	await wait(1.6)
+	check(Profile.d()["training_done"] and main.screen != null and find_button(main.screen, "Play") != null, "Skip training -> Training complete screen")
+	find_button(main.screen, "Play").pressed.emit()
+	await frames(2)
+	check(game().state["phase"] == "play", "Play after training -> mode list")
+	main.show_title()
+	await frames(2)
+	find_button(main.screen, "Play").pressed.emit()
+	await frames(2)
+	check(main.overlay == null and game().state["phase"] == "play", "Training is only offered once")
+	main.show_title()
+	await frames(2)
+	Profile.reset()

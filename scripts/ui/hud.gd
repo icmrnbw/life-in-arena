@@ -302,7 +302,7 @@ func _refresh_preview() -> void:
 	if _preview_wave == key:
 		return
 	_preview_wave = key
-	var info := DB.wave_info(run.wave)
+	var info := run.wave_info()
 	preview_name.text = "Next: " + String(info.get("name", ""))
 	var bits := []
 	var rule: String = info.get("rule", "")
@@ -314,7 +314,7 @@ func _refresh_preview() -> void:
 	var cap: String = info.get("captain", "")
 	if cap != "":
 		bits.append("Captain: " + String(DB.CAPTAIN_NAMES.get(cap, cap)))
-	elif DB.BOSS_WAVES.has(run.wave):
+	elif run.boss_kind() != "":
 		bits.append("Boss wave")
 	preview_rule.text = "  ·  ".join(bits)
 	preview_rule.visible = not bits.is_empty()
@@ -534,7 +534,7 @@ func _process(_delta: float) -> void:
 	if run.gold != _last_gold:
 		_last_gold = run.gold
 		gold_label.text = str(run.gold)
-	lives_label.text = str(maxi(0, run.lives))
+	lives_label.text = "∞" if run.mode in ["practice", "training"] else str(maxi(0, run.lives))
 	var ph := run.phase
 	if run.weather.id != _weather_shown:
 		_weather_shown = run.weather.id
@@ -543,19 +543,22 @@ func _process(_delta: float) -> void:
 		weather_label.add_theme_color_override("font_color", (wi["color"] as Color).lerp(Color.WHITE, 0.2))
 	weather_label.visible = run.weather.id != "clear"
 	if ph == "prep":
-		wave_label.text = "Wave %d / %d" % [run.wave, DB.TOTAL_WAVES]
+		wave_label.text = _wave_text()
 		prep_box.visible = true
 		prep_label.text = "Next wave\n%d s" % int(ceil(run.prep_t))
-		if DB.BOSS_WAVES.has(run.wave):
+		if run.boss_kind() != "":
 			prep_label.text = "BOSS wave\n%d s" % int(ceil(run.prep_t))
 		shop_btn.visible = true
 		_refresh_preview()
-		preview_box.visible = shop == null
+		preview_box.visible = shop == null and run.tutorial == null
+		# Training: the coach decides when to fight, so no countdown or Fight! button
+		prep_label.visible = run.tutorial == null
+		fight_btn.visible = run.tutorial == null
 	else:
 		prep_box.visible = false
 		preview_box.visible = false
 		if ph == "wave" or ph == "clear":
-			wave_label.text = "Wave %d / %d  ·  %d left" % [run.wave, DB.TOTAL_WAVES, run.enemies.size() + run.spawn_queue.size()]
+			wave_label.text = "%s  ·  %d left" % [_wave_text(), run.enemies.size() + run.spawn_queue.size()]
 	var bh := run.boss_hp()
 	boss_box.visible = run.boss_units.size() > 0 and bh.y > 0.0
 	if boss_box.visible:
@@ -586,6 +589,15 @@ func _process(_delta: float) -> void:
 	if ph != "prep" and shop != null:
 		close_shop()
 	controls.enabled = shop == null
+
+
+## "Wave 7 / 20", or "Wave 23 · Endless" past the Warden, or "Training".
+func _wave_text() -> String:
+	if run.mode == "training":
+		return "Training"
+	if run.mode == "endless":
+		return "Wave %d · Endless" % run.wave
+	return "Wave %d / %d" % [run.wave, DB.TOTAL_WAVES]
 
 
 func toggle_shop() -> void:

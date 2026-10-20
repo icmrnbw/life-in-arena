@@ -5,6 +5,7 @@ extends Node3D
 signal run_ended(result: String)
 signal toast_requested(text: String, color: Color)
 signal banner_requested(text: String, sub: String)
+signal skill_cast(slot: int)
 
 const MAX_ENEMIES := 80
 const SUBSTEP := 1.0 / 30.0
@@ -35,6 +36,21 @@ var barrels: BarrelField
 var weather: Weather
 var immune_shown_t := -10.0
 var hints_shown := {}
+## Mode and tier settings (Modes.config); the hot multipliers are copied into plain vars below.
+var cfg := {}
+var mode := "classic"
+var tier := "hard"
+var hp_scale := 1.0
+var dmg_scale := 1.0
+var gold_scale := 1.0
+var xp_scale := 1.0
+var hero_dmg_mult := 1.0
+var hero_taken_mult := 1.0
+var enemy_speed_mult := 1.0
+var hero_speed_mult := 1.0
+var waves_cleared := 0
+var end_info := {}         # Profile.on_run_ended(): score, new best, unlocks (for the end screen)
+var tutorial: Node = null  # Training: the coach that drives this run
 
 var phase := "prep"
 var wave := 1
@@ -77,14 +93,31 @@ var _cluster_cache := {}
 var rng := RandomNumberGenerator.new()
 
 
-func setup(id: String, start_wave := 1) -> void:
+func setup(id: String, start_wave := 1, run_cfg := {}) -> void:
 	hero_id = id if DB.HEROES.has(id) else "ashwarden"
 	wave = clampi(start_wave, 1, DB.TOTAL_WAVES)
 	name = "Run"
+	cfg = run_cfg if not run_cfg.is_empty() else Modes.config("classic", "hard")
+	mode = cfg.get("mode", "classic")
+	tier = cfg.get("tier", "hard")
+	hp_scale = float(cfg.get("hp", 1.0))
+	dmg_scale = float(cfg.get("dmg", 1.0))
+	gold_scale = float(cfg.get("gold", 1.0))
+	xp_scale = float(cfg.get("xp", 1.0))
+	hero_dmg_mult = float(cfg.get("hero_dmg", 1.0))
+	hero_taken_mult = float(cfg.get("hero_taken", 1.0))
+	enemy_speed_mult = float(cfg.get("enemy_speed", 1.0))
+	hero_speed_mult = float(cfg.get("hero_speed", 1.0))
+	lives = int(cfg.get("lives", DB.START_LIVES))
+	gold = DB.START_GOLD + int(cfg.get("bonus_gold", 0))
 
 
 func _ready() -> void:
 	rng.randomize()
+	if int(cfg.get("seed", 0)) != 0:
+		# Daily Run: the same seed for everyone on that day
+		rng.seed = int(cfg["seed"])
+		seed(int(cfg["seed"]))
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	var env_parent := Node.new()
 	env_parent.name = "Env"
@@ -133,6 +166,10 @@ func _ready() -> void:
 
 	if wave > 1:
 		_apply_start_wave(wave)
+	if mode == "practice":
+		gold = Modes.PRACTICE_GOLD
+	if cfg.has("resume"):
+		_restore(cfg["resume"])
 	weather.roll_for(wave)
 
 	var hud_script = load("res://scripts/ui/hud.gd")
@@ -150,15 +187,89 @@ func _ready() -> void:
 	prep_t = DB.FIRST_PREP_TIME if wave == 1 else DB.PREP_TIME
 	hero.in_camp = true
 	Game.on_run_started(self)
-	banner_requested.emit("Prepare", "Wave %d begins soon. Visit the shop and fountain." % wave)
+	Profile.on_run_started(self)
+	if mode == "training":
+		tutorial = load("res://scripts/tutorial.gd").new()
+		add_child(tutorial)
+		tutorial.setup(self)
+	elif cfg.has("resume"):
+		banner_requested.emit("Welcome back", "Wave %d begins soon. Your run was saved in camp." % wave)
+	else:
+		banner_requested.emit("Prepare", "Wave %d begins soon. Visit the shop and fountain." % wave)
 	_sync_state()
+
+
+## Boss kind on wave w ("" = regular wave), including Endless boss waves past 20.
+func boss_kind(w := -1) -> String:
+	return Modes.boss_kind(wave if w < 0 else w)
+
+
+func wave_info(w := -1) -> Dictionary:
+	return Modes.wave_info(wave if w < 0 else w)
+
+
+func score() -> int:
+	return Modes.score(waves_cleared, int(stats["kills"]), int(stats["bosses"]), int(stats["deaths"]), tier)
+
+
+## Everything needed to carry on from camp after the app is closed (saved at the start of every prep phase).
+func snapshot() -> Dictionary:
+	var c := cfg.duplicate(true)
+	c.erase("resume")
+	var its := []
+	for it in hero.items:
+		var e: Dictionary = it.duplicate()
+		e["cd"] = 0.0
+		its.append(e)
+	return {"version": Profile.VERSION, "hero": hero_id, "wave": wave, "gold": gold, "lives": lives, "level": hero.level,
+		"xp": hero.xp, "skill_points": hero.skill_points, "ranks": hero.ranks.duplicate(), "bonus": hero.bonus.duplicate(),
+		"items": its, "stats": stats.duplicate(true), "max_wave": max_wave_reached, "waves_cleared": waves_cleared,
+		"run_time": run_time, "feathers": feathers, "cfg": c, "saved_at": int(Time.get_unix_time_from_system()),
+		"kills_saved": int(get_meta("kills_saved", 0))}
+
+
+func _restore(s: Dictionary) -> void:
+	wave = clampi(int(s.get("wave", 1)), 1, 999)
+	gold = int(s.get("gold", gold))
+	lives = int(s.get("lives", lives))
+	hero.level = clampi(int(s.get("level", 1)), 1, 20)
+	hero.xp = float(s.get("xp", 0.0))
+	hero.skill_points = int(s.get("skill_points", 0))
+	var b: Dictionary = s.get("bonus", {})
+	for k in hero.bonus:
+		hero.bonus[k] = float(b.get(k, 0.0))
+	hero.items.clear()
+	for it in s.get("items", []):
+		if it is Dictionary and DB.ITEMS.has(String(it.get("id", ""))):
+			var e: Dictionary = it.duplicate()
+			e["charges"] = int(e.get("charges", 1))
+			e["cd"] = 0.0
+			hero.items.append(e)
+	hero.recalc(true)
+	var rk: Array = s.get("ranks", [0, 0, 0, 0])
+	for slot in 4:
+		var want := clampi(int(rk[slot]) if slot < rk.size() else 0, 0, hero.max_rank(slot))
+		while hero.ranks[slot] < want:
+			hero.ranks[slot] += 1
+			if hero.kit:
+				hero.kit.on_rank_up(slot)
+	var st: Dictionary = s.get("stats", {})
+	for k in stats:
+		if st.has(k):
+			stats[k] = st[k] if k == "damage_by" else (float(st[k]) if k == "damage_taken" else int(st[k]))
+	max_wave_reached = int(s.get("max_wave", 0))
+	waves_cleared = int(s.get("waves_cleared", 0))
+	run_time = float(s.get("run_time", 0.0))
+	feathers = int(s.get("feathers", 0))
+	set_meta("kills_saved", int(s.get("kills_saved", 0)))
+	set_meta("deaths_saved", int(stats["deaths"]))
 
 
 func _apply_start_wave(w: int) -> void:
 	var lvl := clampi(int(round(1.0 + (w - 1) * 0.95)), 1, 20)
 	while hero.level < lvl:
 		hero.add_xp(DB.xp_to_next(hero.level))
-	gold = DB.START_GOLD + 430 * (w - 1)
+	gold = DB.START_GOLD + int(cfg.get("bonus_gold", 0)) + 430 * (w - 1)
 	hero.recalc(true)
 
 
@@ -371,6 +482,7 @@ func spawn_enemy(kind: String, p: Vector3, w := -1) -> Enemy:
 	else:
 		e = Enemy.new()
 	e.init_enemy(kind, wave if w < 0 else w, self)
+	_scale_enemy(e)
 	e.pos = Vector3(p.x, 0, p.z)
 	e.setup_visual(make_visual(kind))
 	e.post_visual()
@@ -391,9 +503,23 @@ func spawn_enemy(kind: String, p: Vector3, w := -1) -> Enemy:
 	return e
 
 
+## Tier / Daily Run multipliers on a freshly made enemy (Endless bosses also grow each lap).
+func _scale_enemy(e: Enemy) -> void:
+	var hm := hp_scale * (Modes.boss_hp_mult(e.wave) if e.is_boss else 1.0)
+	e.max_hp *= hm
+	e.hp = e.max_hp
+	e.atk_dmg *= dmg_scale
+	e.gold_val *= gold_scale
+	e.xp_val *= xp_scale
+	e.base_speed *= enemy_speed_mult
+
+
 ## Rolls whether a freshly spawned wave enemy becomes an elite.
 func _roll_elite(e: Enemy) -> void:
-	var chance := DB.elite_chance(wave) * (0.5 if boss_title != "" else 1.0)
+	var from := int(cfg.get("elite_from", 4))
+	if wave < from:
+		return
+	var chance := DB.elite_chance(maxi(wave, 4)) * float(cfg.get("elite", 1.0)) * (0.5 if boss_title != "" else 1.0)
 	match wave_rule:
 		"explosive", "warded":
 			chance = maxf(0.18, chance * 1.6)
@@ -401,7 +527,7 @@ func _roll_elite(e: Enemy) -> void:
 			chance = 0.5
 	if e.is_boss or e.support or e.captain or rng.randf() >= chance:
 		return
-	var affixes := DB.elite_affixes(wave)
+	var affixes := DB.elite_affixes(maxi(wave, 4))
 	if wave_rule == "explosive":
 		affixes = ["volatile"]
 	elif wave_rule == "warded":
@@ -499,6 +625,8 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 	if t.invuln_t > 0.0:
 		return 0.0
 	var a := amount
+	if src != null and src.team == 0:
+		a *= hero_dmg_mult
 	if src != null and src.team == 1:
 		a *= weather.foe_dmg_mult()
 		if pit_enraged:
@@ -525,12 +653,15 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 	if t == hero:
 		if Game.god:
 			a = 0.0
+		a *= hero_taken_mult
 		if hero.shield > 0.0:
 			var absorbed := minf(hero.shield, a)
 			hero.shield -= absorbed
 			a -= absorbed
 		if hero.kit:
 			a = hero.kit.incoming_damage(a, src)
+		if cfg.get("no_death", false) and a >= hero.hp:
+			a = maxf(0.0, hero.hp - 1.0)   # Training: the hero can't fall
 		if a >= hero.hp and hero.has_aegis and hero.aegis_ready:
 			hero.aegis_ready = false
 			hero.hp = 1.0
@@ -653,7 +784,7 @@ func kill(t: Unit, src: Unit) -> void:
 		e.on_death()
 		if e == captain:
 			captain = null
-			var cg := DB.captain_gold(wave)
+			var cg := int(round(DB.captain_gold(wave) * gold_scale))
 			add_gold(cg)
 			fx("gold", {"pos": e.pos + Vector3(0, 2.0, 0), "amount": cg})
 			toast("%s slain! +%d gold" % [e.display_name, cg], Art.palette.get("gold", Color.GOLD))
@@ -706,7 +837,8 @@ func _hero_died() -> void:
 	hero.dead = true
 	hero.set_state("death", true)
 	stats["deaths"] += 1
-	lives -= 1
+	if mode != "practice":
+		lives -= 1
 	wave_died = true
 	shake(0.8)
 	Audio.play("death")
@@ -1123,7 +1255,7 @@ func forced_motion(u: Unit, dt: float) -> bool:
 
 # ---------------------------------------------------------------- main loop
 func _process(delta: float) -> void:
-	if result != "" and phase in ["victory", "defeat"]:
+	if result != "" and phase in ["victory", "defeat", "training"]:
 		_update_camera(delta)
 		return
 	Game.mark(1)
@@ -1179,9 +1311,13 @@ func _step(dt: float) -> void:
 	Game.mark(3)
 	match phase:
 		"prep":
-			_tick_prep(dt)
+			if tutorial == null:
+				_tick_prep(dt)
 		"wave":
-			_tick_wave(dt)
+			if tutorial == null:
+				_tick_wave(dt)
+			else:
+				wave_time += dt
 		"clear":
 			phase_t -= dt
 			if phase_t <= 0.0:
@@ -1193,6 +1329,8 @@ func _step(dt: float) -> void:
 					_end_run("defeat")
 					return
 				_after_death()
+	if tutorial:
+		tutorial.tick(dt)
 	Game.mark(4)
 	_tick_hero(dt)
 	Game.mark(5)
@@ -1487,7 +1625,10 @@ func try_cast(slot: int, aim := {}) -> bool:
 	var kit := h.kit
 	if kit.free_cast(slot):
 		var a0 := aim if not aim.is_empty() else kit.smart_aim(slot)
-		return kit.cast(slot, a0)
+		var ok := kit.cast(slot, a0)
+		if ok:
+			skill_cast.emit(slot)
+		return ok
 	if not kit.is_ready(slot):
 		return false
 	var cost := h.skill_mana(slot)
@@ -1513,6 +1654,7 @@ func try_cast(slot: int, aim := {}) -> bool:
 	kit.after_cast(slot)
 	h.set_state("cast")
 	Audio.play("cast")
+	skill_cast.emit(slot)
 	return true
 
 
@@ -1759,9 +1901,17 @@ func start_wave() -> void:
 	captain = null
 	echoes.clear()
 	gauntlet_i = 0
-	var info := DB.wave_info(wave)
+	var info := wave_info()
 	wave_rule = info.get("rule", "")
-	var bursts := DB.wave_bursts(wave)
+	var bursts := Modes.wave_bursts(wave)
+	var extra := float(cfg.get("extra", 0.0))
+	if extra > 0.0:
+		# Daily Run "Swarm": more of the same mix
+		for b in bursts:
+			var us: Array = b["units"]
+			var add := int(round(us.size() * extra))
+			for i in add:
+				us.append(us[i % us.size()])
 	var t := 1.0
 	for i in bursts.size():
 		var b: Dictionary = bursts[i]
@@ -1775,16 +1925,17 @@ func start_wave() -> void:
 		if i == mini(1, bursts.size() - 1) and info.get("captain", "") != "":
 			spawn_queue.append({"t": t + 0.5, "kind": info["captain"], "gate": gate, "captain": true})
 	boss_title = ""
-	if DB.BOSS_WAVES.has(wave):
-		boss_title = DB.BOSS_TITLES[wave]
-		var bk: String = DB.BOSS_WAVES[wave]
+	var bk := boss_kind()
+	if bk != "":
+		boss_title = Modes.boss_title(wave)
 		if bk == "matron":
 			spawn_queue.append({"t": 2.0, "kind": bk, "gate": Vector3(-6, 0, -14)})
 			spawn_queue.append({"t": 2.0, "kind": bk, "gate": Vector3(6, 0, -14), "tint": true})
 		else:
 			spawn_queue.append({"t": 2.0, "kind": bk, "gate": Vector3(0, 0, -13)})
 		banner_requested.emit("Wave %d" % wave, "Boss: " + boss_title)
-		schedule(2.6, toast.bind(DB.BOSS_HINTS.get(wave, ""), Art.palette.get("gold", Color.GOLD)))
+		var hw: int = {"pit_brute": 5, "matron": 10, "hollow_choir": 15, "warden": 20}.get(bk, wave)
+		schedule(2.6, toast.bind(DB.BOSS_HINTS.get(hw, ""), Art.palette.get("gold", Color.GOLD)))
 		Audio.play("boss")
 	else:
 		var sub := String(info.get("name", "Survive!"))
@@ -1885,6 +2036,8 @@ func _wave_cleared() -> void:
 	if boss_title != "":
 		bonus += DB.boss_gold(wave)
 		stats["bosses"] += 1
+	bonus = int(round(bonus * gold_scale))
+	waves_cleared += 1
 	_log_wave("clear")
 	Game.crumb("wave cleared")
 	var flawless := 0
@@ -1895,10 +2048,16 @@ func _wave_cleared() -> void:
 	if flawless > 0:
 		sub += "  (flawless +%d)" % flawless
 	fx("gold", {"pos": hero.pos + Vector3(0, 2, 0), "amount": bonus + flawless})
-	if wave >= DB.TOTAL_WAVES:
+	for u in Profile.on_wave_cleared(self, boss_title != ""):
+		schedule(1.2, toast.bind("Unlocked: %s!" % u, Art.palette.get("gold", Color.GOLD)))
+	if wave >= DB.TOTAL_WAVES and not cfg.get("endless", false):
 		banner_requested.emit("Victory!", "The Pit is silent")
 		phase = "victory_wait"
 		schedule(2.5, _end_run.bind("victory"))
+		return
+	if wave == DB.TOTAL_WAVES:
+		banner_requested.emit("The Warden falls!", "Endless: the Pit keeps coming")
+		Audio.play("victory")
 		return
 	banner_requested.emit("Wave %d cleared" % wave, sub)
 	Audio.play("clear")
@@ -1916,6 +2075,14 @@ func _return_to_camp() -> void:
 	prep_t = DB.PREP_TIME
 	weather.roll_for(wave)
 	Game.on_prep()
+	_save_progress()
+
+
+## Saves the run in camp so it can be continued after the app is closed (not Practice or Training).
+func _save_progress() -> void:
+	if mode in ["practice", "training"] or result != "":
+		return
+	Profile.save_run(snapshot())
 
 
 func _after_death() -> void:
@@ -1938,8 +2105,9 @@ func _after_death() -> void:
 	phase = "prep"
 	prep_t = DB.PREP_TIME
 	weather.roll_for(wave)
-	banner_requested.emit("Respawned", ("Boss wave %d: try again" % wave) if DB.BOSS_WAVES.has(wave) else ("Wave %d: try again" % wave))
+	banner_requested.emit("Respawned", ("Boss wave %d: try again" % wave) if boss_kind() != "" else ("Wave %d: try again" % wave))
 	Game.on_prep()
+	_save_progress()
 
 
 func _clear_arena(fx_burst: bool) -> void:
@@ -2003,6 +2171,7 @@ func _end_run(res: String) -> void:
 	if res == "victory":
 		max_wave_reached = DB.TOTAL_WAVES
 		hero.set_state("idle", true)
+	end_info = Profile.on_run_ended(self)
 	Audio.play("victory" if res == "victory" else "defeat")
 	_sync_state()
 	run_ended.emit(res)

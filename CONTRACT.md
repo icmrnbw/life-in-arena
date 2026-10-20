@@ -110,7 +110,9 @@ Command-line user args after `--`:
 - `--quit-after=<seconds>` quit after N real seconds
 - `--report=<path>` on quit/run end write JSON: {hero, result, wave_reached, level, gold_earned, kills, deaths, lives_left, duration_s, avg_fps, min_fps, errors}
 - `--screenshot-dir=<dir>` + `--screenshot-every=<seconds>` save viewport PNGs periodically
-- `--scene=menu|hero_select|shop|hud` open a specific screen for screenshot review
+- `--scene=menu|hero_select|shop|hud|play|records|offer|training` open a specific screen for screenshot review (`play` takes `--mode=<id>` to preselect a mode)
+- `--mode=classic|random|endless|daily|practice|training` and `--tier=normal|hard|extreme` set the run's mode and tier (`--date=YYYY-MM-DD` picks a Daily Run's day). See `scripts/modes.gd`.
+- `--profile`: let a `--hero` run update the saved profile (records, unlocks, saved run); off by default so bot runs don't touch it. Tests point `Profile.use_paths()` at test files.
 A global `Game` (autoload or the main node) exposes `state` Dictionary (phase, wave, lives, gold, level, enemies_alive).
 
 ## IP rules (QA enforces)

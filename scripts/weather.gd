@@ -45,7 +45,7 @@ func roll_for(w: int) -> void:
 	_apply(pick)
 	shift_at = -1.0
 	shift_to = ""
-	if override == "" and w >= 3 and not DB.BOSS_WAVES.has(w) and run.rng.randf() < DB.WEATHER_SHIFT_CHANCE:
+	if override == "" and w >= 3 and run.boss_kind(w) == "" and run.rng.randf() < DB.WEATHER_SHIFT_CHANCE:
 		shift_at = run.rng.randf_range(18.0, 32.0)
 		shift_to = _pick(DB.weather_pool(w), id)
 
