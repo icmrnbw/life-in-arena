@@ -338,18 +338,19 @@ const AURAS := {
 }
 const DRUM_DMG := 2.0
 
-## Barrels, laid out like Life in Arena: nooks of barrels built against the arena wall. A nook is a sealed pocket
-## (a row of barrels in front, a short barrel wall at each end, the arena wall behind). Smash one barrel to dig in:
-## with your back to the wall the pack can only reach you through the hole, one at a time.
-## "a" is the nook's angle around the arena (degrees, atan2(z, x)); the gaps are left for the gates and the south entry.
-## A powder keg sits in front of every nook: pop it when the pack bunches up at your hole.
-const PENS := [{"a": 21.25}, {"a": 61.25}, {"a": 118.75}, {"a": 158.75}, {"a": -158.75}, {"a": -118.75}]
-const PEN_R_IN := 18.2          # radius of the front row
-const PEN_R_OUT := 21.2         # outermost barrel of the end walls (touches the arena wall)
-const PEN_ARC := 2              # front row spacings (3 barrels): just wide enough for the hero
-const PEN_SPACING := 1.2        # front row barrel spacing: one smashed barrel leaves a ~1.4 m hole
-const KEGS := [Vector3(-4.5, 0, -17.0), Vector3(10.5, 0, -13.0), Vector3(12.86, 0, 5.0), Vector3(6.63, 0, 12.1),
-	Vector3(-6.63, 0, 12.1), Vector3(-12.86, 0, 5.0), Vector3(-12.86, 0, -5.0), Vector3(-6.63, 0, -12.1)]
+## Barrels, laid out like Life in Arena: big solid barrel stacks filling three corners of the arena. Smash your way
+## in to dig a corridor (tap a barrel, or push into it) and fight from the end of it: foes can only follow you single
+## file. Barrels sit on a square grid (BARREL_GRID apart), so a corridor one barrel wide (1.3 m of room) lets every hero and regular foes through
+## but not wide ones (Shieldbearers, Bloaters), which have to smash it wider. Powder kegs are packed into the stacks.
+## A stack is every grid cell past the corner lines (sx * x >= t and sz * z >= t) inside the arena wall.
+const STACKS := [
+	{"sx": 1, "sz": 1, "t": 7.5, "kegs": [Vector3(9.6, 0, 17.5), Vector3(14.0, 0, 9.6)]},
+	{"sx": -1, "sz": 1, "t": 7.5, "kegs": [Vector3(-9.6, 0, 17.5), Vector3(-14.0, 0, 9.6)]},
+	{"sx": -1, "sz": -1, "t": 10.0, "kegs": [Vector3(-10.6, 0, -18.0), Vector3(-15.0, 0, -10.6)]},
+]
+const BARREL_GRID := 1.15          # barrel spacing
+const STACK_R := 21.6              # cells out to here are filled (the outer ones tuck against the wall)
+const KEGS := [Vector3(-4.5, 0, -17.0), Vector3(10.5, 0, -13.0)]   # loose kegs out in the open
 const BARREL_R := 0.5
 const BARREL_HP := 8.0          # hero swings deal BARREL_HERO_HIT, enemy swings 1 (big ones 2)
 const BARREL_HERO_HIT := 5.0
@@ -498,7 +499,7 @@ const EARLY_HP := 0.3
 const EARLY_DMG := 0.4
 
 
-## Enemy damage is a notch higher since barrel nooks let you fight the pack one at a time.
+## Enemy damage is a notch higher since barrel stacks let you fight the pack one at a time.
 const DMG_BASE := 1.1
 const BOSS_DMG_BASE := 1.1
 
