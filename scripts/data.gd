@@ -325,7 +325,7 @@ const ITEMS := {
 ## Weather: rolled for every wave (it is already falling in camp, so the shop visit can answer it) and sometimes
 ## turning mid-wave. speed: everyone's move speed; fire: damage of FIRE_TAGS and burns; range: shot range (hero and foes);
 ## wind: shots with the wind deal up to +wind share, shots into it as much less, and everyone drifts downwind;
-## foe_dmg / foe_speed / gold: Blood Moon. lightning / embers: telegraphed strikes / burning patches during waves.
+## foe_dmg / foe_speed: Blood Moon. lightning / embers: telegraphed strikes / burning patches during waves.
 const WEATHER := {
 	"clear": {"name": "Clear Skies", "color": Color(1.0, 0.88, 0.6), "desc": "Calm air. Nothing changes."},
 	"rain": {"name": "Rain", "color": Color(0.55, 0.75, 1.0), "speed": 0.9, "fire": 0.6,
@@ -338,8 +338,8 @@ const WEATHER := {
 		"desc": "Wind pushes everyone. Shots with the wind hit 30% harder, shots into it 30% softer."},
 	"emberfall": {"name": "Emberfall", "color": Color(1.0, 0.55, 0.25), "fire": 1.5, "embers": true,
 		"desc": "Fire and burns deal 50% more. Falling embers set patches of sand alight."},
-	"bloodmoon": {"name": "Blood Moon", "color": Color(1.0, 0.35, 0.35), "foe_dmg": 1.15, "foe_speed": 1.1, "gold": 1.3,
-		"desc": "Foes hit 15% harder and move 10% faster, but drop 30% more gold."},
+	"bloodmoon": {"name": "Blood Moon", "color": Color(1.0, 0.35, 0.35), "foe_dmg": 1.15, "foe_speed": 1.1,
+		"desc": "Foes hit 15% harder and move 10% faster."},
 }
 const FIRE_TAGS := ["Emberbrand Burn", "Ember Totem", "Ash Wall", "Mortar", "Ember Patch"]
 const WIND_DRIFT := 1.1           # m/s everyone drifts downwind in a Gale

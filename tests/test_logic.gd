@@ -1483,9 +1483,13 @@ func test_weather() -> void:
 	r.weather.pin("bloodmoon")
 	var g0 := r.gold
 	var gn := r.spawn_enemy("gnawer", Vector3(-3, 0, 0), 6)
-	var gv := int(round(gn.gold_val * 1.3))
+	var gv := int(round(gn.gold_val))
 	r.kill(gn, h)
-	check(r.gold - g0 == gv, "Blood Moon: +30% gold from kills", "%d vs %d" % [r.gold - g0, gv])
+	check(r.gold - g0 == gv, "Blood Moon: no extra gold from kills", "%d vs %d" % [r.gold - g0, gv])
+	_g().god = false
+	h.hp = h.max_hp
+	var foe_hit := r.damage(h, 100.0, gn, "Test", "pure")
+	check(near(foe_hit, 115.0, 0.5), "Blood Moon: foes hit 15% harder", str(foe_hit))
 	free_run(r)
 	await get_tree().process_frame
 	# storm: a telegraphed strike that hurts foes and the hero

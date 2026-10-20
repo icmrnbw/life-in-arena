@@ -794,7 +794,7 @@ func kill(t: Unit, src: Unit) -> void:
 			hero.kit.on_enemy_killed(e)
 		if not e.no_reward:
 			stats["kills"] += 1
-			var g := int(round(e.gold_val * weather.gold_mult()))
+			var g := int(round(e.gold_val))
 			if g > 0:
 				add_gold(g)
 				if rng.randf() < 0.5 or e.is_boss:

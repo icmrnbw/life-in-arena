@@ -115,10 +115,6 @@ func foe_dmg_mult() -> float:
 	return float(info().get("foe_dmg", 1.0))
 
 
-func gold_mult() -> float:
-	return float(info().get("gold", 1.0))
-
-
 ## Shots with the wind hit harder, shots into it softer.
 func shot_mult(dir: Vector3) -> float:
 	if wind == Vector3.ZERO:
