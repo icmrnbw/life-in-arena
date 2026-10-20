@@ -29,7 +29,10 @@ var preview_box: Control
 var preview_name: Label
 var preview_rule: Label
 var preview_desc: Label
-var _preview_wave := -1
+var preview_weather: Label
+var weather_label: Label
+var _weather_shown := ""
+var _preview_wave := ""
 var boss_bar: ProgressBar
 var boss_label: Label
 var gold_label: Label
@@ -218,6 +221,11 @@ func _build_top_center() -> void:
 	wave_label.add_theme_constant_override("outline_size", 8)
 	wave_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	top_center.add_child(wave_label)
+	weather_label = UIK.label("", "", 20, Color(1, 1, 1))
+	weather_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	weather_label.add_theme_constant_override("outline_size", 6)
+	weather_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	top_center.add_child(weather_label)
 	_build_preview()
 	# prep row (Shop / countdown / Fight!) lives in the right column, under gold & lives
 	prep_box = HBoxContainer.new()
@@ -281,13 +289,19 @@ func _build_preview() -> void:
 	preview_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	preview_desc.custom_minimum_size = Vector2(372, 0)
 	v.add_child(preview_desc)
+	preview_weather = UIK.label("", "", 18, Color(1, 1, 1))
+	preview_weather.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview_weather.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preview_weather.custom_minimum_size = Vector2(372, 0)
+	v.add_child(preview_weather)
 	preview_box.visible = false
 
 
 func _refresh_preview() -> void:
-	if _preview_wave == run.wave:
+	var key := "%d|%s" % [run.wave, run.weather.id]
+	if _preview_wave == key:
 		return
-	_preview_wave = run.wave
+	_preview_wave = key
 	var info := DB.wave_info(run.wave)
 	preview_name.text = "Next: " + String(info.get("name", ""))
 	var bits := []
@@ -305,6 +319,10 @@ func _refresh_preview() -> void:
 	preview_rule.text = "  ·  ".join(bits)
 	preview_rule.visible = not bits.is_empty()
 	preview_desc.text = String(info.get("desc", ""))
+	var wi: Dictionary = run.weather.info()
+	preview_weather.text = "Weather: %s. %s" % [wi["name"], wi["desc"]] if run.weather.id != "clear" else ""
+	preview_weather.add_theme_color_override("font_color", (wi["color"] as Color).lerp(Color.WHITE, 0.25))
+	preview_weather.visible = run.weather.id != "clear"
 
 
 func _build_top_right() -> void:
@@ -518,6 +536,12 @@ func _process(_delta: float) -> void:
 		gold_label.text = str(run.gold)
 	lives_label.text = str(maxi(0, run.lives))
 	var ph := run.phase
+	if run.weather.id != _weather_shown:
+		_weather_shown = run.weather.id
+		var wi: Dictionary = run.weather.info()
+		weather_label.text = String(wi["name"])
+		weather_label.add_theme_color_override("font_color", (wi["color"] as Color).lerp(Color.WHITE, 0.2))
+	weather_label.visible = run.weather.id != "clear"
 	if ph == "prep":
 		wave_label.text = "Wave %d / %d" % [run.wave, DB.TOTAL_WAVES]
 		prep_box.visible = true

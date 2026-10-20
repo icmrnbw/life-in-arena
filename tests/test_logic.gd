@@ -33,6 +33,7 @@ func make_run(hero := "ashwarden", wave := 1) -> Run:
 	var r := Run.new()
 	r.setup(hero, wave)
 	get_tree().root.add_child(r)
+	r.weather.pin("clear")   # weather has its own tests; keep the rest deterministic
 	return r
 
 
@@ -62,6 +63,8 @@ func _main() -> void:
 	await test_barrels_buffers()
 	await test_wave_identities()
 	await test_shield_flank()
+	await test_melee_ranged_items()
+	await test_weather()
 	print("\n==== RESULT: %d passed, %d failed" % [passed, failed])
 	for f in fails:
 		print("FAILED: ", f)
@@ -77,13 +80,13 @@ func test_data() -> void:
 	check(DB.TOTAL_WAVES == 20, "20 waves")
 	check(DB.BOSS_WAVES.keys().size() == 4 and DB.BOSS_WAVES.has(5) and DB.BOSS_WAVES.has(10) and DB.BOSS_WAVES.has(15) and DB.BOSS_WAVES.has(20), "bosses at 5/10/15/20")
 	check(DB.START_LIVES == 3 and DB.START_GOLD == 400, "3 lives, 400 start gold")
-	check(DB.ITEM_ORDER.size() == 18, "18 items", str(DB.ITEM_ORDER.size()))
+	check(DB.ITEM_ORDER.size() == 28, "28 items", str(DB.ITEM_ORDER.size()))
 	var kinds := {"basic": 0, "advanced": 0, "consumable": 0}
 	for id in DB.ITEMS:
 		kinds[DB.ITEMS[id]["kind"]] += 1
 		for f in DB.ITEMS[id].get("from", []):
 			check(DB.ITEMS.has(f), "recipe part exists: %s <- %s" % [id, f])
-	check(kinds["basic"] == 8 and kinds["advanced"] == 6 and kinds["consumable"] == 4, "8 basic / 6 advanced / 4 consumable", str(kinds))
+	check(kinds["basic"] == 12 and kinds["advanced"] == 12 and kinds["consumable"] == 4, "12 basic / 12 advanced / 4 consumable", str(kinds))
 	# plan costs
 	var plan_costs := {"iron_knuckles": 250, "swift_gloves": 250, "hide_vest": 250, "vigor_charm": 300, "focus_pendant": 300,
 		"runners_boots": 300, "stout_belt": 400, "sage_circlet": 400, "emberbrand": 400, "bulwark_plate": 450, "wayfarer_treads": 350,
@@ -1007,3 +1010,235 @@ func test_shield_flank() -> void:
 		check(flanked >= 0.0 and flanked < (4.0 if rng < 6.0 else 6.5), "circling at %d m gets past the shield" % int(rng), "%.1f s" % flanked)
 		free_run(r)
 		await get_tree().process_frame
+
+
+# ------------------------------------------------------------------ melee / ranged items
+func _arena_run(hero: String, wave: int) -> Run:
+	var r := make_run(hero, wave)
+	await get_tree().process_frame
+	r.set_process(false)
+	r.phase = "wave"
+	r.hero.in_camp = false
+	r.hero.pos = Vector3(0, 0, 3)
+	return r
+
+
+func _give(r: Run, id: String) -> void:
+	r.hero.items.append({"id": id, "charges": 1, "cd": 0.0})
+	r.hero.recalc()
+
+
+func test_melee_ranged_items() -> void:
+	section("melee and ranged items")
+	var melee_n := 0
+	var ranged_n := 0
+	for id in DB.ITEMS:
+		match DB.ITEMS[id].get("only", ""):
+			"melee": melee_n += 1
+			"ranged": ranged_n += 1
+	check(melee_n == 1 and ranged_n == 1, "just a couple of items are melee-only / ranged-only", "%d / %d" % [melee_n, ranged_n])
+	# who can buy what
+	var r := make_run("ashwarden", 1)
+	await get_tree().process_frame
+	r.gold = 5000
+	check(r.can_buy("splinter_quiver") == "" and r.can_buy("cleaving_axe") == "", "every hero can buy melee and ranged items")
+	check(r.hero.item_fits("cleaving_axe") and not r.hero.item_fits("splinter_quiver"), "a melee hero: the ranged item's effect doesn't fit")
+	var mr := r.hero.atk_range
+	_give(r, "fletchers_quiver")
+	check(near(r.hero.atk_range, mr), "range items don't lengthen melee reach")
+	free_run(r)
+	r = make_run("gunsmith", 1)
+	await get_tree().process_frame
+	r.gold = 5000
+	check(not r.hero.item_fits("cleaving_axe"), "a ranged hero: the melee item's effect doesn't fit")
+	var rng0 := r.hero.atk_range
+	check(r.buy("fletchers_quiver") == "" and near(r.hero.atk_range, rng0 + 1.0), "Fletcher's Quiver adds 1 m of range", "%.2f -> %.2f" % [rng0, r.hero.atk_range])
+	check(r.buy("hawkeye_lens") == "" and r.hero.has_item("hawkeye_lens") and not r.hero.has_item("fletchers_quiver"), "Hawkeye Lens builds from the quiver")
+	check(near(r.hero.atk_range, rng0 + 2.0), "Hawkeye Lens: +2 m range", str(r.hero.atk_range))
+	free_run(r)
+	r = make_run("twinhide", 1)
+	await get_tree().process_frame
+	r.gold = 5000
+	check(r.hero.item_fits("cleaving_axe") and r.hero.item_fits("splinter_quiver"), "Twinhide (two forms) fits both kinds")
+	_give(r, "fletchers_quiver")
+	var spirit := r.hero.atk_range
+	r.hero.set_base_range(2.2)
+	check(near(r.hero.atk_range, 2.2), "range items don't lengthen beast-form melee", str(r.hero.atk_range))
+	r.hero.set_base_range(float(DB.HEROES["twinhide"]["range"]))
+	check(near(r.hero.atk_range, spirit), "spirit form gets the quiver's range back")
+	free_run(r)
+	await get_tree().process_frame
+	# cleave
+	r = await _arena_run("riftdancer", 3)
+	var h := r.hero
+	_give(r, "cleaving_axe")
+	var t := r.spawn_enemy("gnawer", Vector3(0, 0, 1.5), 3)
+	var side := r.spawn_enemy("gnawer", Vector3(1.2, 0, 1.0), 3)
+	var far_e := r.spawn_enemy("gnawer", Vector3(8, 0, 1.0), 3)
+	var hp_side := side.hp
+	r.damage(t, 40.0, h, "Attack", "phys", {"attack": true, "melee": true})
+	check(side.hp < hp_side and near(far_e.hp, far_e.max_hp), "Cleaving Axe splashes the foe beside the target only", "%.0f -> %.0f" % [hp_side, side.hp])
+	h.hp = 100.0
+	r.damage(t, 1.0, h, "Attack", "phys", {"attack": true, "melee": true})
+	check(h.hp >= 105.0, "Wraps stats: melee hits heal", str(h.hp))
+	free_run(r)
+	await get_tree().process_frame
+	# skullcrusher: every 4th hit stuns
+	r = await _arena_run("stoneshaper", 3)
+	h = r.hero
+	_give(r, "skullcrusher")
+	var sb := r.spawn_enemy("shieldbearer", Vector3(0, 0, 1.5), 3)
+	sb.max_hp = 99999.0
+	sb.hp = sb.max_hp
+	var stunned_at := -1
+	for i in 4:
+		r.damage(sb, 10.0, h, "Attack", "phys", {"attack": true, "melee": true})
+		if sb.stun_t > 0.0 and stunned_at < 0:
+			stunned_at = i + 1
+	check(stunned_at == 4, "Skullcrusher stuns on the 4th melee hit", str(stunned_at))
+	free_run(r)
+	await get_tree().process_frame
+	# berserk: faster swings below 40% HP
+	r = await _arena_run("sanguine", 3)
+	h = r.hero
+	_give(r, "berserkers_torc")
+	h.hp = h.max_hp
+	var full_iv := h.attack_interval()
+	h.hp = h.max_hp * 0.3
+	check(h.attack_interval() < full_iv * 0.85, "Berserker's Torc: faster attacks when low", "%.2f vs %.2f" % [h.attack_interval(), full_iv])
+	free_run(r)
+	await get_tree().process_frame
+	# ranged on-hit: splinter ricochets, skirmisher slows, hawkeye long shots
+	r = await _arena_run("gunsmith", 3)
+	h = r.hero
+	_give(r, "splinter_quiver")
+	_give(r, "skirmisher_cloak")
+	var tgt := r.spawn_enemy("gnawer", Vector3(0, 0, -3), 3)
+	r.spawn_enemy("gnawer", Vector3(2, 0, -3), 3)
+	r.spawn_enemy("gnawer", Vector3(-2, 0, -3), 3)
+	r.spawn_enemy("gnawer", Vector3(0, 0, -5), 3)
+	var np := r.projs.size()
+	r.damage(tgt, 10.0, h, "Rifle", "phys", {"attack": true})
+	check(r.projs.size() - np == 2, "Splinter Quiver ricochets to 2 foes", str(r.projs.size() - np))
+	check(tgt.slow_t > 0.0 and near(tgt.slow_amt, 0.25), "Skirmisher's Cloak slows what it shoots")
+	var melee_hit := r.spawn_enemy("gnawer", Vector3(0, 0, 2), 3)
+	var np2 := r.projs.size()
+	r.damage(melee_hit, 10.0, h, "Attack", "phys", {"attack": true, "melee": true})
+	check(r.projs.size() == np2, "Splinter Quiver does nothing on melee hits")
+	var t2 := r.spawn_enemy("gnawer", Vector3(8, 0, 6), 3)
+	var nb := r.spawn_enemy("gnawer", Vector3(9, 0, 6), 3)
+	_give(r, "cleaving_axe")
+	r.damage(t2, 30.0, h, "Rifle", "phys", {"attack": true})
+	check(near(nb.hp, nb.max_hp), "a ranged hero with Cleaving Axe gets no cleave on shots")
+	h.items.clear()
+	_give(r, "hawkeye_lens")
+	var close_e := r.spawn_enemy("gnawer", Vector3(0, 0, 1), 3)
+	var far_t := r.spawn_enemy("gnawer", Vector3(0, 0, -6), 3)
+	close_e.armor = 0.0
+	far_t.armor = 0.0
+	var a_close := r.damage(close_e, 20.0, h, "Rifle", "phys", {"attack": true})
+	var a_far := r.damage(far_t, 20.0, h, "Rifle", "phys", {"attack": true})
+	check(near(a_far, a_close * 1.25, 0.1), "Hawkeye Lens: +25% on long shots", "%.1f vs %.1f" % [a_far, a_close])
+	free_run(r)
+	await get_tree().process_frame
+
+
+# ------------------------------------------------------------------ weather
+func test_weather() -> void:
+	section("weather")
+	check(DB.WEATHER.size() == 7, "7 kinds of weather")
+	for w in [1, 3, 6, 12, 20]:
+		for k in DB.weather_pool(w):
+			check(DB.WEATHER.has(k), "pool weather exists %s" % k)
+	check(DB.weather_pool(1).keys() == ["clear"], "wave 1 is always clear")
+	check(not DB.weather_pool(5).has("bloodmoon") and DB.weather_pool(10).has("bloodmoon"), "Blood Moon only from wave 8")
+	var r := await _arena_run("ashwarden", 6)
+	var h := r.hero
+	var e := r.spawn_enemy("gnawer", Vector3(5, 0, 0), 6)
+	var clear_speed := e.speed()
+	var hero_speed := h.speed()
+	r.weather.pin("rain")
+	check(near(e.speed(), clear_speed * 0.9) and near(h.speed(), hero_speed * 0.9), "Rain slows everyone by 10%")
+	_give(r, "oilskin_cloak")
+	check(near(h.speed(), hero_speed), "Oilskin Cloak: Rain doesn't slow you")
+	e.armor = 0.0
+	var wall_rain := r.damage(e, 10.0, h, "Ash Wall", "magic")
+	r.weather.pin("emberfall")
+	var wall_hot := r.damage(e, 10.0, h, "Ash Wall", "magic")
+	var plain := r.damage(e, 10.0, h, "Tether Pull", "magic")
+	check(near(wall_rain, 6.0) and near(wall_hot, 15.0) and near(plain, 10.0), "fire: -40% in Rain, +50% in Emberfall, other damage unchanged", "%.1f / %.1f / %.1f" % [wall_rain, wall_hot, plain])
+	# fog shortens shots, not melee; the lantern sees through it
+	free_run(r)
+	await get_tree().process_frame
+	r = await _arena_run("gunsmith", 6)
+	h = r.hero
+	var base_rng := h.atk_range
+	var hex := r.spawn_enemy("hexcaster", Vector3(6, 0, 0), 6)
+	var hex_rng := hex.atk_range
+	r.weather.pin("fog")
+	check(near(h.atk_range, base_rng * 0.7) and near(hex.atk_range, hex_rng * 0.7), "Fog: shots reach 30% less far (hero and Hexcasters)", "%.2f %.2f" % [h.atk_range, hex.atk_range])
+	_give(r, "hooded_lantern")
+	check(near(h.atk_range, base_rng), "Hooded Lantern: Fog doesn't shorten your range")
+	r.weather.pin("clear")
+	check(near(hex.atk_range, hex_rng), "range comes back when the Fog lifts")
+	# gale: with the wind harder, into it softer
+	r.weather.pin("gale")
+	var wd := r.weather.wind
+	check(wd.length() > 0.9 and near(r.weather.shot_mult(wd), 1.3) and near(r.weather.shot_mult(-wd), 0.7), "Gale: shots with the wind +30%, into it -30%")
+	var before := h.pos
+	h.items.clear()
+	h.recalc()
+	r.weather.tick(1.0)
+	check(r._flat(h.pos - before).length() > 0.5, "Gale pushes the hero downwind")
+	# blood moon
+	r.weather.pin("bloodmoon")
+	var g0 := r.gold
+	var gn := r.spawn_enemy("gnawer", Vector3(-3, 0, 0), 6)
+	var gv := int(round(gn.gold_val * 1.3))
+	r.kill(gn, h)
+	check(r.gold - g0 == gv, "Blood Moon: +30% gold from kills", "%d vs %d" % [r.gold - g0, gv])
+	free_run(r)
+	await get_tree().process_frame
+	# storm: a telegraphed strike that hurts foes and the hero
+	r = await _arena_run("ashwarden", 6)
+	h = r.hero
+	_g().god = false
+	r.weather.pin("storm")
+	var foe := r.spawn_enemy("shieldbearer", Vector3(6, 0, 0), 6)
+	var hp0 := foe.hp
+	r.weather._strike(foe.pos)
+	check(foe.hp < hp0, "lightning hurts the foes under it")
+	h.pos = Vector3(-6, 0, 0)
+	var hh := h.hp
+	r.weather._strike(h.pos)
+	check(near(hh - h.hp, h.max_hp * DB.LIGHTNING_HERO, 1.0), "lightning takes 16% of the hero's HP", "%.0f" % (hh - h.hp))
+	r.weather.strike_t = 0.01
+	var hz := r.hazards.size()
+	r.weather.tick(0.05)
+	check(r.hazards.size() == hz + 1, "a strike is telegraphed as a hazard (the bot dodges it)")
+	# mid-wave turn
+	r.weather.shift_at = 0.5
+	r.weather.shift_to = "fog"
+	r.wave_time = 1.0
+	r.weather.tick(0.01)
+	check(r.weather.id == "fog", "the weather turns mid-wave")
+	free_run(r)
+	await get_tree().process_frame
+	# rolling: forecasts follow the pool, some regular waves turn, boss waves never do
+	r = make_run("ashwarden", 1)
+	await get_tree().process_frame
+	r.weather.override = ""
+	var seen := {}
+	var shifts := 0
+	for i in 200:
+		r.weather.roll_for(12)
+		seen[r.weather.id] = true
+		if r.weather.shift_at > 0.0:
+			shifts += 1
+			check(r.weather.shift_to != r.weather.id, "a turn changes the weather")
+		r.weather.roll_for(15)
+		check(r.weather.shift_at < 0.0, "boss waves keep their weather")
+	check(seen.size() >= 6, "wave 12 can roll most weathers", str(seen.keys()))
+	check(shifts > 40 and shifts < 120, "about 40% of regular waves turn", str(shifts))
+	free_run(r)
+	await get_tree().process_frame

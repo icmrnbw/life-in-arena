@@ -21,6 +21,7 @@ var buy_alt_btn: Button
 var sell_btn: Button
 var auto_chk: CheckButton
 var _last_gold := -1
+const ONLY_COL := {"melee": Color(1.0, 0.62, 0.45), "ranged": Color(0.55, 0.85, 1.0)}
 var _last_items := ""
 
 
@@ -96,11 +97,16 @@ func setup(r: Run, h: Node) -> void:
 		tb.pressed.connect(func(): _set_tab(key))
 		tabs.add_child(tb)
 		tab_buttons[key] = tb
+	# the grid scrolls: with melee/ranged items a tab can hold more than fits on a phone
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	left.add_child(scroll)
 	grid = GridContainer.new()
 	grid.columns = 4
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
-	left.add_child(grid)
+	scroll.add_child(grid)
 
 	var det := UIK.panel("DarkPanel")
 	det.custom_minimum_size = Vector2(380, 0)
@@ -209,7 +215,19 @@ func _item_button(id: String, sz: Vector2, show_name: bool, icon_px := 64.0) -> 
 	nm.custom_minimum_size = Vector2(maxf(40.0, sz.x - icon_px - 30.0), 0)
 	tv.add_child(nm)
 	var pr := UIK.label(str(run.buy_price(id)), "", 18, UIK.col("gold", Color.GOLD))
-	tv.add_child(pr)
+	var only: String = d.get("only", "")
+	if only != "" and show_name:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(pr)
+		var tag := UIK.label(only.capitalize(), "", 15, ONLY_COL[only])
+		if not run.hero.item_fits(id):
+			tag.modulate = Color(1, 1, 1, 0.55)
+		row.add_child(tag)
+		tv.add_child(row)
+	else:
+		tv.add_child(pr)
 	b.set_meta("item", id)
 	b.set_meta("show_name", show_name)
 	b.set_meta("name_label", nm)
@@ -349,6 +367,11 @@ func _refresh() -> void:
 				tmp.remove_at(have)
 			parts.append(("[owned] " if have >= 0 else "") + DB.ITEMS[f]["name"])
 		rec = "Recipe: " + " + ".join(parts) + " + %d gold" % int(d["cost"])
+	var only2: String = d.get("only", "")
+	if only2 != "":
+		var fits := run.hero.item_fits(selected)
+		rec = ("%s item: the effect only works on %s attacks.%s\n" % [only2.capitalize(), only2,
+			"" if fits else " Your hero gets just the stats."]) + rec
 	d_recipe.text = rec
 	if selected_slot >= 0:
 		var it2: Dictionary = run.hero.items[selected_slot]
