@@ -1012,26 +1012,6 @@ func steer_dir(u: Unit, goal: Vector3) -> Vector3:
 	var dir := to / dist
 	if u.pos.z > 30.0:
 		return dir
-	if barrels and not (u.is_boss and u.team == 1):
-		# walk around nooks instead of into them (unless threading one's gap); bosses smash through
-		for i in barrels.pens.size():
-			if i == barrels.through_pen:
-				continue
-			var pen: Dictionary = barrels.pens[i]
-			var rel0 := _flat(pen["c"] - u.pos)
-			var pr: float = pen["r"] + DB.BARREL_R + u.radius + 0.25
-			if rel0.length() < pr or _flat(goal - pen["c"]).length() < pr:
-				continue
-			if not barrels.blocks(i, u.pos, goal, u.radius):
-				continue
-			var along0 := rel0.dot(dir)
-			if along0 <= 0.0 or along0 > dist + pr:
-				continue
-			var perp0 := rel0 - dir * along0
-			if perp0.length() < pr and rel0.length() < pr + 6.0:
-				var side0 := -perp0.normalized() if perp0.length() > 0.01 else Vector3(dir.z, 0, -dir.x)
-				var w0 := 1.0 - clampf((rel0.length() - pr) / 6.0, 0.0, 1.0)
-				dir = (dir + side0 * (0.7 + 1.4 * w0)).normalized()
 	for pl in DB.PILLARS:
 		var rel := _flat(pl - u.pos)
 		var along := rel.dot(dir)
@@ -1044,20 +1024,6 @@ func steer_dir(u: Unit, goal: Vector3) -> Vector3:
 			var side := -perp.normalized() if perp.length() > 0.01 else Vector3(dir.z, 0, -dir.x)
 			var w := 1.0 - clampf((rel.length() - DB.PILLAR_R) / 5.0, 0.0, 1.0)
 			dir = (dir + side * (0.6 + 1.2 * w)).normalized()
-	if barrels:
-		# step around intact powder kegs too (bosses just smash them)
-		for k in barrels.kegs:
-			if not k.alive or u.is_boss:
-				continue
-			var relk := _flat(k.pos - u.pos)
-			var alongk := relk.dot(dir)
-			if alongk <= 0.0 or alongk > dist + DB.BARREL_R:
-				continue
-			var perpk := relk - dir * alongk
-			if perpk.length() < DB.BARREL_R + u.radius + 0.3 and relk.length() < 4.0:
-				var sidek := -perpk.normalized() if perpk.length() > 0.01 else Vector3(dir.z, 0, -dir.x)
-				var wk := 1.0 - clampf((relk.length() - DB.BARREL_R) / 3.0, 0.0, 1.0)
-				dir = (dir + sidek * (0.6 + 1.2 * wk)).normalized()
 	return dir
 
 
@@ -1828,7 +1794,7 @@ func start_wave() -> void:
 		if wave_rule != "":
 			schedule(2.6, toast.bind(String(info.get("desc", "")), DB.WAVE_RULES[wave_rule]["color"]))
 		Audio.play("wave")
-		schedule(3.0, hint_once.bind("nooks", "Barrel nooks: smash a barrel (tap or push into it) and dig in with your back to the wall. Foes come in one by one."))
+		schedule(3.0, hint_once.bind("stacks", "Barrel stacks: smash your way in (tap or push into the barrels) and dig a corridor. Foes can only follow you single file."))
 	spawn_queue.sort_custom(func(a, b): return a["t"] < b["t"])
 
 

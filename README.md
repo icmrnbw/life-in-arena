@@ -29,8 +29,8 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - Buffers hang back behind the pack and must die first: the Ward Chanter (wave 9+) makes nearby foes immune, the War Drummer (wave 7+) doubles their damage.
   - Enemies hit 10% harder than in 0.2.0, and a bit less in the late waves (bosses 10% harder).
 - Barrels in the arena:
-  - Six barrel nooks built against the arena wall, like in Life in Arena: a front row of barrels with a short barrel wall at each end. Smash one barrel (tap it, or push into it) to dig in with your back to the wall: the pack has to come through the hole one at a time. Wide enemies smash the barrels beside the hole, a sealed nook gets broken open, and bosses crash straight through.
-  - Powder kegs blow up shortly after you break them, hurting every enemy nearby (and you, if you stay close). One stands in front of each nook, for when the pack bunches up at your hole.
+  - Three big barrel stacks fill corners of the arena, like in Life in Arena. Smash your way in (tap a barrel, or push into it) to dig a corridor and fight from its end: foes can only follow single file, and one can't swing past the one in front of it. A corridor one barrel wide fits every hero and regular foes; Shieldbearers, Bloaters and big elites have to chew it wider. Seal yourself in and foes break in; bosses crash straight through.
+  - Powder kegs are packed into the stacks and stand loose near the north gates. They blow up shortly after you break them, hurting every enemy nearby (and you, if you stay close), and blast a crater in the stack.
   - Everything is restored at the start of each wave.
 - The title screen shows the Riftdancer resting by a bonfire, with the menu on the right.
 - The (i) button next to pause opens a card with every skill's description, rank, mana and cooldown (the game pauses while it's open). Holding a skill button no longer shows its description, so it can't rank a skill up by accident.
