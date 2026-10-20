@@ -514,7 +514,7 @@ func test_lives() -> void:
 	for i in 120:
 		r._step(1.0 / 30.0)
 	check(r.phase == "prep" and h.in_camp and h.alive and not h.dead, "respawn in camp at prep", r.phase)
-	check(r.wave == 4, "next wave after death", str(r.wave))
+	check(r.wave == 3, "same wave is retried after death", str(r.wave))
 	check(r.enemies.is_empty(), "leftover enemies cleared")
 	check(near(h.hp, h.max_hp), "respawn at full HP")
 	await get_tree().create_timer(1.0).timeout
