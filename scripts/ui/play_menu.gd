@@ -260,7 +260,7 @@ static func training_offer(on_train: Callable, on_skip: Callable) -> Control:
 	var t := Menus._outlined(UIK.label("New to the Pit?", "TitleLabel", 44, UIK.col("gold", Color.GOLD)))
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
-	var l := UIK.label("Training shows you how to move, use skills, shop, fight and dig into a barrel nook. It takes about three minutes, and you can't fall.",
+	var l := UIK.label("Training shows you how to move, use skills, shop, fight and dig into a barrel stack. It takes about three minutes, and you can't fall.",
 		"", 21, UIK.col("text", Color(0.95, 0.9, 0.82)))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.custom_minimum_size = Vector2(560, 0)

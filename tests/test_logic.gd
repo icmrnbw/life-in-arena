@@ -33,6 +33,7 @@ func make_run(hero := "ashwarden", wave := 1) -> Run:
 	var r := Run.new()
 	r.setup(hero, wave)
 	get_tree().root.add_child(r)
+	r.weather.pin("clear")   # weather has its own tests; keep the rest deterministic
 	return r
 
 
@@ -67,6 +68,8 @@ func _main() -> void:
 	await test_shield_flank()
 	await test_replayability()
 	await test_training()
+	await test_melee_ranged_items()
+	await test_weather()
 	print("\n==== RESULT: %d passed, %d failed" % [passed, failed])
 	for f in fails:
 		print("FAILED: ", f)
@@ -82,13 +85,13 @@ func test_data() -> void:
 	check(DB.TOTAL_WAVES == 20, "20 waves")
 	check(DB.BOSS_WAVES.keys().size() == 4 and DB.BOSS_WAVES.has(5) and DB.BOSS_WAVES.has(10) and DB.BOSS_WAVES.has(15) and DB.BOSS_WAVES.has(20), "bosses at 5/10/15/20")
 	check(DB.START_LIVES == 3 and DB.START_GOLD == 400, "3 lives, 400 start gold")
-	check(DB.ITEM_ORDER.size() == 18, "18 items", str(DB.ITEM_ORDER.size()))
+	check(DB.ITEM_ORDER.size() == 28, "28 items", str(DB.ITEM_ORDER.size()))
 	var kinds := {"basic": 0, "advanced": 0, "consumable": 0}
 	for id in DB.ITEMS:
 		kinds[DB.ITEMS[id]["kind"]] += 1
 		for f in DB.ITEMS[id].get("from", []):
 			check(DB.ITEMS.has(f), "recipe part exists: %s <- %s" % [id, f])
-	check(kinds["basic"] == 8 and kinds["advanced"] == 6 and kinds["consumable"] == 4, "8 basic / 6 advanced / 4 consumable", str(kinds))
+	check(kinds["basic"] == 12 and kinds["advanced"] == 12 and kinds["consumable"] == 4, "12 basic / 12 advanced / 4 consumable", str(kinds))
 	# plan costs
 	var plan_costs := {"iron_knuckles": 250, "swift_gloves": 250, "hide_vest": 250, "vigor_charm": 300, "focus_pendant": 300,
 		"runners_boots": 300, "stout_belt": 400, "sage_circlet": 400, "emberbrand": 400, "bulwark_plate": 450, "wayfarer_treads": 350,
@@ -789,104 +792,157 @@ func test_barrels_buffers() -> void:
 	check(near(drummed, base * DB.DRUM_DMG), "drummer doubles neighbours' damage", "%f vs %f" % [drummed, base])
 	h.hp = h.max_hp
 	r._clear_arena(false)
-	# pens: sealed until a barrel breaks; the hero breaks one in two swings
+	# stacks: solid blocks of barrels on a grid; the hero breaks one in two swings
 	var bf := r.barrels
 	bf.reset()
-	check(bf.gaps(0).is_empty() and bf.intact(0) == bf.pens[0]["n"], "pens start sealed")
-	# nooks sit against the wall, clear of the gates, and nobody fits between the end wall and the arena wall
-	var gate_ok := true
-	for pen in bf.pens:
-		for gk in DB.GATES:
-			if BarrelField._flat(DB.GATES[gk] - pen["c"]).length() < pen["r"] + 2.0:
-				gate_ok = false
-		if BarrelField._flat(pen["c"] - DB.ARENA_SPAWN).length() < pen["r"] + 1.5:
-			gate_ok = false
-	check(gate_ok, "nooks keep clear of the gates and the hero's entry")
-	var wall_gap := DB.ARENA_R - 0.3 - (DB.PEN_R_OUT + DB.BARREL_R)
-	check(wall_gap < 2.0 * float(DB.ENEMIES["gnawer"]["radius"]), "end walls seal against the arena wall", str(wall_gap))
-	check(bf.pen_at(bf.pens[0]["c"]) == 0 and bf.pen_at(bf.pens[0]["c"] * 0.75) == -1, "inside the nook vs out in the arena")
-	var b: Barrel = bf.pens[0]["barrels"][bf.pens[0]["mid_slot"]]
+	var st: Dictionary = bf.stacks[0]
+	check(bf.stacks.size() == DB.STACKS.size() and st["cells"].size() > 30 and bf.intact(0) == st["cells"].size(), "stacks start solid", str(st["cells"].size()))
+	var clear_ok := true
+	for s2 in bf.stacks:
+		for c2 in s2["cells"]:
+			var p2 := BarrelField.cell_pos(c2)
+			for gk in DB.GATES:
+				if BarrelField._flat(DB.GATES[gk] - p2).length() < 4.0:
+					clear_ok = false
+			if BarrelField._flat(DB.ARENA_SPAWN - p2).length() < 3.0:
+				clear_ok = false
+			for pl in DB.PILLARS:
+				if BarrelField._flat(pl - p2).length() < DB.PILLAR_R + 1.0:
+					clear_ok = false
+	check(clear_ok, "stacks keep clear of the gates, pillars and the hero's entry")
+	var lane: Array = st["lane"]
+	check(lane.size() > BarrelField.DIG_DEPTH, "each stack has a lane to dig", str(lane.size()))
+	var lane_kegs := 0
+	for s2 in bf.stacks:
+		for k2 in mini(BarrelField.DIG_DEPTH + 1, s2["lane"].size()):
+			if bf.barrel_at(s2["lane"][k2]).keg:
+				lane_kegs += 1
+	check(lane_kegs == 0, "no keg in the bot's dig lane")
+	var b: Barrel = bf.barrel_at(lane[0])
 	r.damage(b, 10.0, h, "Attack")
 	check(b.alive, "barrel survives one hero swing")
 	r.damage(b, 10.0, h, "Attack")
-	check(not b.alive and bf.gaps(0).size() == 1, "second swing opens a gap")
-	var gw: float = bf.gaps(0)[0]["width"]
-	var gn := r.spawn_enemy("gnawer", Vector3(-6, 0, 12), 10)
-	var sb := r.spawn_enemy("shieldbearer", Vector3(-7, 0, 12), 10)
-	check(gw > gn.radius * 2.0 and gw < 2.0 * float(DB.ENEMIES["pit_brute"]["radius"]), "one-barrel gap fits regular foes, not big ones", "gap %.2f" % gw)
+	check(not b.alive and bf.barrel_at(lane[0]) == null, "second swing breaks it")
+	var room := 2.0 * DB.BARREL_GRID - 2.0 * DB.BARREL_R
+	check(room > 2.0 * 0.62 and room > 2.0 * h.radius and room < 2.0 * (BarrelField.WIDE_R + BarrelField.WIDE_PAD),
+		"a one-barrel corridor fits every hero and regular foes, not wide ones", str(room))
 	# collision: can't walk through an intact barrel
-	var b2: Barrel = bf.pens[0]["barrels"][2]
-	var c: Vector3 = bf.pens[0]["c"]
-	var outside := c + (b2.pos - c) * 1.5
-	gn.pos = outside
-	var q := r.resolve_pos(gn, b2.pos, outside)
-	check(BarrelField._flat(q - b2.pos).length() >= gn.radius + DB.BARREL_R - 0.01, "barrels block movement")
-	# with a gap they path in; a sealed pen gets broken into
-	h.pos = c
-	check(gn.pick_target() == h, "foes path to the gap when there is one")
-	bf.reset()
-	check(sb.pick_target() is Barrel, "a sealed pen gets broken into")
-	# queue: with the hero dug in, the pack can't all reach it at once
+	var gn := r.spawn_enemy("gnawer", Vector3(0, 0, 3), 10)
+	var b0: Barrel = bf.barrel_at(lane[1])
+	var into := b0.pos - Vector3(float(st["sx"]), 0, 0) * 0.6
+	var q := r.resolve_pos(gn, into, into)
+	check(BarrelField._flat(q - b0.pos).length() >= gn.radius + DB.BARREL_R - 0.01, "barrels block movement")
+	# dig a corridor: three sides covered at its end; foes come down it single file
 	r._clear_arena(false)
 	bf.reset()
-	r.damage(b, 99.0, h, "Attack")
-	r.damage(b, 99.0, h, "Attack")
-	var gdir: Vector3 = bf.gaps(0)[0]["dir"]
-	var dug_in: Vector3 = bf.gaps(0)[0]["p"] - gdir * 2.2   # back to the wall, like the bot holds
-	_g().god = true
-	h.pos = dug_in
+	for k in BarrelField.DIG_DEPTH:
+		bf.smash(bf.barrel_at(lane[k]), null)
+	var end_p := BarrelField.cell_pos(lane[BarrelField.DIG_DEPTH - 1])
+	check(bf.cover(end_p) == 3, "the end of a dug corridor has barrels on three sides", str(bf.cover(end_p)))
+	var front: Vector3 = st["front"]
+	var away := Vector3(-float(st["sx"]), 0, 0)
+	_g().god = false
+	var hp_keep := h.max_hp
+	h.max_hp = 1e7
+	var in_corridor := 0
+	var taken0 := float(r.stats["damage_taken"])
 	for i in 7:
-		r.spawn_enemy("gnawer", c + gdir * 6.0 + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)), 10)
-	var max_adj := 0
-	var inside_n := 0
-	for i in 150:
-		h.pos = dug_in
+		r.spawn_enemy("gnawer", front + away * 6.0 + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)), 10)
+	for i in 300:
+		h.pos = end_p
+		h.hp = h.max_hp
 		h.move_input = Vector2.ZERO
 		h.atk_cd = 99.0
 		r._step(1.0 / 30.0)
-		var adj := 0
+		in_corridor = 0
 		for e in r.enemies:
-			if e.alive and h.edge_dist(e) < 0.6:
-				adj += 1
-		max_adj = maxi(max_adj, adj)
-		inside_n = 0
-		for e in r.enemies:
-			if bf.pen_at(e.pos) == 0:
-				inside_n += 1
-	check(inside_n >= 1, "gnawers get in through the gap", str(inside_n))
-	check(max_adj <= 5 and inside_n < 7, "the nook limits how many reach the hero; the rest queue outside", "%d adjacent, %d inside" % [max_adj, inside_n])
-	r._clear_arena(false)
-	# smashed barrels are gone: nobody walks around (or dithers at) a pen with no barrels left in the way
-	bf.reset()
-	for pb in bf.pens[0]["barrels"]:
-		bf.smash(pb, null)
-	var side := Vector3(-c.z, 0, c.x).normalized()
-	h.pos = c + side * 4.5
-	var walker := r.spawn_enemy("gnawer", c - side * 5.5 + c.normalized() * 0.3, 10)
-	check(r.steer_dir(walker, h.pos).dot(BarrelField._flat(h.pos - walker.pos).normalized()) > 0.98, "foes walk straight across a smashed pen")
+			if bf.cover(e.pos) >= 2:
+				in_corridor += 1
+	var taken_corridor := float(r.stats["damage_taken"]) - taken0
+	check(in_corridor >= 1, "gnawers come down the corridor", str(in_corridor))
+	# the same pack against a hero out in the open
 	r._clear_arena(false)
 	bf.reset()
-	var pen2: Dictionary = bf.pens[2]
-	for j in pen2["n"]:
-		if j % 2 == 0:
-			bf.smash(pen2["barrels"][j], null)
-	var hp2: Vector3 = pen2["c"]
-	var brute := r.spawn_enemy("pit_brute", hp2 * 0.55, 10)
-	var reached := false
+	var open_p := Vector3(0, 0, 3)
+	for i in 7:
+		r.spawn_enemy("gnawer", open_p + Vector3(randf_range(-2, 2), 0, -6.0 + randf_range(-2, 2)), 10)
+	taken0 = float(r.stats["damage_taken"])
 	for i in 300:
-		h.pos = hp2
+		h.pos = open_p
+		h.hp = h.max_hp
+		h.move_input = Vector2.ZERO
+		h.atk_cd = 99.0
+		r._step(1.0 / 30.0)
+	var taken_open := float(r.stats["damage_taken"]) - taken0
+	h.max_hp = hp_keep
+	h.hp = hp_keep
+	_g().god = true
+	check(taken_corridor < taken_open * 0.6, "dug in, the pack hurts far less than in the open", "%d in the corridor vs %d in the open" % [int(taken_corridor), int(taken_open)])
+	# sealed in: the way in costs a barrel, so foes break it
+	r._clear_arena(false)
+	bf.reset()
+	for k in range(1, BarrelField.DIG_DEPTH):
+		bf.smash(bf.barrel_at(lane[k]), null)
+	var sealed_gn := r.spawn_enemy("gnawer", front + away * 4.0, 10)
+	var broke := false
+	for i in 300:
+		h.pos = end_p
+		h.atk_cd = 99.0
+		r._step(1.0 / 30.0)
+		if bf.barrel_at(lane[0]) == null or sealed_gn.target is Barrel:
+			broke = true
+			break
+	check(broke, "a sealed corridor gets broken into")
+	# wide foes chew the corridor wider
+	r._clear_arena(false)
+	bf.reset()
+	for k in BarrelField.DIG_DEPTH:
+		bf.smash(bf.barrel_at(lane[k]), null)
+	var wide := r.spawn_enemy("shieldbearer", front + away * 3.0, 10)
+	var chewed := false
+	var n0 := bf.intact(0)
+	for i in 450:
+		h.pos = end_p
+		h.atk_cd = 99.0
+		r._step(1.0 / 30.0)
+		if bf.intact(0) < n0:
+			chewed = true
+			break
+	check(chewed, "a shieldbearer smashes the corridor wider", "pos %s" % wide.pos)
+	# a boss crashes through to the hero
+	r._clear_arena(false)
+	bf.reset()
+	for k in BarrelField.DIG_DEPTH:
+		bf.smash(bf.barrel_at(lane[k]), null)
+	var brute := r.spawn_enemy("pit_brute", front + away * 6.0, 10)
+	var reached := false
+	for i in 400:
+		h.pos = end_p
 		h.move_input = Vector2.ZERO
 		h.atk_cd = 99.0
 		r._step(1.0 / 30.0)
 		if h.edge_dist(brute) <= brute.atk_range + 0.3:
 			reached = true
 			break
-	check(reached, "a boss crashes through a broken pen to the hero", "edge %.2f" % h.edge_dist(brute))
+	check(reached, "a boss crashes through the stack to the hero", "edge %.2f" % h.edge_dist(brute))
 	_g().god = false
+	# smashed barrels are gone: foes walk straight across a flattened stack
+	r._clear_arena(false)
+	bf.reset()
+	for c3 in st["cells"]:
+		bf.smash(bf.barrel_at(c3), null, 99.0)
+	var sx := float(st["sx"])
+	var sz := float(st["sz"])
+	h.pos = Vector3(sx * 11.0, 0, sz * 16.0)
+	var walker := r.spawn_enemy("gnawer", Vector3(sx * 16.0, 0, sz * 11.0), 10)
+	check(r.steer_dir(walker, h.pos).dot(BarrelField._flat(h.pos - walker.pos).normalized()) > 0.98, "foes walk straight across a flattened stack")
 	r._clear_arena(false)
 	# kegs: blast after the fuse, hurts foes and the hero, breaks barrels nearby
 	bf.reset()
-	var k: Barrel = bf.kegs[0]
+	var k: Barrel = null
+	for k4 in bf.kegs:
+		if k4.pen < 0 and k == null:
+			k = k4
 	var foe := r.spawn_enemy("shieldbearer", k.pos + Vector3(1.5, 0, 0), 10)
 	h.pos = k.pos + Vector3(-1.5, 0, 0)
 	h.hp = h.max_hp
@@ -899,7 +955,7 @@ func test_barrels_buffers() -> void:
 	check(not foe.alive or foe.hp < foe.max_hp * 0.6, "keg blast hurts nearby foes", "%f / %f" % [foe.hp, foe.max_hp])
 	check(h.hp < h.max_hp, "keg blast hurts the hero too")
 	bf.reset()
-	check(k.alive and bf.gaps(0).is_empty(), "barrels restored on reset")
+	check(k.alive and bf.intact(0) == st["cells"].size(), "barrels restored on reset")
 	free_run(r)
 	await get_tree().process_frame
 
@@ -1209,11 +1265,17 @@ func test_training() -> void:
 	for i in 40:
 		r._step(1.0 / 30.0)
 	check(t.step_id() == "nook", "rank up -> nook")
-	var pen: Dictionary = t._nearest_pen()
-	r.hero.pos = pen["c"]
+	var st: Dictionary = t._nearest_stack()
+	check(not st.is_empty(), "a barrel stack to dig into")
+	for k in 3:
+		var b = r.barrels.barrel_at(st["lane"][k])
+		if b:
+			r.barrels.smash(b, r.hero)
+	r.hero.pos = BarrelField.cell_pos(st["lane"][2])
 	for i in 40:
+		r.hero.pos = BarrelField.cell_pos(st["lane"][2])
 		r._step(1.0 / 30.0)
-	check(t.step_id() == "hold" and t.spawned.size() == 7, "inside a nook -> hold, new pack")
+	check(t.step_id() == "hold" and t.spawned.size() == 7, "dug into a stack -> hold, new pack", "%s cover %d" % [t.step_id(), r.barrels.cover(r.hero.pos)])
 	for e in t.spawned:
 		r.damage(e, 1e8, r.hero, "Test", "magic")
 	for i in 40:
@@ -1229,3 +1291,233 @@ func test_training() -> void:
 	free_run(r)
 	await get_tree().process_frame
 	Profile.reset()
+# ------------------------------------------------------------------ melee / ranged items
+func _arena_run(hero: String, wave: int) -> Run:
+	var r := make_run(hero, wave)
+	await get_tree().process_frame
+	r.set_process(false)
+	r.phase = "wave"
+	r.hero.in_camp = false
+	r.hero.pos = Vector3(0, 0, 3)
+	return r
+
+
+func _give(r: Run, id: String) -> void:
+	r.hero.items.append({"id": id, "charges": 1, "cd": 0.0})
+	r.hero.recalc()
+
+
+func test_melee_ranged_items() -> void:
+	section("melee and ranged items")
+	var melee_n := 0
+	var ranged_n := 0
+	for id in DB.ITEMS:
+		match DB.ITEMS[id].get("only", ""):
+			"melee": melee_n += 1
+			"ranged": ranged_n += 1
+	check(melee_n == 1 and ranged_n == 1, "just a couple of items are melee-only / ranged-only", "%d / %d" % [melee_n, ranged_n])
+	# who can buy what
+	var r := make_run("ashwarden", 1)
+	await get_tree().process_frame
+	r.gold = 5000
+	check(r.can_buy("splinter_quiver") == "" and r.can_buy("cleaving_axe") == "", "every hero can buy melee and ranged items")
+	check(r.hero.item_fits("cleaving_axe") and not r.hero.item_fits("splinter_quiver"), "a melee hero: the ranged item's effect doesn't fit")
+	var mr := r.hero.atk_range
+	_give(r, "fletchers_quiver")
+	check(near(r.hero.atk_range, mr), "range items don't lengthen melee reach")
+	free_run(r)
+	r = make_run("gunsmith", 1)
+	await get_tree().process_frame
+	r.gold = 5000
+	check(not r.hero.item_fits("cleaving_axe"), "a ranged hero: the melee item's effect doesn't fit")
+	var rng0 := r.hero.atk_range
+	check(r.buy("fletchers_quiver") == "" and near(r.hero.atk_range, rng0 + 1.0), "Fletcher's Quiver adds 1 m of range", "%.2f -> %.2f" % [rng0, r.hero.atk_range])
+	check(r.buy("hawkeye_lens") == "" and r.hero.has_item("hawkeye_lens") and not r.hero.has_item("fletchers_quiver"), "Hawkeye Lens builds from the quiver")
+	check(near(r.hero.atk_range, rng0 + 2.0), "Hawkeye Lens: +2 m range", str(r.hero.atk_range))
+	free_run(r)
+	r = make_run("twinhide", 1)
+	await get_tree().process_frame
+	r.gold = 5000
+	check(r.hero.item_fits("cleaving_axe") and r.hero.item_fits("splinter_quiver"), "Twinhide (two forms) fits both kinds")
+	_give(r, "fletchers_quiver")
+	var spirit := r.hero.atk_range
+	r.hero.set_base_range(2.2)
+	check(near(r.hero.atk_range, 2.2), "range items don't lengthen beast-form melee", str(r.hero.atk_range))
+	r.hero.set_base_range(float(DB.HEROES["twinhide"]["range"]))
+	check(near(r.hero.atk_range, spirit), "spirit form gets the quiver's range back")
+	free_run(r)
+	await get_tree().process_frame
+	# cleave
+	r = await _arena_run("riftdancer", 3)
+	var h := r.hero
+	_give(r, "cleaving_axe")
+	var t := r.spawn_enemy("gnawer", Vector3(0, 0, 1.5), 3)
+	var side := r.spawn_enemy("gnawer", Vector3(1.2, 0, 1.0), 3)
+	var far_e := r.spawn_enemy("gnawer", Vector3(8, 0, 1.0), 3)
+	var hp_side := side.hp
+	r.damage(t, 40.0, h, "Attack", "phys", {"attack": true, "melee": true})
+	check(side.hp < hp_side and near(far_e.hp, far_e.max_hp), "Cleaving Axe splashes the foe beside the target only", "%.0f -> %.0f" % [hp_side, side.hp])
+	h.hp = 100.0
+	r.damage(t, 1.0, h, "Attack", "phys", {"attack": true, "melee": true})
+	check(h.hp >= 105.0, "Wraps stats: melee hits heal", str(h.hp))
+	free_run(r)
+	await get_tree().process_frame
+	# skullcrusher: every 4th hit stuns
+	r = await _arena_run("stoneshaper", 3)
+	h = r.hero
+	_give(r, "skullcrusher")
+	var sb := r.spawn_enemy("shieldbearer", Vector3(0, 0, 1.5), 3)
+	sb.max_hp = 99999.0
+	sb.hp = sb.max_hp
+	var stunned_at := -1
+	for i in 4:
+		r.damage(sb, 10.0, h, "Attack", "phys", {"attack": true, "melee": true})
+		if sb.stun_t > 0.0 and stunned_at < 0:
+			stunned_at = i + 1
+	check(stunned_at == 4, "Skullcrusher stuns on the 4th melee hit", str(stunned_at))
+	free_run(r)
+	await get_tree().process_frame
+	# berserk: faster swings below 40% HP
+	r = await _arena_run("sanguine", 3)
+	h = r.hero
+	_give(r, "berserkers_torc")
+	h.hp = h.max_hp
+	var full_iv := h.attack_interval()
+	h.hp = h.max_hp * 0.3
+	check(h.attack_interval() < full_iv * 0.85, "Berserker's Torc: faster attacks when low", "%.2f vs %.2f" % [h.attack_interval(), full_iv])
+	free_run(r)
+	await get_tree().process_frame
+	# ranged on-hit: splinter ricochets, skirmisher slows, hawkeye long shots
+	r = await _arena_run("gunsmith", 3)
+	h = r.hero
+	_give(r, "splinter_quiver")
+	_give(r, "skirmisher_cloak")
+	var tgt := r.spawn_enemy("gnawer", Vector3(0, 0, -3), 3)
+	r.spawn_enemy("gnawer", Vector3(2, 0, -3), 3)
+	r.spawn_enemy("gnawer", Vector3(-2, 0, -3), 3)
+	r.spawn_enemy("gnawer", Vector3(0, 0, -5), 3)
+	var np := r.projs.size()
+	r.damage(tgt, 10.0, h, "Rifle", "phys", {"attack": true})
+	check(r.projs.size() - np == 2, "Splinter Quiver ricochets to 2 foes", str(r.projs.size() - np))
+	check(tgt.slow_t > 0.0 and near(tgt.slow_amt, 0.25), "Skirmisher's Cloak slows what it shoots")
+	var melee_hit := r.spawn_enemy("gnawer", Vector3(0, 0, 2), 3)
+	var np2 := r.projs.size()
+	r.damage(melee_hit, 10.0, h, "Attack", "phys", {"attack": true, "melee": true})
+	check(r.projs.size() == np2, "Splinter Quiver does nothing on melee hits")
+	var t2 := r.spawn_enemy("gnawer", Vector3(8, 0, 6), 3)
+	var nb := r.spawn_enemy("gnawer", Vector3(9, 0, 6), 3)
+	_give(r, "cleaving_axe")
+	r.damage(t2, 30.0, h, "Rifle", "phys", {"attack": true})
+	check(near(nb.hp, nb.max_hp), "a ranged hero with Cleaving Axe gets no cleave on shots")
+	h.items.clear()
+	_give(r, "hawkeye_lens")
+	var close_e := r.spawn_enemy("gnawer", Vector3(0, 0, 1), 3)
+	var far_t := r.spawn_enemy("gnawer", Vector3(0, 0, -6), 3)
+	close_e.armor = 0.0
+	far_t.armor = 0.0
+	var a_close := r.damage(close_e, 20.0, h, "Rifle", "phys", {"attack": true})
+	var a_far := r.damage(far_t, 20.0, h, "Rifle", "phys", {"attack": true})
+	check(near(a_far, a_close * 1.25, 0.1), "Hawkeye Lens: +25% on long shots", "%.1f vs %.1f" % [a_far, a_close])
+	free_run(r)
+	await get_tree().process_frame
+
+
+# ------------------------------------------------------------------ weather
+func test_weather() -> void:
+	section("weather")
+	check(DB.WEATHER.size() == 7, "7 kinds of weather")
+	for w in [1, 3, 6, 12, 20]:
+		for k in DB.weather_pool(w):
+			check(DB.WEATHER.has(k), "pool weather exists %s" % k)
+	check(DB.weather_pool(1).keys() == ["clear"], "wave 1 is always clear")
+	check(not DB.weather_pool(5).has("bloodmoon") and DB.weather_pool(10).has("bloodmoon"), "Blood Moon only from wave 8")
+	var r := await _arena_run("ashwarden", 6)
+	var h := r.hero
+	var e := r.spawn_enemy("gnawer", Vector3(5, 0, 0), 6)
+	var clear_speed := e.speed()
+	var hero_speed := h.speed()
+	r.weather.pin("rain")
+	check(near(e.speed(), clear_speed * 0.9) and near(h.speed(), hero_speed * 0.9), "Rain slows everyone by 10%")
+	_give(r, "oilskin_cloak")
+	check(near(h.speed(), hero_speed), "Oilskin Cloak: Rain doesn't slow you")
+	e.armor = 0.0
+	var wall_rain := r.damage(e, 10.0, h, "Ash Wall", "magic")
+	r.weather.pin("emberfall")
+	var wall_hot := r.damage(e, 10.0, h, "Ash Wall", "magic")
+	var plain := r.damage(e, 10.0, h, "Tether Pull", "magic")
+	check(near(wall_rain, 6.0) and near(wall_hot, 15.0) and near(plain, 10.0), "fire: -40% in Rain, +50% in Emberfall, other damage unchanged", "%.1f / %.1f / %.1f" % [wall_rain, wall_hot, plain])
+	# fog shortens shots, not melee; the lantern sees through it
+	free_run(r)
+	await get_tree().process_frame
+	r = await _arena_run("gunsmith", 6)
+	h = r.hero
+	var base_rng := h.atk_range
+	var hex := r.spawn_enemy("hexcaster", Vector3(6, 0, 0), 6)
+	var hex_rng := hex.atk_range
+	r.weather.pin("fog")
+	check(near(h.atk_range, base_rng * 0.7) and near(hex.atk_range, hex_rng * 0.7), "Fog: shots reach 30% less far (hero and Hexcasters)", "%.2f %.2f" % [h.atk_range, hex.atk_range])
+	_give(r, "hooded_lantern")
+	check(near(h.atk_range, base_rng), "Hooded Lantern: Fog doesn't shorten your range")
+	r.weather.pin("clear")
+	check(near(hex.atk_range, hex_rng), "range comes back when the Fog lifts")
+	# gale: with the wind harder, into it softer
+	r.weather.pin("gale")
+	var wd := r.weather.wind
+	check(wd.length() > 0.9 and near(r.weather.shot_mult(wd), 1.3) and near(r.weather.shot_mult(-wd), 0.7), "Gale: shots with the wind +30%, into it -30%")
+	var before := h.pos
+	h.items.clear()
+	h.recalc()
+	r.weather.tick(1.0)
+	check(r._flat(h.pos - before).length() > 0.5, "Gale pushes the hero downwind")
+	# blood moon
+	r.weather.pin("bloodmoon")
+	var g0 := r.gold
+	var gn := r.spawn_enemy("gnawer", Vector3(-3, 0, 0), 6)
+	var gv := int(round(gn.gold_val * 1.3))
+	r.kill(gn, h)
+	check(r.gold - g0 == gv, "Blood Moon: +30% gold from kills", "%d vs %d" % [r.gold - g0, gv])
+	free_run(r)
+	await get_tree().process_frame
+	# storm: a telegraphed strike that hurts foes and the hero
+	r = await _arena_run("ashwarden", 6)
+	h = r.hero
+	_g().god = false
+	r.weather.pin("storm")
+	var foe := r.spawn_enemy("shieldbearer", Vector3(6, 0, 0), 6)
+	var hp0 := foe.hp
+	r.weather._strike(foe.pos)
+	check(foe.hp < hp0, "lightning hurts the foes under it")
+	h.pos = Vector3(-6, 0, 0)
+	var hh := h.hp
+	r.weather._strike(h.pos)
+	check(near(hh - h.hp, h.max_hp * DB.LIGHTNING_HERO, 1.0), "lightning takes 16% of the hero's HP", "%.0f" % (hh - h.hp))
+	r.weather.strike_t = 0.01
+	var hz := r.hazards.size()
+	r.weather.tick(0.05)
+	check(r.hazards.size() == hz + 1, "a strike is telegraphed as a hazard (the bot dodges it)")
+	# mid-wave turn
+	r.weather.shift_at = 0.5
+	r.weather.shift_to = "fog"
+	r.wave_time = 1.0
+	r.weather.tick(0.01)
+	check(r.weather.id == "fog", "the weather turns mid-wave")
+	free_run(r)
+	await get_tree().process_frame
+	# rolling: forecasts follow the pool, some regular waves turn, boss waves never do
+	r = make_run("ashwarden", 1)
+	await get_tree().process_frame
+	r.weather.override = ""
+	var seen := {}
+	var shifts := 0
+	for i in 200:
+		r.weather.roll_for(12)
+		seen[r.weather.id] = true
+		if r.weather.shift_at > 0.0:
+			shifts += 1
+			check(r.weather.shift_to != r.weather.id, "a turn changes the weather")
+		r.weather.roll_for(15)
+		check(r.weather.shift_at < 0.0, "boss waves keep their weather")
+	check(seen.size() >= 6, "wave 12 can roll most weathers", str(seen.keys()))
+	check(shifts > 40 and shifts < 120, "about 40% of regular waves turn", str(shifts))
+	free_run(r)
+	await get_tree().process_frame

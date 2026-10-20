@@ -24,7 +24,7 @@ const TIERS := {
 	"normal": {"name": "Normal", "hp": 0.72, "dmg": 0.72, "gold": 1.15, "xp": 1.15, "lives": 3, "elite": 0.6, "elite_from": 4, "score": 0.6,
 		"desc": "Gentler waves and more gold. Learn the heroes and the bosses.", "color": Color(0.55, 0.9, 0.5)},
 	"hard": {"name": "Hard", "hp": 1.0, "dmg": 1.0, "gold": 1.0, "xp": 1.0, "lives": 3, "elite": 1.0, "elite_from": 4, "score": 1.0,
-		"desc": "The Pit as it was built: shop well, use the barrel nooks, kill the buffers first.", "color": Color(1.0, 0.75, 0.3)},
+		"desc": "The Pit as it was built: shop well, dig into the barrel stacks, kill the buffers first.", "color": Color(1.0, 0.75, 0.3)},
 	"extreme": {"name": "Extreme", "hp": 1.25, "dmg": 1.2, "gold": 0.85, "xp": 0.9, "lives": 1, "elite": 1.7, "elite_from": 2, "score": 1.7,
 		"desc": "One life. Tougher foes, less gold, elites from wave 2.", "color": Color(1.0, 0.35, 0.3),
 		"unlock": "Clear wave 10 on Hard"},
@@ -37,7 +37,7 @@ const MODES := {
 	"endless": {"name": "Endless", "desc": "Past the Warden the waves never stop. How far can you go?", "icon": "portrait_sunspeaker", "tiers": true},
 	"daily": {"name": "Daily Run", "desc": "Today's hero and twist, the same for everyone. Hard tier. Beat your best score.", "icon": "portrait_gunsmith", "tiers": false},
 	"practice": {"name": "Practice", "desc": "Any hero, any wave, 99,999 gold, no lives lost. Nothing counts toward records.", "icon": "portrait_stoneshaper", "tiers": true},
-	"training": {"name": "Training", "desc": "Learn the basics step by step: moving, skills, the shop, fighting, barrel nooks.", "icon": "portrait_riftdancer", "tiers": false},
+	"training": {"name": "Training", "desc": "Learn the basics step by step: moving, skills, the shop, fighting, barrel stacks.", "icon": "portrait_riftdancer", "tiers": false},
 }
 const RANDOM_BONUS_GOLD := 150
 const PRACTICE_GOLD := 99999

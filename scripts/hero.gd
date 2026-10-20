@@ -27,6 +27,8 @@ var lifesteal := 0.0
 var reflect := 0.0
 var burn_on_hit := false
 var has_aegis := false
+var base_range := 2.0           # the kit's attack range before items and weather (Twinhide changes it per form)
+var hit_n := 0                  # melee hits landed, for Skullcrusher's every-4th bash
 var aegis_ready := true
 var shield := 0.0
 var sprint_t := 0.0
@@ -48,7 +50,8 @@ func init_hero(id: String) -> void:
 	kind = id
 	team = 0
 	skill_ids = data["skills"].duplicate()
-	atk_range = data["range"]
+	base_range = data["range"]
+	atk_range = base_range
 	atk_time = data["atk_time"]
 	skill_points = 1
 	recalc(true)
@@ -91,6 +94,7 @@ func recalc(fill := false) -> void:
 	reflect = item_stats.get("reflect", 0.0)
 	burn_on_hit = item_stats.get("burn", 0.0) > 0.0
 	has_aegis = item_stats.get("aegis", 0.0) > 0.0
+	update_range()
 	if fill:
 		hp = max_hp
 		mana = max_mana
@@ -102,6 +106,34 @@ func recalc(fill := false) -> void:
 			mana += max_mana - old_max_mana
 		hp = minf(hp, max_hp)
 		mana = minf(mana, max_mana)
+
+
+## Ranged = the current attack is a shot (Twinhide's spirit form, not her beast form).
+func attacks_ranged() -> bool:
+	return base_range >= 4.0
+
+
+## Does the special effect of item `id` fit this hero ("only" melee / ranged)? Twinhide has both forms.
+func item_fits(id: String) -> bool:
+	var only: String = DB.ITEMS.get(id, {}).get("only", "")
+	if only == "" or hero_id == "twinhide":
+		return true
+	return (only == "ranged") == bool(data.get("ranged", false))
+
+
+func set_base_range(r: float) -> void:
+	base_range = r
+	update_range()
+
+
+## Range items and Fog only change shots; melee reach stays the kit's.
+func update_range() -> void:
+	var r := base_range
+	if attacks_ranged():
+		r += item_stats.get("range", 0.0)
+		if run != null and run.weather != null and item_stats.get("lantern", 0.0) <= 0.0:
+			r *= run.weather.range_mult()
+	atk_range = r
 
 
 func speed() -> float:
@@ -116,7 +148,10 @@ func speed() -> float:
 
 
 func attack_interval() -> float:
-	var t := atk_time / maxf(0.2, attack_speed)
+	var a := attack_speed
+	if item_stats.get("berserk", 0.0) > 0.0 and not attacks_ranged() and hp < max_hp * 0.4:
+		a += 0.4
+	var t := atk_time / maxf(0.2, a)
 	if kit:
 		t /= kit.attack_speed_mult()
 	return t

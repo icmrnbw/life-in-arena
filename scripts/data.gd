@@ -29,7 +29,7 @@ const HEROES := {
 		"dmg": 18.0, "range": 2.1, "atk_time": 1.25, "speed": 6.0, "armor": 3.0, "ranged": false,
 		"skills": ["slip", "shatter_mark", "afterimage", "rift_cascade"],
 		"skill_order": [0, 1, 0, 2, 1, 3, 0, 1, 0, 1, 3, 2, 2, 2, 3],
-		"build": ["iron_knuckles", "vigor_charm", "bloodthirst_fang", "swift_gloves", "iron_knuckles", "emberbrand", "runners_boots", "focus_pendant", "wayfarer_treads", "hide_vest", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "sage_circlet", "focus_pendant", "hivecore_sigil"],
+		"build": ["iron_knuckles", "vigor_charm", "bloodthirst_fang", "brawlers_wraps", "iron_knuckles", "cleaving_axe", "runners_boots", "focus_pendant", "wayfarer_treads", "hide_vest", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "sage_circlet", "focus_pendant", "hivecore_sigil"],
 	},
 	"hivemother": {
 		"name": "Hivemother", "title": "The Commander", "role": "Swarm management", "tag": "Summons", "difficulty": 2,
@@ -48,7 +48,7 @@ const HEROES := {
 		"dmg": 22.0, "range": 2.2, "atk_time": 1.3, "speed": 5.2, "armor": 2.0, "ranged": false,
 		"skills": ["crimson_cleave", "blood_rush", "hemorrhage", "undying_pact"],
 		"skill_order": [0, 1, 0, 2, 0, 3, 0, 2, 1, 2, 3, 2, 1, 1, 3],
-		"build": ["iron_knuckles", "vigor_charm", "bloodthirst_fang", "hide_vest", "vigor_charm", "bulwark_plate", "swift_gloves", "iron_knuckles", "emberbrand", "runners_boots", "stout_belt", "wardens_aegis", "focus_pendant", "wayfarer_treads", "vigor_charm", "iron_knuckles", "bloodthirst_fang"],
+		"build": ["iron_knuckles", "vigor_charm", "bloodthirst_fang", "hide_vest", "vigor_charm", "bulwark_plate", "swift_gloves", "vigor_charm", "berserkers_torc", "runners_boots", "stout_belt", "wardens_aegis", "focus_pendant", "wayfarer_treads", "vigor_charm", "iron_knuckles", "bloodthirst_fang"],
 		"bot": {"crowd": 5, "retreat": 0.22, "orbit": 0.3},
 	},
 	"snarewright": {
@@ -58,7 +58,7 @@ const HEROES := {
 		"dmg": 17.0, "range": 8.0, "atk_time": 1.35, "speed": 5.4, "armor": 3.0, "ranged": true,
 		"skills": ["snare_trap", "blast_charge", "tripwire", "killing_field"],
 		"skill_order": [0, 1, 0, 2, 0, 3, 1, 0, 1, 1, 3, 2, 2, 2, 3],
-		"build": ["iron_knuckles", "swift_gloves", "vigor_charm", "emberbrand", "runners_boots", "bloodthirst_fang", "hide_vest", "focus_pendant", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "sage_circlet", "focus_pendant", "hivecore_sigil"],
+		"build": ["fletchers_quiver", "swift_gloves", "vigor_charm", "splinter_quiver", "runners_boots", "bloodthirst_fang", "hide_vest", "focus_pendant", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "sage_circlet", "focus_pendant", "hivecore_sigil"],
 		"bot": {"ranged": true, "keep": 7.0, "retreat": 0.5, "orbit": 0.4},
 	},
 	"twinhide": {
@@ -69,7 +69,7 @@ const HEROES := {
 		"skills": ["spirit_lance", "moonwell", "shift", "twin_fury"],
 		"beast_skills": ["rend", "pounce"],
 		"skill_order": [0, 2, 1, 0, 2, 3, 0, 1, 0, 1, 3, 1, 2, 2, 3],
-		"build": ["iron_knuckles", "swift_gloves", "vigor_charm", "emberbrand", "runners_boots", "bloodthirst_fang", "hide_vest", "focus_pendant", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "sage_circlet", "focus_pendant", "hivecore_sigil"],
+		"build": ["fletchers_quiver", "hide_vest", "vigor_charm", "skirmisher_cloak", "runners_boots", "bloodthirst_fang", "hide_vest", "focus_pendant", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "sage_circlet", "focus_pendant", "hivecore_sigil"],
 		"bot": {"ranged": true, "keep": 7.0, "retreat": 0.4, "orbit": 0.4},
 	},
 	"gravekeeper": {
@@ -89,7 +89,7 @@ const HEROES := {
 		"dmg": 28.0, "range": 2.3, "atk_time": 1.4, "speed": 4.8, "armor": 4.0, "ranged": false,
 		"skills": ["rock_shove", "stone_ridge", "quake", "avalanche"],
 		"skill_order": [0, 2, 0, 1, 0, 3, 2, 0, 2, 1, 3, 2, 1, 1, 3],
-		"build": ["iron_knuckles", "vigor_charm", "hide_vest", "bulwark_plate", "focus_pendant", "runners_boots", "wayfarer_treads", "stout_belt", "wardens_aegis", "swift_gloves", "iron_knuckles", "emberbrand", "vigor_charm", "iron_knuckles", "bloodthirst_fang", "sage_circlet", "focus_pendant", "hivecore_sigil"],
+		"build": ["iron_knuckles", "vigor_charm", "hide_vest", "bulwark_plate", "focus_pendant", "runners_boots", "wayfarer_treads", "stout_belt", "wardens_aegis", "stout_belt", "iron_knuckles", "skullcrusher", "vigor_charm", "iron_knuckles", "bloodthirst_fang", "sage_circlet", "focus_pendant", "hivecore_sigil"],
 		"bot": {"crowd": 6, "orbit": 0.2},
 	},
 	"gunsmith": {
@@ -99,7 +99,7 @@ const HEROES := {
 		"dmg": 20.0, "range": 10.5, "atk_time": 0.9, "speed": 5.2, "armor": 3.0, "ranged": true,
 		"skills": ["hot_reload", "scattershot", "mortar", "deadeye"],
 		"skill_order": [1, 0, 2, 1, 2, 3, 1, 2, 1, 2, 3, 0, 0, 0, 3],
-		"build": ["iron_knuckles", "swift_gloves", "vigor_charm", "emberbrand", "runners_boots", "bloodthirst_fang", "hide_vest", "focus_pendant", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "sage_circlet", "focus_pendant", "hivecore_sigil"],
+		"build": ["fletchers_quiver", "focus_pendant", "vigor_charm", "hawkeye_lens", "runners_boots", "bloodthirst_fang", "hide_vest", "focus_pendant", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "sage_circlet", "focus_pendant", "hivecore_sigil"],
 		"bot": {"ranged": true, "keep": 8.5, "retreat": 0.5, "orbit": 0.45},
 	},
 	"sunspeaker": {
@@ -256,8 +256,12 @@ const SKILLS := {
 }
 
 ## Items. kind: basic / advanced / consumable. "from" = recipe components.
+## "only": "melee" / "ranged": anyone can buy the item, but its special effect only works on attacks of that kind
+## (like a cleave that only melee swings carry). The shop marks them; a hero of the other kind gets just the stats.
 const ITEM_ORDER := ["iron_knuckles", "swift_gloves", "hide_vest", "vigor_charm", "focus_pendant", "runners_boots", "stout_belt", "sage_circlet",
+	"brawlers_wraps", "fletchers_quiver", "hooded_lantern", "oilskin_cloak",
 	"emberbrand", "bulwark_plate", "wayfarer_treads", "hivecore_sigil", "bloodthirst_fang", "wardens_aegis",
+	"cleaving_axe", "skullcrusher", "berserkers_torc", "hawkeye_lens", "splinter_quiver", "skirmisher_cloak",
 	"healing_draught", "mana_draught", "tome_of_might", "phoenix_feather"]
 
 const ITEMS := {
@@ -283,6 +287,31 @@ const ITEMS := {
 	"wardens_aegis": {"name": "Warden's Aegis", "kind": "advanced", "cost": 900, "from": ["bulwark_plate", "stout_belt"],
 		"stats": {"armor": 10.0, "hp": 550.0, "str": 6.0, "reflect": 0.15, "aegis": 1.0},
 		"desc": "Bulwark stats. Once per wave, lethal damage leaves you at 1 HP, invulnerable 2 s"},
+	# melee / ranged / weather items
+	"brawlers_wraps": {"name": "Brawler's Wraps", "kind": "basic", "cost": 300,
+		"stats": {"as": 0.12, "armor": 3.0, "hit_heal": 6.0}, "desc": "+12% attack speed, +3 armor. Every hit you land heals you 6 HP"},
+	"fletchers_quiver": {"name": "Fletcher's Quiver", "kind": "basic", "cost": 300,
+		"stats": {"dmg": 8.0, "range": 1.0}, "desc": "+8 damage. Ranged heroes also get +1 m attack range"},
+	"hooded_lantern": {"name": "Hooded Lantern", "kind": "basic", "cost": 250,
+		"stats": {"hp": 120.0, "lantern": 1.0}, "desc": "+120 HP. Fog doesn't shorten your range, and in Fog or under a Blood Moon you deal +10% damage"},
+	"oilskin_cloak": {"name": "Oilskin Cloak", "kind": "basic", "cost": 250,
+		"stats": {"armor": 3.0, "weatherproof": 1.0}, "desc": "+3 armor. Rain doesn't slow you, wind doesn't push you, lightning and embers hurt you half as much"},
+	"cleaving_axe": {"name": "Cleaving Axe", "kind": "advanced", "cost": 400, "only": "melee", "from": ["iron_knuckles", "brawlers_wraps"],
+		"stats": {"dmg": 18.0, "as": 0.12, "armor": 3.0, "hit_heal": 6.0, "cleave": 0.4},
+		"desc": "+18 damage, Wraps stats. Melee hits splash 40% damage on foes around the target"},
+	"skullcrusher": {"name": "Skullcrusher", "kind": "advanced", "cost": 450, "from": ["iron_knuckles", "stout_belt"],
+		"stats": {"dmg": 14.0, "str": 6.0, "bash": 1.0}, "desc": "+14 damage, +6 Strength. Every 4th hit stuns for 0.8 s and deals 60% extra"},
+	"berserkers_torc": {"name": "Berserker's Torc", "kind": "advanced", "cost": 400, "from": ["vigor_charm", "swift_gloves"],
+		"stats": {"hp": 250.0, "as": 0.15, "berserk": 1.0}, "desc": "+250 HP, +15% attack speed. Below 40% HP: +40% attack speed and 15% lifesteal"},
+	"hawkeye_lens": {"name": "Hawkeye Lens", "kind": "advanced", "cost": 400, "from": ["fletchers_quiver", "focus_pendant"],
+		"stats": {"dmg": 16.0, "range": 2.0, "mana": 150.0, "mana_regen": 1.0, "far_shot": 0.25},
+		"desc": "+16 damage, +150 mana. Attacks on foes 6 m or more away deal +25%. Ranged heroes also get +2 m range"},
+	"splinter_quiver": {"name": "Splinter Quiver", "kind": "advanced", "cost": 450, "only": "ranged", "from": ["fletchers_quiver", "swift_gloves"],
+		"stats": {"dmg": 10.0, "range": 1.0, "as": 0.2, "split": 0.45},
+		"desc": "+10 damage, +20% attack speed. Every shot ricochets to 2 nearby foes for 45% damage"},
+	"skirmisher_cloak": {"name": "Skirmisher's Cloak", "kind": "advanced", "cost": 400, "from": ["hide_vest", "fletchers_quiver"],
+		"stats": {"armor": 5.0, "dmg": 8.0, "range": 1.0, "ms": 0.08, "chill": 0.25},
+		"desc": "+5 armor, +8% move speed. Attacks slow foes by 25% for 1.5 s"},
 	"healing_draught": {"name": "Healing Draught", "kind": "consumable", "cost": 90, "stack": 5, "active": "heal_potion", "active_cd": 1.0,
 		"desc": "Heal 400 HP over 8 s. Stacks to 5"},
 	"mana_draught": {"name": "Mana Draught", "kind": "consumable", "cost": 90, "stack": 5, "active": "mana_potion", "active_cd": 1.0,
@@ -292,6 +321,49 @@ const ITEMS := {
 	"phoenix_feather": {"name": "Phoenix Feather", "kind": "consumable", "cost": 1500, "noslot": true, "max_per_run": 1,
 		"desc": "+1 life (once per run, no slot)"},
 }
+
+## Weather: rolled for every wave (it is already falling in camp, so the shop visit can answer it) and sometimes
+## turning mid-wave. speed: everyone's move speed; fire: damage of FIRE_TAGS and burns; range: shot range (hero and foes);
+## wind: shots with the wind deal up to +wind share, shots into it as much less, and everyone drifts downwind;
+## foe_dmg / foe_speed / gold: Blood Moon. lightning / embers: telegraphed strikes / burning patches during waves.
+const WEATHER := {
+	"clear": {"name": "Clear Skies", "color": Color(1.0, 0.88, 0.6), "desc": "Calm air. Nothing changes."},
+	"rain": {"name": "Rain", "color": Color(0.55, 0.75, 1.0), "speed": 0.9, "fire": 0.6,
+		"desc": "Everyone moves 10% slower. Fire and burns deal 40% less."},
+	"storm": {"name": "Thunderstorm", "color": Color(0.7, 0.8, 1.2), "speed": 0.9, "fire": 0.6, "lightning": true,
+		"desc": "Rain, and lightning strikes the glowing rings. It hurts foes and you alike."},
+	"fog": {"name": "Fog", "color": Color(0.8, 0.85, 0.9), "range": 0.7,
+		"desc": "Shots reach 30% less far, yours and theirs. A good day for melee."},
+	"gale": {"name": "Gale", "color": Color(0.85, 0.95, 0.75), "wind": 0.3,
+		"desc": "Wind pushes everyone. Shots with the wind hit 30% harder, shots into it 30% softer."},
+	"emberfall": {"name": "Emberfall", "color": Color(1.0, 0.55, 0.25), "fire": 1.5, "embers": true,
+		"desc": "Fire and burns deal 50% more. Falling embers set patches of sand alight."},
+	"bloodmoon": {"name": "Blood Moon", "color": Color(1.0, 0.35, 0.35), "foe_dmg": 1.15, "foe_speed": 1.1, "gold": 1.3,
+		"desc": "Foes hit 15% harder and move 10% faster, but drop 30% more gold."},
+}
+const FIRE_TAGS := ["Emberbrand Burn", "Ember Totem", "Ash Wall", "Mortar", "Ember Patch"]
+const WIND_DRIFT := 1.1           # m/s everyone drifts downwind in a Gale
+const WEATHER_SHIFT_CHANCE := 0.4 # a regular wave from wave 3 on turns mid-fight this often
+const LIGHTNING_R := 2.3
+const LIGHTNING_TELE := 1.3
+const LIGHTNING_HERO := 0.16      # share of the hero's max HP a strike takes
+const EMBER_R := 1.9
+const EMBER_TIME := 6.0
+const EMBER_HERO := 0.04          # share of the hero's max HP per second in a patch
+
+
+## Weather that can roll on wave `w`, with weights. Wave 1 is always clear.
+static func weather_pool(w: int) -> Dictionary:
+	if w <= 1:
+		return {"clear": 1}
+	var pool := {"clear": 4, "rain": 3, "fog": 2, "gale": 2}
+	if w >= 4:
+		pool["storm"] = 2
+		pool["emberfall"] = 2
+	if w >= 8:
+		pool["bloodmoon"] = 1
+	return pool
+
 
 ## Enemy base stats at wave 1.
 const ENEMIES := {
@@ -338,18 +410,19 @@ const AURAS := {
 }
 const DRUM_DMG := 2.0
 
-## Barrels, laid out like Life in Arena: nooks of barrels built against the arena wall. A nook is a sealed pocket
-## (a row of barrels in front, a short barrel wall at each end, the arena wall behind). Smash one barrel to dig in:
-## with your back to the wall the pack can only reach you through the hole, one at a time.
-## "a" is the nook's angle around the arena (degrees, atan2(z, x)); the gaps are left for the gates and the south entry.
-## A powder keg sits in front of every nook: pop it when the pack bunches up at your hole.
-const PENS := [{"a": 21.25}, {"a": 61.25}, {"a": 118.75}, {"a": 158.75}, {"a": -158.75}, {"a": -118.75}]
-const PEN_R_IN := 18.2          # radius of the front row
-const PEN_R_OUT := 21.2         # outermost barrel of the end walls (touches the arena wall)
-const PEN_ARC := 2              # front row spacings (3 barrels): just wide enough for the hero
-const PEN_SPACING := 1.2        # front row barrel spacing: one smashed barrel leaves a ~1.4 m hole
-const KEGS := [Vector3(-4.5, 0, -17.0), Vector3(10.5, 0, -13.0), Vector3(12.86, 0, 5.0), Vector3(6.63, 0, 12.1),
-	Vector3(-6.63, 0, 12.1), Vector3(-12.86, 0, 5.0), Vector3(-12.86, 0, -5.0), Vector3(-6.63, 0, -12.1)]
+## Barrels, laid out like Life in Arena: big solid barrel stacks filling three corners of the arena. Smash your way
+## in to dig a corridor (tap a barrel, or push into it) and fight from the end of it: foes can only follow you single
+## file. Barrels sit on a square grid (BARREL_GRID apart), so a corridor one barrel wide (1.3 m of room) lets every hero and regular foes through
+## but not wide ones (Shieldbearers, Bloaters), which have to smash it wider. Powder kegs are packed into the stacks.
+## A stack is every grid cell past the corner lines (sx * x >= t and sz * z >= t) inside the arena wall.
+const STACKS := [
+	{"sx": 1, "sz": 1, "t": 7.5, "kegs": [Vector3(9.6, 0, 17.5), Vector3(14.0, 0, 9.6)]},
+	{"sx": -1, "sz": 1, "t": 7.5, "kegs": [Vector3(-9.6, 0, 17.5), Vector3(-14.0, 0, 9.6)]},
+	{"sx": -1, "sz": -1, "t": 10.0, "kegs": [Vector3(-10.6, 0, -18.0), Vector3(-15.0, 0, -10.6)]},
+]
+const BARREL_GRID := 1.15          # barrel spacing
+const STACK_R := 21.6              # cells out to here are filled (the outer ones tuck against the wall)
+const KEGS := [Vector3(-4.5, 0, -17.0), Vector3(10.5, 0, -13.0)]   # loose kegs out in the open
 const BARREL_R := 0.5
 const BARREL_HP := 8.0          # hero swings deal BARREL_HERO_HIT, enemy swings 1 (big ones 2)
 const BARREL_HERO_HIT := 5.0
@@ -498,7 +571,7 @@ const EARLY_HP := 0.3
 const EARLY_DMG := 0.4
 
 
-## Enemy damage is a notch higher since barrel nooks let you fight the pack one at a time.
+## Enemy damage is a notch higher since barrel stacks let you fight the pack one at a time.
 const DMG_BASE := 1.1
 const BOSS_DMG_BASE := 1.1
 

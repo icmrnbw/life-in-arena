@@ -199,8 +199,8 @@ static func _walls(k: MK, flames: Array, lights: Array) -> void:
 		if i % 8 == 0 and not _near_gate(am, gap + 0.12):
 			_banner(k, am, r_in - 0.04)
 	k.cur_aux = 0.0
-	# wall braziers (fake lights) at SW, SE, NW and S
-	for a in [deg_to_rad(135.0), deg_to_rad(45.0), deg_to_rad(-135.0), deg_to_rad(90.0)]:
+	# wall braziers (fake lights) beside the barrel stacks and at S
+	for a in [deg_to_rad(157.5), deg_to_rad(22.5), deg_to_rad(-157.5), deg_to_rad(90.0)]:
 		var c := _p(a, 20.9, 0)
 		_brazier(k, c, 0.9, flames)
 		lights.append(Vector4(c.x, c.z, 7.0, 0.9))

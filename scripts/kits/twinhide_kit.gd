@@ -193,7 +193,7 @@ func _shift() -> bool:
 		hero.cds[last_skill] = 0.0
 		run.toast("Twin ready!", VIOLET)
 		last_skill_t = 0.0
-	hero.atk_range = 2.2 if to_beast else float(hero.data["range"])
+	hero.set_base_range(2.2 if to_beast else float(hero.data["range"]))
 	_swap_visual()
 	# shift burst
 	var mult := 2.0 if fury_t > 0.0 else 1.0

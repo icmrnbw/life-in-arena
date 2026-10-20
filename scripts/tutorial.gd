@@ -1,6 +1,6 @@
 extends Node
 ## Training: a guided first run with the Ashwarden. A coach card at the top of the screen gives one instruction at a
-## time and waits until the player has done it (walk to a marker, learn a skill, cast, shop, fight, use a barrel nook,
+## time and waits until the player has done it (walk to a marker, learn a skill, cast, shop, fight, dig into a barrel stack,
 ## dodge a captain's slam). The Run's own wave timer is off while this drives it, and the hero can't fall (cfg no_death).
 
 signal finished
@@ -22,10 +22,10 @@ const STEPS := [
 		"text": "Your hero attacks the nearest enemy on its own. Tap an enemy to make it your target. Use your skills too. Defeat the pack!"},
 	{"id": "level", "title": "Level up",
 		"text": "Kills give experience. Every level gives a skill point: tap + to learn another skill, or rank one up."},
-	{"id": "nook", "title": "Barrel nooks",
-		"text": "Nooks of barrels line the arena wall. Smash a barrel at the marker (tap it, or walk into it) and step inside the nook."},
-	{"id": "hold", "title": "Hold the nook",
-		"text": "With your back to the wall, foes can only reach you through the hole, one at a time. Hold here until the pack is gone."},
+	{"id": "nook", "title": "Barrel stacks",
+		"text": "Barrel stacks fill the corners of the arena. At the marker, smash your way in (tap the barrels, or push into them) and dig a corridor two or three barrels deep."},
+	{"id": "hold", "title": "Hold the corridor",
+		"text": "Inside the corridor foes can only follow you single file, so only the front one reaches you. Hold here until the pack is gone."},
 	{"id": "captain", "title": "The captain",
 		"text": "Every wave has a captain: a big named foe worth a gold bounty. When the ground glows under it, a slam is coming. Step out of the glow!"},
 	{"id": "done", "title": "Training complete!",
@@ -137,11 +137,11 @@ func _go(i: int) -> void:
 				run._on_level_up()
 			_ranks0 = _rank_sum()
 		"nook":
-			var pen := _nearest_pen()
-			if pen.is_empty():
-				_go(i + 2)   # no nooks in this arena: skip to the captain
+			var st := _nearest_stack()
+			if st.is_empty():
+				_go(i + 2)   # no barrel stacks in this arena: skip to the captain
 				return
-			_set_marker(pen["c"])
+			_set_marker(st["front"])
 		"hold":
 			_spawn_pack(7)
 		"captain":
@@ -206,7 +206,8 @@ func tick(dt: float) -> void:
 			if _rank_sum() > _ranks0 or h.skill_points <= 0:
 				_complete()
 		"nook":
-			if run.barrels.pen_at(h.pos) >= 0:
+			# dug in: barrels on both sides of the hero
+			if run.barrels.cover(h.pos) >= 2:
 				_complete()
 
 
@@ -261,19 +262,19 @@ func _rank_sum() -> int:
 	return s
 
 
-## The nook closest to where the hero stands (its inside, where the marker goes).
-func _nearest_pen() -> Dictionary:
-	if run.barrels == null or not ("pens" in run.barrels) or not run.barrels.has_method("pen_at"):
+## The barrel stack closest to the hero ("front" is the spot just outside its dig lane, where the marker goes).
+func _nearest_stack() -> Dictionary:
+	if run.barrels == null or not ("stacks" in run.barrels) or not run.barrels.has_method("cover"):
 		return {}
 	var best := {}
 	var bd := 1e9
-	for pen in run.barrels.pens:
-		if not (pen is Dictionary) or not pen.has("c"):
+	for st in run.barrels.stacks:
+		if not (st is Dictionary) or not st.has("front") or not st.has("lane"):
 			continue
-		var d := _flat_dist(pen["c"], run.hero.pos)
+		var d := _flat_dist(st["front"], run.hero.pos)
 		if d < bd:
 			bd = d
-			best = pen
+			best = st
 	return best
 
 

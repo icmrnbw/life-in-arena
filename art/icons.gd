@@ -147,6 +147,8 @@ static func all_ids() -> Array:
 		"iron_knuckles", "swift_gloves", "hide_vest", "vigor_charm", "focus_pendant", "runners_boots", "stout_belt", "sage_circlet",
 		"emberbrand", "bulwark_plate", "wayfarer_treads", "hivecore_sigil", "bloodthirst_fang", "wardens_aegis",
 		"healing_draught", "mana_draught", "tome_of_might", "phoenix_feather",
+		"brawlers_wraps", "fletchers_quiver", "hooded_lantern", "oilskin_cloak", "cleaving_axe", "skullcrusher", "berserkers_torc",
+		"hawkeye_lens", "splinter_quiver", "skirmisher_cloak",
 		"portrait_ashwarden", "portrait_riftdancer", "portrait_hivemother",
 		"gold", "life", "attack", "armor", "speed", "pause", "info", "shop"] + WAVE2_IDS
 
@@ -437,11 +439,94 @@ static func _svg_for(id: String) -> String:
 				+ '<circle cx="64" cy="78" r="17" fill="url(#gold)"' + _o(4) + '/>'
 				+ '<path d="M64 68 V88" stroke="#a8641a" stroke-width="4"/>')
 		_:
+			var w3 := _svg_items3(id)
+			if w3 != "":
+				return w3
 			var w2 := _svg_wave2(id)
 			if w2 != "":
 				return w2
 			return _framed("basic", '<path d="M64 26 L94 64 L64 102 L34 64 Z" fill="url(#bronze)"' + _o() + '/>'
 				+ '<path d="M64 42 V86 M50 64 H78" stroke="#ffd27a" stroke-width="5" stroke-linecap="round"/>')
+
+
+## Melee-only, ranged-only and weather items (0.5.0). Returns "" for unknown ids.
+static func _svg_items3(id: String) -> String:
+	var O := _o()
+	match id:
+		"brawlers_wraps":
+			return _framed("basic", '<path d="M38 108 V62 C38 54 46 52 50 58 V40 C50 32 60 32 60 40 V36 C60 28 70 28 70 36 V40 C70 32 80 32 80 40 V58 C84 52 94 54 92 62 L82 92 V108 Z" fill="url(#leather)"' + O + '/>'
+				+ '<path d="M40 70 H90 M40 80 H86 M40 90 H84 M44 100 H82" stroke="#f0e2c0" stroke-width="5"/>'
+				+ '<path d="M40 70 H90 M40 80 H86 M40 90 H84 M44 100 H82" stroke="#8a6a44" stroke-width="1.5"/>'
+				+ '<path d="M52 44 H58 M62 40 H68 M72 44 H78" stroke="url(#metal)" stroke-width="5" stroke-linecap="round"/>')
+		"fletchers_quiver":
+			var arrows := ""
+			for x in [50, 62, 74]:
+				arrows += '<path d="M%s 46 L%s 14" stroke="#7a5230" stroke-width="4"/>' % [x, x - 6]
+				arrows += '<path d="M%s 12 L%s 4 L%s 14 Z" fill="url(#metal)"%s/>' % [x - 10, x - 6, x - 2, _o(2)]
+				arrows += '<path d="M%s 40 L%s 30 L%s 42 Z M%s 40 L%s 30 L%s 42 Z" fill="#e8f4ff"%s/>' % [x - 4, x - 10, x - 6, x, x + 2, x - 2, _o(1.5)]
+			return _framed("basic", arrows + '<path d="M42 44 H86 L80 112 H48 Z" fill="url(#leather)"' + O + '/>'
+				+ '<path d="M42 54 H86 M46 96 H82" stroke="url(#gold)" stroke-width="4"/>'
+				+ '<path d="M90 44 C100 60 100 90 88 108" stroke="#6a4222" stroke-width="5" fill="none"/>')
+		"hooded_lantern":
+			return _framed("basic", '<ellipse cx="64" cy="72" rx="40" ry="38" fill="url(#glowE)"/>'
+				+ '<path d="M56 18 C56 10 72 10 72 18" stroke="url(#metal)" stroke-width="5" fill="none"/>'
+				+ '<path d="M46 26 H82 L76 38 H52 Z" fill="url(#bronze)"' + O + '/>'
+				+ '<path d="M50 38 H78 L84 96 H44 Z" fill="#ffcf6a" fill-opacity="0.55"' + O + '/>'
+				+ _flame(64, 84, 0.9)
+				+ '<path d="M56 38 L52 96 M72 38 L76 96" stroke="#3a2414" stroke-width="3"/>'
+				+ '<path d="M40 96 H88 L84 108 H44 Z" fill="url(#bronze)"' + O + '/>')
+		"oilskin_cloak":
+			var drops := ""
+			for d in [[30, 22], [52, 14], [80, 18], [100, 28]]:
+				drops += _drop(d[0], d[1], 0.7).replace("url(#blood)", "url(#mana)")
+			return _framed("basic", drops + '<path d="M44 40 Q64 30 84 40 L104 106 Q64 116 24 106 Z" fill="#3e6a6a"' + O + '/>'
+				+ '<path d="M44 40 Q64 52 84 40 L80 32 Q64 22 48 32 Z" fill="#2e5252"' + O + '/>'
+				+ '<path d="M64 46 V110 M50 60 L40 104 M78 60 L88 104" stroke="#9ad0c8" stroke-width="2.5" opacity="0.7"/>'
+				+ '<circle cx="64" cy="48" r="5" fill="url(#gold)"' + _o(2) + '/>')
+		"cleaving_axe":
+			return _framed("adv", '<path d="M60 20 L68 20 L70 116 L58 116 Z" fill="url(#wood)"' + O + '/>'
+				+ '<path d="M66 28 C88 22 106 34 108 56 C100 52 88 54 80 60 L66 58 Z" fill="url(#metal)"' + O + '/>'
+				+ '<path d="M62 28 C40 22 22 34 20 56 C28 52 40 54 48 60 L62 58 Z" fill="url(#metal)"' + O + '/>'
+				+ '<path d="M106 54 C98 50 88 52 80 58 M22 54 C30 50 40 52 48 58" stroke="#ffffff" stroke-width="2.5" fill="none" opacity="0.8"/>'
+				+ '<path d="M56 64 H72 M56 74 H72" stroke="url(#gold)" stroke-width="4"/>')
+		"skullcrusher":
+			return _framed("adv", '<path d="M58 54 L70 54 L72 118 L56 118 Z" fill="url(#wood)"' + O + '/>'
+				+ '<rect x="28" y="20" width="72" height="40" rx="8" fill="url(#stone)"' + O + '/>'
+				+ '<path d="M28 34 H100 M28 46 H100" stroke="#2e2a32" stroke-width="2"/>'
+				+ '<path d="M24 30 L28 26 V54 L24 50 Z M104 30 L100 26 V54 L104 50 Z" fill="url(#metal)"' + _o(2.5) + '/>'
+				+ '<path d="M48 28 L56 52 M80 28 L72 52" stroke="url(#gold)" stroke-width="3"/>'
+				+ '<path d="M14 82 L26 74 M102 74 L114 82 M18 98 L30 92 M98 92 L110 98" stroke="#ffd27a" stroke-width="4" stroke-linecap="round"/>')
+		"berserkers_torc":
+			return _framed("adv", '<ellipse cx="64" cy="66" rx="44" ry="40" fill="url(#glowR)" opacity="0.8"/>'
+				+ '<path d="M30 54 C30 86 98 86 98 54" stroke="' + D + '" stroke-width="18" fill="none" stroke-linecap="round"/>'
+				+ '<path d="M30 54 C30 86 98 86 98 54" stroke="url(#gold)" stroke-width="11" fill="none" stroke-linecap="round"/>'
+				+ '<path d="M34 62 L38 70 M46 72 L48 80 M60 76 V84 M72 76 L74 84 M84 72 L88 78" stroke="#a8641a" stroke-width="2.5"/>'
+				+ '<path d="M24 54 L22 38 L32 46 L36 34 L40 52 Z M104 54 L106 38 L96 46 L92 34 L88 52 Z" fill="url(#ivory)"' + _o(3) + '/>'
+				+ '<circle cx="64" cy="34" r="14" fill="url(#blood)"' + O + '/>'
+				+ '<ellipse cx="59" cy="30" rx="4" ry="3" fill="#ffffff" opacity="0.6"/>')
+		"hawkeye_lens":
+			return _framed("adv", '<ellipse cx="64" cy="64" rx="44" ry="44" fill="url(#glowB)" opacity="0.6"/>'
+				+ '<circle cx="64" cy="64" r="34" fill="#0e1e30"' + O + '/>'
+				+ '<circle cx="64" cy="64" r="34" fill="none" stroke="url(#gold)" stroke-width="6"/>'
+				+ '<circle cx="64" cy="64" r="22" fill="none" stroke="#a0e0ff" stroke-width="2.5"/>'
+				+ '<path d="M64 22 V48 M64 80 V106 M22 64 H48 M80 64 H106" stroke="#a0e0ff" stroke-width="3"/>'
+				+ '<circle cx="64" cy="64" r="5" fill="#ff5a4a"' + _o(2) + '/>'
+				+ '<ellipse cx="52" cy="50" rx="8" ry="5" fill="#ffffff" opacity="0.35" transform="rotate(-35 52 50)"/>')
+		"splinter_quiver":
+			return _framed("adv", '<path d="M18 104 L62 64" stroke="#7a5230" stroke-width="5"/>'
+				+ '<path d="M18 104 L26 92 M18 104 L30 100" stroke="#e8f4ff" stroke-width="4"/>'
+				+ '<circle cx="66" cy="60" r="10" fill="url(#glowY)"/>'
+				+ '<path d="M70 56 L104 22 M72 60 L112 52 M68 64 L98 90" stroke="#ffe6a0" stroke-width="4" stroke-linecap="round" stroke-dasharray="7 5"/>'
+				+ '<path d="M98 18 L108 18 L104 28 Z" fill="url(#metal)"' + _o(2) + '/>'
+				+ '<path d="M108 46 L116 54 L106 58 Z" fill="url(#metal)"' + _o(2) + '/>'
+				+ '<path d="M92 92 L102 96 L96 86 Z" fill="url(#metal)"' + _o(2) + '/>')
+		"skirmisher_cloak":
+			return _framed("adv", '<path d="M14 78 C30 70 40 84 56 78 M10 94 C28 86 38 100 54 94" stroke="#a0e0ff" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.8"/>'
+				+ '<path d="M58 24 Q76 18 94 26 L112 104 Q88 114 66 104 L52 70 Z" fill="#4a6a3a"' + O + '/>'
+				+ '<path d="M58 24 Q76 36 94 26 L90 18 Q76 10 62 18 Z" fill="#3a5430"' + O + '/>'
+				+ '<path d="M76 36 L88 104 M64 50 L74 102" stroke="#a8c890" stroke-width="2" opacity="0.7"/>'
+				+ '<path d="M70 30 L78 40 L86 30 Z" fill="url(#gold)"' + _o(2) + '/>')
+	return ""
 
 
 ## Wave-2 hero icons (skills + portraits). Returns "" for unknown ids.

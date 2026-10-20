@@ -29,8 +29,8 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - Buffers hang back behind the pack and must die first: the Ward Chanter (wave 9+) makes nearby foes immune, the War Drummer (wave 7+) doubles their damage.
   - Enemies hit 10% harder than in 0.2.0, and a bit less in the late waves (bosses 10% harder).
 - Barrels in the arena:
-  - Six barrel nooks built against the arena wall, like in Life in Arena: a front row of barrels with a short barrel wall at each end. Smash one barrel (tap it, or push into it) to dig in with your back to the wall: the pack has to come through the hole one at a time. Wide enemies smash the barrels beside the hole, a sealed nook gets broken open, and bosses crash straight through.
-  - Powder kegs blow up shortly after you break them, hurting every enemy nearby (and you, if you stay close). One stands in front of each nook, for when the pack bunches up at your hole.
+  - Three big barrel stacks fill corners of the arena, like in Life in Arena. Smash your way in (tap a barrel, or push into it) to dig a corridor and fight from its end: foes can only follow single file, and one can't swing past the one in front of it. A corridor one barrel wide fits every hero and regular foes; Shieldbearers, Bloaters and big elites have to chew it wider. Seal yourself in and foes break in; bosses crash straight through.
+  - Powder kegs are packed into the stacks and stand loose near the north gates. They blow up shortly after you break them, hurting every enemy nearby (and you, if you stay close), and blast a crater in the stack.
   - Everything is restored at the start of each wave.
 - The title screen shows the Riftdancer resting by a bonfire, with the menu on the right.
 - The (i) button next to pause opens a card with every skill's description, rank, mana and cooldown (the game pauses while it's open). Holding a skill button no longer shows its description, so it can't rank a skill up by accident.
@@ -41,14 +41,19 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - Play opens a mode list: Classic (20 waves), Random Hero (any hero, even locked ones, +150 gold), Endless (past the Warden the waves and bosses keep coming, tougher each lap), Daily Run (the same hero, seed and twist for everyone that day, such as Glass Cannon or Swarm), Practice (any hero, any start wave, 99,999 gold, no lives lost, nothing recorded) and Training.
   - Difficulty tiers: Normal (gentler foes, more gold), Hard (the tuning so far) and Extreme (one life, tougher foes, less gold, elites from wave 2; unlocks after clearing wave 10 on Hard).
   - Every run gets a score. The Records screen shows totals, best waves per tier, Endless and the Daily Run, and every hero's record.
-- Training: the first time you press Play, the game offers a guided run with the Ashwarden. A coach card gives one step at a time and waits for you to do it: walk, learn and cast a skill, buy an item, fight a pack, level up, dig into a barrel nook, and dodge a captain's slam. You can't fall, and you can skip it at any time. It's also under Play.
+- Training: the first time you press Play, the game offers a guided run with the Ashwarden. A coach card gives one step at a time and waits for you to do it: walk, learn and cast a skill, buy an item, fight a pack, level up, dig into a barrel stack, and dodge a captain's slam. You can't fall, and you can skip it at any time. It's also under Play.
 - After a crash, the title screen offers a Copy report button with the crash trail.
-- A camp between waves with a shop of 18 items, including recipes.
+- Weather: every wave rolls its weather, and you can already see it falling in camp, so the shop visit can answer it. From wave 3, a regular wave sometimes turns mid-fight.
+  - Rain: everyone moves 10% slower, fire deals 40% less. Thunderstorm: rain plus telegraphed lightning that hurts foes and you alike.
+  - Fog: shots reach 30% less far, yours and the Hexcasters'. Gale: wind pushes everyone, shots with the wind hit 30% harder, into it 30% softer.
+  - Emberfall: fire deals 50% more and embers set patches of sand alight. Blood Moon (wave 8+): foes hit harder and move faster, but drop 30% more gold.
+- A camp between waves with a shop of 28 items, including recipes. Cleaving Axe's splash only works on melee hits and Splinter Quiver's ricochet only on shots (anyone can buy them; the other kind just gets the stats), and range bonuses only lengthen shots. Hooded Lantern and Oilskin Cloak answer the weather.
 - Touch controls: a joystick, tap-to-cast and drag-to-aim.
 - All art is procedural and original, generated in code.
+- Music: three original medieval-style tunes, composed and synthesized in code by `tools/compose_music.py` (no samples or third-party recordings, so nothing to license). A tavern tune (lute, recorder, harp, drone; D Dorian) plays on the title screen and in camp, a battle tune (shawm, lute, tabor drum; E Dorian) during waves, and a boss tune (war drums, low voices, bell; D Phrygian) on boss waves. Tunes crossfade, duck while paused, and have their own Music toggle on the title and pause screens.
 
 ## Install (Android)
-Download `builds/emberpit-0.5.0-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.5.2-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.

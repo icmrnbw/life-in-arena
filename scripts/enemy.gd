@@ -242,7 +242,9 @@ func _ai_melee(dt: float) -> void:
 	else:
 		moving = false
 		turn_toward(t.pos - pos, dt)
-		if atk_cd <= 0.0:
+		if atk_cd <= 0.0 and _body_blocked(t):
+			set_state("idle")
+		elif atk_cd <= 0.0:
 			atk_cd = atk_time
 			atk_wind = 0.32
 			swings += 1
@@ -253,6 +255,25 @@ func _ai_melee(dt: float) -> void:
 			set_state("attack")
 		else:
 			set_state("idle")
+
+
+## In a barrel corridor foes queue single file: one can't swing past the foe in front of it.
+func _body_blocked(t: Unit) -> bool:
+	if t is Barrel or run.barrels == null or run.barrels.cover(t.pos) < 2:
+		return false
+	var to := run._flat(t.pos - pos)
+	var d := to.length()
+	if d < 0.01:
+		return false
+	var dir := to / d
+	for e in run.enemies:
+		if e == self or not e.alive or not e.collides:
+			continue
+		var rel := run._flat(e.pos - pos)
+		var along := rel.dot(dir)
+		if along > 0.1 and along < d and (rel - dir * along).length() < e.radius * 0.9:
+			return true
+	return false
 
 
 ## Gnawers hunt in packs: +8% damage per other gnawer next to the victim (up to +24%).

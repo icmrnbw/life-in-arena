@@ -1,11 +1,22 @@
 extends Node
 ## Tiny procedural sound kit: every sound is synthesized at startup into an AudioStreamWAV (no audio files).
+## Music: three original looping tunes (res://audio/music, rendered by tools/compose_music.py), picked from the
+## game state and crossfaded: tavern tune on the title and in camp, battle tune in waves, boss tune on boss waves.
 
 const RATE := 22050
 var _streams := {}
 var _players: Array = []
 var _next := 0
 var _last := {}
+
+const MUSIC := {"menu": "res://audio/music/menu.ogg", "battle": "res://audio/music/battle.ogg", "boss": "res://audio/music/boss.ogg"}
+const MUSIC_DB := -9.0
+var music_id := ""
+var _music: Array = []  # two players, crossfaded
+var _gain := [0.0, 0.0]
+var _cur := 0
+var _hold := 0.0  # silence before the next tune fades in
+var _check := 0.0
 
 
 func _ready() -> void:
@@ -18,6 +29,74 @@ func _ready() -> void:
 		p.bus = "Master"
 		add_child(p)
 		_players.append(p)
+	for i in 2:
+		var m := AudioStreamPlayer.new()
+		m.bus = "Master"
+		m.volume_db = -80.0
+		add_child(m)
+		_music.append(m)
+
+
+func _process(delta: float) -> void:
+	if _music.is_empty():
+		return
+	_check -= delta
+	if _check <= 0.0:
+		_check = 0.25
+		var want := _wanted_music()
+		if want != music_id:
+			_switch(want)
+	_hold = maxf(0.0, _hold - delta)
+	var on: bool = Game.settings.get("music", true)
+	var duck := 0.45 if get_tree().paused else 1.0
+	for i in 2:
+		var p: AudioStreamPlayer = _music[i]
+		var target := duck if i == _cur and on and music_id != "" and _hold <= 0.0 else 0.0
+		var rate := delta / (2.0 if target > _gain[i] else 1.2)
+		_gain[i] = move_toward(_gain[i], target, rate)
+		if _gain[i] <= 0.0:
+			if p.playing and (i != _cur or not on):
+				p.stop()
+			continue
+		if i == _cur and p.stream and not p.playing:
+			p.play()
+		p.volume_db = linear_to_db(_gain[i]) + MUSIC_DB
+
+
+## Which tune fits right now: the run's phase decides (boss waves get their own), anything else is the title.
+func _wanted_music() -> String:
+	var main := get_tree().current_scene
+	if main == null or not ("run" in main):
+		return "menu"
+	var r = main.get("run")
+	if r == null or not is_instance_valid(r) or r.result != "":
+		return "menu"
+	match String(r.phase):
+		"wave", "dead":
+			return "boss" if r.boss_title != "" else "battle"
+		"clear", "victory_wait":
+			return music_id  # let the fight tune ring out through the cleared banner
+	return "menu"
+
+
+func _switch(id: String) -> void:
+	var from := music_id
+	music_id = id
+	Game.crumb("music " + id)
+	if id == "":
+		return
+	var stream := load(MUSIC[id]) as AudioStreamOggVorbis
+	if stream == null:
+		return
+	stream.loop = true
+	# a fight ending (camp, end screen) leaves a short breath before the tavern tune; fights cut in right away
+	_hold = 2.0 if id == "menu" and from != "" else 0.0
+	_cur = 1 - _cur
+	var p: AudioStreamPlayer = _music[_cur]
+	p.stream = stream
+	p.volume_db = -80.0
+	_gain[_cur] = 0.0
+	p.play()
 
 
 func play(id: String, vol_db := 0.0) -> void:
