@@ -32,6 +32,7 @@ var warders: Array = []    # alive Warding elites
 var chanters: Array = []   # alive Ward Chanters (foes near them take no damage)
 var drummers: Array = []   # alive War Drummers (foes near them deal double damage)
 var barrels: BarrelField
+var weather: Weather
 var immune_shown_t := -10.0
 var hints_shown := {}
 
@@ -127,9 +128,12 @@ func _ready() -> void:
 	hero.pos = DB.CAMP_SPAWN
 	hero.sync_visual()
 	cam_focus = hero.pos
+	weather = Weather.new()
+	weather.setup(self)
 
 	if wave > 1:
 		_apply_start_wave(wave)
+	weather.roll_for(wave)
 
 	var hud_script = load("res://scripts/ui/hud.gd")
 	hud = hud_script.new()
@@ -374,6 +378,7 @@ func spawn_enemy(kind: String, p: Vector3, w := -1) -> Enemy:
 	e.face(to_center if to_center.length() > 0.1 else Vector3(0, 0, 1))
 	e.sync_visual()
 	e.set_state("spawn", true)
+	weather.apply_to_enemy(e)
 	enemies.append(e)
 	if e.is_boss:
 		boss_units.append(e)
@@ -495,10 +500,15 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 		return 0.0
 	var a := amount
 	if src != null and src.team == 1:
+		a *= weather.foe_dmg_mult()
 		if pit_enraged:
 			a *= DB.ENRAGE_DMG
 		if is_drummed(src):
 			a *= DB.DRUM_DMG
+	if t.team == 1 and tag in DB.FIRE_TAGS:
+		a *= weather.fire_mult()
+	if t.team == 1 and src == hero:
+		a *= _hero_item_mult(t, opts)
 	if t.team == 1 and not t.is_boss and src != null and src.team == 0:
 		if wave_rule == "evasive" and opts.get("attack", false) and rng.randf() < DB.EVADE_CHANCE:
 			if rng.randf() < 0.5:
@@ -557,11 +567,60 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 				t.burn_dps = 10.0 + 0.3 * hero.primary_value()
 				t.burn_t = 3.0
 				t.burn_src = hero
+			_item_on_hit(t, a, amount, opts)
 		if opts.has("heal_hero_frac") and hero.alive:
 			heal_unit(hero, a * float(opts["heal_hero_frac"]), false)
 	if t.hp <= 0.0:
 		kill(t, src)
 	return a
+
+
+## Damage bonuses from the hero's items on this hit (Hawkeye Lens long shots, Lantern in Fog / Blood Moon).
+func _hero_item_mult(t: Unit, opts: Dictionary) -> float:
+	var st: Dictionary = hero.item_stats
+	var m := 1.0
+	if st.get("lantern", 0.0) > 0.0:
+		m *= weather.lantern_mult()
+	if opts.get("attack", false) and not opts.get("melee", false) and st.get("far_shot", 0.0) > 0.0 \
+			and _flat(t.pos - hero.pos).length() >= 6.0:
+		m *= 1.0 + float(st["far_shot"])
+	return m
+
+
+## On-hit effects of items (Cleaving Axe only on melee hits, Splinter Quiver only on shots). `a` is the damage dealt, `raw` the hit before armor.
+func _item_on_hit(t: Unit, a: float, raw: float, opts: Dictionary) -> void:
+	var st: Dictionary = hero.item_stats
+	if st.get("hit_heal", 0.0) > 0.0:
+		heal_unit(hero, float(st["hit_heal"]), false)
+	if st.get("berserk", 0.0) > 0.0 and hero.hp < hero.max_hp * 0.4:
+		heal_unit(hero, a * 0.15, false)
+	if st.get("chill", 0.0) > 0.0 and t.alive:
+		t.apply_slow(float(st["chill"]), 1.5)
+	if st.get("bash", 0.0) > 0.0:
+		hero.hit_n += 1
+		if hero.hit_n % 4 == 0 and t.alive:
+			t.stun_t = maxf(t.stun_t, 0.8 * (0.35 if t.is_boss else 1.0))
+			fx("ring_burst", {"pos": t.pos, "radius": 1.4, "color": Color(1.0, 0.85, 0.5)})
+			damage(t, a * 0.6, hero, "Skullcrusher", "pure", {"crit": true})
+	if opts.get("melee", false):
+		if st.get("cleave", 0.0) > 0.0:
+			var any := false
+			for e in enemies_in_radius(t.pos, 2.2):
+				if e != t:
+					damage(e, raw * float(st["cleave"]), hero, "Cleaving Axe", "phys")
+					any = true
+			if any:
+				fx("slam", {"pos": t.pos, "radius": 2.2, "color": Color(1.0, 0.8, 0.55)})
+	elif st.get("split", 0.0) > 0.0:
+		var n := 0
+		for e in enemies_in_radius(t.pos, 5.0):
+			if e == t or e.untargetable:
+				continue
+			fire_projectile("hero_bolt", t.pos + Vector3(0, 1.1, 0), e, Vector3.ZERO, 22.0, raw * float(st["split"]), 0, hero,
+				"Splinter Quiver", {"dtype": "phys", "color": Color(0.95, 0.85, 0.6)})
+			n += 1
+			if n >= 2:
+				break
 
 
 func heal_unit(u: Unit, amount: float, show := true) -> void:
@@ -604,7 +663,7 @@ func kill(t: Unit, src: Unit) -> void:
 			hero.kit.on_enemy_killed(e)
 		if not e.no_reward:
 			stats["kills"] += 1
-			var g := int(round(e.gold_val))
+			var g := int(round(e.gold_val * weather.gold_mult()))
 			if g > 0:
 				add_gold(g)
 				if rng.randf() < 0.5 or e.is_boss:
@@ -636,7 +695,8 @@ func _on_level_up() -> void:
 func _log_wave(what: String) -> void:
 	var log: Array = get_meta("wave_log", [])
 	log.append({"wave": wave, "ev": what, "lvl": hero.level, "gold": gold, "t": snappedf(run_time, 0.1),
-		"wt": snappedf(wave_time, 0.1), "hp": snappedf(hero.hp / maxf(1.0, hero.max_hp), 0.01), "items": hero.items.size()})
+		"wt": snappedf(wave_time, 0.1), "hp": snappedf(hero.hp / maxf(1.0, hero.max_hp), 0.01), "items": hero.items.size(),
+		"weather": weather.id if weather else ""})
 	set_meta("wave_log", log)
 
 
@@ -782,7 +842,8 @@ func _proj_hit(p: Dictionary, u: Unit) -> void:
 		o["attack"] = true
 	if opts.has("crit"):
 		o["crit"] = opts["crit"]
-	damage(u, p["dmg"], p["src"], p["tag"], opts.get("dtype", "magic"), o)
+	var dmg: float = p["dmg"] * weather.shot_mult(p["dir"])
+	damage(u, dmg, p["src"], p["tag"], opts.get("dtype", "magic"), o)
 	if opts.has("slow"):
 		u.apply_slow(opts["slow"], opts.get("slow_t", 1.5))
 	if opts.has("hex") and u.alive:
@@ -1149,6 +1210,7 @@ func _step(dt: float) -> void:
 	_tick_projectiles(dt)
 	Game.mark(10)
 	_tick_walls_pools(dt)
+	weather.tick(dt)
 	Game.mark(11)
 	_tick_burns(dt)
 	Game.mark(12)
@@ -1852,6 +1914,7 @@ func _return_to_camp() -> void:
 	hero.in_camp = true
 	phase = "prep"
 	prep_t = DB.PREP_TIME
+	weather.roll_for(wave)
 	Game.on_prep()
 
 
@@ -1874,6 +1937,7 @@ func _after_death() -> void:
 	hero.in_camp = true
 	phase = "prep"
 	prep_t = DB.PREP_TIME
+	weather.roll_for(wave)
 	banner_requested.emit("Respawned", ("Boss wave %d: try again" % wave) if DB.BOSS_WAVES.has(wave) else ("Wave %d: try again" % wave))
 	Game.on_prep()
 
@@ -1907,6 +1971,7 @@ func _clear_arena(fx_burst: bool) -> void:
 		fx_stop(pl["fx"])
 	pools.clear()
 	hazards.clear()
+	weather.clear_patches()
 	spawn_queue.clear()
 	timers.clear()
 
@@ -1969,6 +2034,8 @@ func _update_camera(delta: float) -> void:
 		sh = Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * shake_amt * 0.35
 		shake_amt = maxf(0.0, shake_amt - delta * 2.5)
 	camera.position = cam_focus + off + sh
+	if weather.vis and weather.vis.has_method("follow"):
+		weather.vis.follow(cam_focus)
 	camera.look_at(cam_focus + sh * 0.5 + Vector3(0, 0.5, 0), Vector3.UP)
 
 

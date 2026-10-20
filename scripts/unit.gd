@@ -74,6 +74,8 @@ func setup_visual(n: Node3D) -> void:
 
 func speed() -> float:
 	var s := base_speed
+	if run != null and run.weather != null:
+		s *= run.weather.speed_mult(self)
 	if slow_t > 0.0:
 		s *= (1.0 - clampf(slow_amt, 0.0, 0.8))
 	return s

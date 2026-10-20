@@ -9,6 +9,7 @@ const World := preload("res://art/world.gd")
 const Fx := preload("res://art/fx.gd")
 const Icons := preload("res://art/icons.gd")
 const UiTheme := preload("res://art/ui_theme.gd")
+const WeatherFx := preload("res://art/weather_fx.gd")
 
 var palette := {
 	"ember": Color("ff7a2f"), "gold": Color("f2c14e"), "hp": Color("d83a3a"), "mana": Color("3a7bd8"),
@@ -104,6 +105,15 @@ func bonfire(parent: Node3D, pos: Vector3) -> Node3D:
 	if parent == null:
 		return null
 	return World.bonfire(parent, pos)
+
+## Weather visuals for a run (rain, mist, dust, embers, lightning, sky mood); see art/weather_fx.gd.
+func weather_fx(run_node: Node) -> Node:
+	if run_node == null:
+		return null
+	var w: Node3D = WeatherFx.new()
+	run_node.add_child(w)
+	w.setup(run_node)
+	return w
 
 # ------------------------------------------------------------------ units
 

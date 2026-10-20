@@ -36,13 +36,17 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
 - The (i) button next to pause opens a card with every skill's description, rank, mana and cooldown (the game pauses while it's open). Holding a skill button no longer shows its description, so it can't rank a skill up by accident.
 - A Heroes screen on the title menu shows every hero's model on a turntable (drag to spin, tap it or the buttons below to see it run, attack and cast), their skills, and their skins. Skins come in rarities (Common, Uncommon, Rare, Mythical, Legendary); each hero has a Classic look plus three example recolours. Uncommon and Mythical ones can be equipped now; Legendary ones can only be previewed until there's a store. The equipped skin is the one you play with.
 - After a crash, the title screen offers a Copy report button with the crash trail.
-- A camp between waves with a shop of 18 items, including recipes.
+- Weather: every wave rolls its weather, and you can already see it falling in camp, so the shop visit can answer it. From wave 3, a regular wave sometimes turns mid-fight.
+  - Rain: everyone moves 10% slower, fire deals 40% less. Thunderstorm: rain plus telegraphed lightning that hurts foes and you alike.
+  - Fog: shots reach 30% less far, yours and the Hexcasters'. Gale: wind pushes everyone, shots with the wind hit 30% harder, into it 30% softer.
+  - Emberfall: fire deals 50% more and embers set patches of sand alight. Blood Moon (wave 8+): foes hit harder and move faster, but drop 30% more gold.
+- A camp between waves with a shop of 28 items, including recipes. Cleaving Axe's splash only works on melee hits and Splinter Quiver's ricochet only on shots (anyone can buy them; the other kind just gets the stats), and range bonuses only lengthen shots. Hooded Lantern and Oilskin Cloak answer the weather.
 - Touch controls: a joystick, tap-to-cast and drag-to-aim.
 - All art is procedural and original, generated in code.
 - Music: three original medieval-style tunes, composed and synthesized in code by `tools/compose_music.py` (no samples or third-party recordings, so nothing to license). A tavern tune (lute, recorder, harp, drone; D Dorian) plays on the title screen and in camp, a battle tune (shawm, lute, tabor drum; E Dorian) during waves, and a boss tune (war drums, low voices, bell; D Phrygian) on boss waves. Tunes crossfade, duck while paused, and have their own Music toggle on the title and pause screens.
 
 ## Install (Android)
-Download `builds/emberpit-0.4.10-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.5.1-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.
