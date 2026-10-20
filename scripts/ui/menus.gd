@@ -28,7 +28,7 @@ static func _toggle(text: String, key: String) -> CheckButton:
 
 
 # ---------------------------------------------------------------- title
-static func title_screen(on_play: Callable, on_heroes := Callable()) -> Control:
+static func title_screen(on_play: Callable, on_heroes := Callable(), on_continue := Callable(), on_records := Callable(), snap := {}) -> Control:
 	var root := _base()
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# darken the right side only: the bonfire scene stays bright on the left
@@ -69,21 +69,42 @@ static func title_screen(on_play: Callable, on_heroes := Callable()) -> Control:
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 30)
 	v.add_child(gap)
-	var play := UIK.button("Play", "PrimaryButton", Vector2(360, 104))
-	play.add_theme_font_size_override("font_size", 40)
+	if on_continue.is_valid() and not snap.is_empty():
+		# the run saved in camp: hero, mode and wave on the button
+		var cont := UIK.button("Continue", "PrimaryButton", Vector2(360, 96))
+		cont.add_theme_font_size_override("font_size", 34)
+		cont.pressed.connect(on_continue)
+		cont.name = "ContinueButton"
+		var cc := CenterContainer.new()
+		cc.add_child(cont)
+		v.add_child(cc)
+		var what := _outlined(UIK.label("%s  ·  wave %d  ·  %s" % [DB.HEROES[String(snap["hero"])]["name"], int(snap.get("wave", 1)),
+			Modes.label(snap.get("cfg", {}))], "SmallLabel", 18, UIK.col("dim", Color(0.75, 0.7, 0.62))), 6)
+		what.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(what)
+	var play := UIK.button("Play" if snap.is_empty() else "New Run", "" if not snap.is_empty() else "PrimaryButton", Vector2(360, 104 if snap.is_empty() else 76))
+	play.add_theme_font_size_override("font_size", 40 if snap.is_empty() else 30)
 	play.pressed.connect(on_play)
 	play.name = "PlayButton"
 	var pc := CenterContainer.new()
 	pc.add_child(play)
 	v.add_child(pc)
+	var row2 := HBoxContainer.new()
+	row2.alignment = BoxContainer.ALIGNMENT_CENTER
+	row2.add_theme_constant_override("separation", 12)
 	if on_heroes.is_valid():
-		var heroes := UIK.button("Heroes", "", Vector2(360, 76))
-		heroes.add_theme_font_size_override("font_size", 30)
+		var heroes := UIK.button("Heroes", "", Vector2(174, 72))
+		heroes.add_theme_font_size_override("font_size", 28)
 		heroes.pressed.connect(on_heroes)
 		heroes.name = "HeroesButton"
-		var hc := CenterContainer.new()
-		hc.add_child(heroes)
-		v.add_child(hc)
+		row2.add_child(heroes)
+	if on_records.is_valid():
+		var rec := UIK.button("Records", "", Vector2(174, 72))
+		rec.add_theme_font_size_override("font_size", 28)
+		rec.pressed.connect(on_records)
+		rec.name = "RecordsButton"
+		row2.add_child(rec)
+	v.add_child(row2)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 24)
@@ -94,7 +115,7 @@ static func title_screen(on_play: Callable, on_heroes := Callable()) -> Control:
 		q.pressed.connect(func(): Game.quit_game())
 		row.add_child(q)
 	v.add_child(row)
-	var tip := _outlined(UIK.label("Survive 20 waves in the Pit. 3 lives. Shop between waves.", "SmallLabel", 20, UIK.col("dim", Color(0.75, 0.7, 0.62))), 6)
+	var tip := _outlined(UIK.label("Survive 20 waves in the Pit. Shop between waves. Unlock heroes by playing.", "SmallLabel", 20, UIK.col("dim", Color(0.75, 0.7, 0.62))), 6)
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(tip)
 	if not Game.prev_crash.is_empty():
@@ -128,7 +149,8 @@ static func _crash_notice() -> Control:
 
 
 # ---------------------------------------------------------------- hero select
-static func hero_select(on_start: Callable, on_back: Callable) -> Control:
+static func hero_select(on_start: Callable, on_back: Callable, cfg := {}) -> Control:
+	var any_hero: bool = cfg.get("mode", "classic") == "practice"
 	var root := _base()
 	var shade := ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -152,6 +174,9 @@ static func hero_select(on_start: Callable, on_back: Callable) -> Control:
 	back.pressed.connect(on_back)
 	head.add_child(back)
 	var title := _outlined(UIK.label("Choose your hero", "TitleLabel", 40, UIK.col("gold", Color.GOLD)))
+	if not cfg.is_empty():
+		title.text = "Choose your hero  ·  " + Modes.label(cfg)
+		title.add_theme_font_size_override("font_size", 32)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	head.add_child(title)
@@ -178,29 +203,37 @@ static func hero_select(on_start: Callable, on_back: Callable) -> Control:
 	detail_holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(detail_holder)
 	var state := {"sel": DB.HERO_ORDER[0], "tiles": {}}
+	var can := func(id: String) -> bool: return any_hero or Profile.is_unlocked(id)
 	var refresh := func():
 		for id in state["tiles"]:
 			var tile: Control = state["tiles"][id]
 			var on: bool = id == state["sel"]
-			tile.modulate = Color(1, 1, 1) if on else Color(0.66, 0.63, 0.6)
+			var dim := 1.0 if on else 0.66
+			if not can.call(id):
+				dim *= 0.55
+			tile.modulate = Color(dim, dim * 0.96, dim * 0.92)
 			(tile.get_meta("ring") as Control).visible = on
 		for c in detail_holder.get_children():
 			c.queue_free()
-		detail_holder.add_child(_hero_detail(state["sel"]))
+		detail_holder.add_child(_hero_detail(state["sel"], can.call(state["sel"])))
+		start.disabled = not can.call(state["sel"])
 	for id in DB.HERO_ORDER:
-		var tile := _hero_tile(id)
+		var tile := _hero_tile(id, can.call(id))
 		grid.add_child(tile)
 		state["tiles"][id] = tile
 		var hid: String = id
 		var btn: Button = tile.get_meta("button")
 		btn.pressed.connect(func():
 			if state["sel"] == hid:
-				on_start.call(hid)
+				if can.call(hid):
+					on_start.call(hid)
 				return
 			state["sel"] = hid
 			Audio.play("click")
 			refresh.call())
-	start.pressed.connect(func(): on_start.call(state["sel"]))
+	start.pressed.connect(func():
+		if can.call(state["sel"]):
+			on_start.call(state["sel"]))
 	refresh.call()
 	return root
 
@@ -220,7 +253,7 @@ static func difficulty_name(n: int) -> String:
 
 
 ## Small roster tile: portrait, name, playstyle tag. The whole tile is a button.
-static func _hero_tile(id: String) -> Control:
+static func _hero_tile(id: String, open := true) -> Control:
 	var d: Dictionary = DB.HEROES[id]
 	var holder := MarginContainer.new()
 	holder.custom_minimum_size = Vector2(TILE_W, 0)
@@ -238,7 +271,7 @@ static func _hero_tile(id: String) -> Control:
 	var n := _fit(_outlined(UIK.label(d["name"], "", 16 if String(d["name"]).length() <= 9 else 14, UIK.col("ember", Color(1, 0.55, 0.25))), 5))
 	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(n)
-	var t := _fit(UIK.label(d.get("tag", ""), "SmallLabel", 15, UIK.col("gold", Color.GOLD)))
+	var t := _fit(UIK.label(d.get("tag", "") if open else "Locked", "SmallLabel", 15, UIK.col("gold", Color.GOLD) if open else Color(0.7, 0.66, 0.6)))
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
 	# selection ring: a bright frame drawn over the tile
@@ -266,7 +299,7 @@ static func _hero_tile(id: String) -> Control:
 
 
 ## Details of one hero: who they are, how they play, and their skills.
-static func _hero_detail(id: String) -> Control:
+static func _hero_detail(id: String, open := true) -> Control:
 	var d: Dictionary = DB.HEROES[id]
 	var card := UIK.panel("FramePanel")
 	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -290,8 +323,15 @@ static func _hero_detail(id: String) -> Control:
 	names.add_child(role)
 	var diff := UIK.label("Difficulty: %s" % difficulty_name(int(d.get("difficulty", 1))), "SmallLabel", 17, UIK.col("gold", Color.GOLD))
 	names.add_child(diff)
-	var mark := _fit(UIK.label("Tap again to start", "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62))))
-	names.add_child(mark)
+	if open:
+		names.add_child(_fit(UIK.label("Tap again to start", "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
+	else:
+		var pr := Profile.progress(id)
+		var lk := UIK.label("Locked: %s (%d / %d)" % [Modes.UNLOCKS.get(id, {}).get("text", ""), pr[0], pr[1]], "SmallLabel", 17, UIK.col("danger", Color(1, 0.45, 0.4)).lightened(0.2))
+		lk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		lk.custom_minimum_size = Vector2(120, 0)
+		lk.name = "LockLabel"
+		names.add_child(lk)
 	var ps := UIK.label(d["playstyle"], "", 17, UIK.col("text", Color(0.95, 0.9, 0.82)))
 	ps.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ps.add_theme_constant_override("line_spacing", -3)
@@ -335,7 +375,7 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 	var root := _base()
 	var shade := ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var win := run.result == "victory"
+	var win := run.result == "victory" or run.result == "training"
 	shade.color = Color(0.06, 0.03, 0.0, 0.42) if win else Color(0.02, 0.01, 0.01, 0.6)
 	root.add_child(shade)
 	if win:
@@ -350,6 +390,8 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 	v.add_theme_constant_override("separation", 10)
 	frame.add_child(v)
 	var gold := UIK.col("gold", Color(1.0, 0.8, 0.3))
+	if run.result == "training":
+		return _training_end(root, v, on_again, on_title)
 	var t := _outlined(UIK.label("Victory!" if win else "Defeat", "TitleLabel", 76 if win else 64, gold.lightened(0.15) if win else UIK.col("danger", Color(0.9, 0.3, 0.3))), 12)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if win:
@@ -363,9 +405,13 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 		var champ := _outlined(UIK.label("Champion of the Pit", "TitleLabel", 34, UIK.col("ember", Color(1, 0.55, 0.25))), 8)
 		champ.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(champ)
-	var sub := UIK.label(("%s survived all 20 waves." if win else "%s fell in the Pit.") % hd["name"], "", 22, UIK.col("text", Color(0.95, 0.9, 0.82)))
+	var sub_text: String = ("%s survived all 20 waves." if win else "%s fell in the Pit.") % hd["name"]
+	if run.mode == "endless":
+		sub_text = "%s held out until wave %d." % [hd["name"], run.max_wave_reached]
+	var sub := UIK.label(sub_text, "", 22, UIK.col("text", Color(0.95, 0.9, 0.82)))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(sub)
+	v.add_child(_run_summary(run))
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 30)
 	v.add_child(body)
@@ -374,7 +420,7 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 	body.add_child(left)
 	var rows := [
 		["Hero", hd["name"]],
-		["Wave reached", "%d / %d" % [run.max_wave_reached, DB.TOTAL_WAVES]],
+		["Wave reached", ("%d" % run.max_wave_reached) if run.mode == "endless" else ("%d / %d" % [run.max_wave_reached, DB.TOTAL_WAVES])],
 		["Level", str(run.hero.level)],
 		["Kills", str(run.stats["kills"])],
 		["Gold earned", str(run.stats["gold_earned"])],
@@ -419,6 +465,7 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 	btns.add_theme_constant_override("separation", 20)
 	v.add_child(btns)
 	var again := UIK.button("Play Again", "PrimaryButton", Vector2(260, 88))
+	again.name = "AgainButton"
 	again.add_theme_font_size_override("font_size", 28)
 	again.pressed.connect(on_again)
 	btns.add_child(again)
@@ -426,6 +473,58 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 	tt.pressed.connect(on_title)
 	btns.add_child(tt)
 	return root
+
+
+## End of Training: what's next instead of run stats.
+static func _training_end(root: Control, v: VBoxContainer, on_play: Callable, on_title: Callable) -> Control:
+	var t := _outlined(UIK.label("Training complete!", "TitleLabel", 64, UIK.col("gold", Color(1.0, 0.8, 0.3)).lightened(0.15)), 12)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var lines := ["You know the basics. Now pick a mode and a hero.",
+		"Classic is the full 20 waves. Random Hero and the Daily Run let you try heroes you haven't unlocked yet.",
+		"Practice gives you any hero, any wave and free gold to learn them."]
+	for s in lines:
+		var l := UIK.label(s, "", 21, UIK.col("text", Color(0.95, 0.9, 0.82)))
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size = Vector2(820, 0)
+		v.add_child(l)
+	var btns := HBoxContainer.new()
+	btns.alignment = BoxContainer.ALIGNMENT_CENTER
+	btns.add_theme_constant_override("separation", 20)
+	v.add_child(btns)
+	var play := UIK.button("Play", "PrimaryButton", Vector2(260, 88))
+	play.name = "AgainButton"
+	play.add_theme_font_size_override("font_size", 30)
+	play.pressed.connect(on_play)
+	btns.add_child(play)
+	var tt := UIK.button("Title", "", Vector2(200, 88))
+	tt.pressed.connect(on_title)
+	btns.add_child(tt)
+	return root
+
+
+## Mode, tier, score and anything newly unlocked, under the end screen's headline.
+static func _run_summary(run: Run) -> Control:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	var info: Dictionary = run.end_info
+	var line := Modes.label(run.cfg)
+	if run.cfg.get("counts", false):
+		line += "  ·  Score %d" % int(info.get("score", run.score()))
+		if info.get("best", false):
+			line += "  (new best!)"
+	elif run.mode == "practice":
+		line += "  ·  not recorded"
+	var l := UIK.label(line, "", 21, UIK.col("gold", Color.GOLD))
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.name = "SummaryLabel"
+	v.add_child(l)
+	for u in info.get("unlocks", []):
+		var ul := _outlined(UIK.label("Unlocked: %s!" % u, "", 24, UIK.col("ember", Color(1, 0.55, 0.25))), 6)
+		ul.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(ul)
+	return v
 
 
 ## Rising embers across the whole screen (victory).

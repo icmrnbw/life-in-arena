@@ -9,6 +9,7 @@ var screen: Control
 var pause_ui: Control
 var menu_hero := ""
 var menu_unit: Node3D
+var overlay: Control       # the first-run Training offer, over the title screen
 var _sway := 0.0
 
 ## Title scene: a hero resting by a bonfire on a ledge south of the camp; the camp and the Pit glow beyond.
@@ -36,6 +37,15 @@ func _ready() -> void:
 			show_title()
 		"hero_select":
 			show_hero_select()
+		"play", "modes":
+			show_play(Game.arg("mode", ""))
+		"records":
+			show_records()
+		"offer":
+			show_title()
+			_offer_training()
+		"training":
+			start_run("ashwarden", 1, Modes.config("training"))
 		"heroes", "gallery":
 			show_gallery(hero)
 		"shop":
@@ -67,7 +77,7 @@ func _ready() -> void:
 					run.skip_prep())
 		_:
 			if hero != "":
-				start_run(hero, maxi(1, wave))
+				start_run(hero, maxi(1, wave), _arg_cfg())
 			else:
 				show_title()
 	if sc != "" and Game.args.has("screenshot-dir") and float(Game.arg("screenshot-every", "0")) <= 0.0:
@@ -81,7 +91,7 @@ func _shot_when_ready(sc: String) -> void:
 	var t := 0.0
 	while t < 8.0:
 		var ok := true
-		if sc in ["hud", "shop", "pause", "skills", "end", "victory"]:
+		if sc in ["hud", "shop", "pause", "skills", "end", "victory", "training"]:
 			ok = run != null and is_instance_valid(run) and run.camera != null
 			if ok and sc == "shop":
 				ok = run.hud != null and run.hud.shop != null
@@ -96,6 +106,15 @@ func _shot_when_ready(sc: String) -> void:
 	for i in 6:
 		await get_tree().process_frame
 	Game.screenshot(sc)
+
+
+## Run settings from the test hooks: --mode=<id> --tier=<id> (--date=YYYY-MM-DD for daily). Bot and test runs
+## don't touch the saved profile unless --profile is passed.
+func _arg_cfg() -> Dictionary:
+	var c := Modes.config(Game.arg("mode", "classic"), Game.arg("tier", "hard"), {"date": Game.arg("date", Modes.today())} if Game.args.has("date") else {})
+	if not Game.args.has("profile"):
+		c["counts"] = false
+	return c
 
 
 func _process(delta: float) -> void:
@@ -164,17 +183,81 @@ func show_title() -> void:
 	_end_run_node()
 	_ensure_backdrop()
 	_clear_screen()
+	_close_overlay()
 	Game.state["phase"] = "menu"
-	screen = Menus.title_screen(show_hero_select, show_gallery)
+	var snap := Profile.load_run()
+	screen = Menus.title_screen(_on_play, show_gallery, continue_run if not snap.is_empty() else Callable(), show_records, snap)
 	ui.add_child(screen)
 
 
-func show_hero_select() -> void:
+## Play: the first time, offer Training before the mode list.
+func _on_play() -> void:
+	if not Profile.d().get("training_done", false) and not Profile.d().get("training_offered", false):
+		_offer_training()
+		return
+	show_play()
+
+
+func _offer_training() -> void:
+	Profile.d()["training_offered"] = true
+	Profile.save()
+	_close_overlay()
+	overlay = PlayMenu.training_offer(func():
+		_close_overlay()
+		start_run("ashwarden", 1, Modes.config("training")),
+	func():
+		_close_overlay()
+		show_play())
+	ui.add_child(overlay)
+
+
+func _close_overlay() -> void:
+	if overlay and is_instance_valid(overlay):
+		overlay.queue_free()
+	overlay = null
+
+
+## Mode list: Classic, Random Hero, Endless, Daily Run, Practice, Training.
+func show_play(first_mode := "") -> void:
 	_end_run_node()
 	_ensure_backdrop()
 	_clear_screen()
+	_close_overlay()
+	Game.state["phase"] = "play"
+	screen = PlayMenu.create(show_hero_select, start_run, show_title, first_mode)
+	ui.add_child(screen)
+
+
+func show_records() -> void:
+	_end_run_node()
+	_ensure_backdrop()
+	_clear_screen()
+	Game.state["phase"] = "records"
+	screen = PlayMenu.records(show_title)
+	ui.add_child(screen)
+
+
+## Carry on with the run saved in camp.
+func continue_run() -> void:
+	var snap := Profile.load_run()
+	if snap.is_empty():
+		show_title()
+		return
+	var c: Dictionary = snap.get("cfg", {}).duplicate()
+	if c.is_empty():
+		c = Modes.config("classic")
+	c["resume"] = snap
+	start_run(String(snap["hero"]), 1, c)
+
+
+## Hero select for a mode (Classic by default). Locked heroes can't be picked, except in Practice.
+func show_hero_select(run_cfg := {}) -> void:
+	_end_run_node()
+	_ensure_backdrop()
+	_clear_screen()
+	var c: Dictionary = run_cfg if not run_cfg.is_empty() else Modes.config("classic", Profile.d().get("last_tier", "hard"))
 	Game.state["phase"] = "hero_select"
-	screen = Menus.hero_select(func(id): start_run(id, 1), show_title)
+	screen = Menus.hero_select(func(id): start_run(id, int(c.get("start_wave", 1)), c), func(): show_play(c.get("mode", "classic")), c)
 	ui.add_child(screen)
 
 
@@ -195,13 +278,16 @@ func _close_gallery() -> void:
 	show_title()
 
 
-func start_run(hero_id: String, wave := 1) -> void:
+func start_run(hero_id: String, wave := 1, run_cfg := {}) -> void:
 	_clear_screen()
+	_close_overlay()
 	_end_run_node()
 	_free_backdrop()
 	get_tree().paused = false
+	if not run_cfg.has("resume") and String(run_cfg.get("mode", "classic")) not in ["practice", "training"] and not Game.autoplay:
+		Profile.clear_run()   # a new run replaces the saved one
 	run = Run.new()
-	run.setup(hero_id, wave)
+	run.setup(hero_id, wave, run_cfg)
 	add_child(run)
 	run.run_ended.connect(_on_run_ended)
 	run.hud.pause_requested.connect(pause_game)
@@ -235,7 +321,19 @@ func _show_end(for_run: Run = null) -> void:
 	_clear_screen()
 	if run.hud:
 		run.hud.visible = false
-	screen = Menus.end_screen(run, show_hero_select, show_title)
+	var c: Dictionary = run.cfg.duplicate()
+	c.erase("resume")
+	var again := func():
+		match String(c.get("mode", "classic")):
+			"random":
+				start_run(Modes.random_hero(), 1, Modes.config("random", c.get("tier", "hard")))
+			"daily":
+				start_run(run.hero_id, 1, Modes.config("daily", "hard", {"date": c.get("date", Modes.today())}))
+			"training":
+				show_play()
+			_:
+				show_hero_select(c)
+	screen = Menus.end_screen(run, again, show_title)
 	ui.add_child(screen)
 	if run.result == "victory":
 		_victory_bursts(run)
@@ -322,7 +420,11 @@ func _on_back() -> void:
 			run.hud.close_shop()
 		else:
 			pause_game()
-	elif Game.state.get("phase", "") in ["hero_select", "gallery"]:
+	elif overlay != null:
+		_close_overlay()
+	elif Game.state.get("phase", "") == "hero_select":
+		show_play()
+	elif Game.state.get("phase", "") in ["play", "records", "gallery"]:
 		show_title()
 	else:
 		Game.quit_game()

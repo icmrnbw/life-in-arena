@@ -355,7 +355,7 @@ func _focus_buffers() -> void:
 func _pen_play(dt: float) -> bool:
 	var h := run.hero
 	var bf := run.barrels
-	if not use_pens or bf == null or run.phase != "wave" or not run.boss_units.is_empty() or DB.BOSS_WAVES.has(run.wave):
+	if not use_pens or bf == null or run.phase != "wave" or not run.boss_units.is_empty() or run.boss_kind() != "":
 		return false
 	if pen_wave != run.wave:
 		pen_wave = run.wave

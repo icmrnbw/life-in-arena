@@ -48,6 +48,9 @@ func _ready() -> void:
 func _main() -> void:
 	await get_tree().process_frame
 	Engine.time_scale = 1.0
+	# keep test runs out of the real saved profile
+	Profile.use_paths("user://test_profile.json", "user://test_saved_run.json")
+	Profile.reset()
 	test_data()
 	test_armor()
 	await test_damage()
@@ -62,6 +65,8 @@ func _main() -> void:
 	await test_barrels_buffers()
 	await test_wave_identities()
 	await test_shield_flank()
+	await test_replayability()
+	await test_training()
 	print("\n==== RESULT: %d passed, %d failed" % [passed, failed])
 	for f in fails:
 		print("FAILED: ", f)
@@ -1007,3 +1012,220 @@ func test_shield_flank() -> void:
 		check(flanked >= 0.0 and flanked < (4.0 if rng < 6.0 else 6.5), "circling at %d m gets past the shield" % int(rng), "%.1f s" % flanked)
 		free_run(r)
 		await get_tree().process_frame
+
+
+# ------------------------------------------------------------------ replayability
+func make_mode_run(hero: String, c: Dictionary, wave := 1) -> Run:
+	var r := Run.new()
+	r.setup(hero, wave, c)
+	get_tree().root.add_child(r)
+	return r
+
+
+## Kills everything until the wave is cleared (or max steps).
+func clear_wave(r: Run) -> void:
+	r.skip_prep()
+	r._step(0.05)
+	for i in 1500:
+		for e in r.enemies.duplicate():
+			if e.alive:
+				r.damage(e, 1e8, r.hero, "Test", "magic")
+		r._step(1.0 / 30.0)
+		if r.phase != "wave":
+			break
+
+
+func test_replayability() -> void:
+	section("profile, unlocks, tiers, modes, saved run")
+	Profile.reset()
+	check(Profile.is_unlocked("ashwarden") and Profile.is_unlocked("riftdancer") and Profile.is_unlocked("hivemother"), "starter heroes unlocked")
+	check(not Profile.is_unlocked("sanguine") and not Profile.is_unlocked("sunspeaker"), "others locked at first")
+	check(Profile.tier_unlocked("normal") and Profile.tier_unlocked("hard") and not Profile.tier_unlocked("extreme"), "Extreme locked at first")
+	for id in DB.HERO_ORDER:
+		check(Modes.STARTER_HEROES.has(id) or Modes.UNLOCKS.has(id), "unlock rule for " + id)
+	# tiers scale enemies
+	var rn := make_mode_run("ashwarden", Modes.config("classic", "normal"))
+	var rh := make_mode_run("ashwarden", Modes.config("classic", "hard"))
+	var rx := make_mode_run("ashwarden", Modes.config("classic", "extreme"))
+	await get_tree().process_frame
+	var en := rn.spawn_enemy("gnawer", Vector3(0, 0, -10))
+	var eh := rh.spawn_enemy("gnawer", Vector3(0, 0, -10))
+	var ex := rx.spawn_enemy("gnawer", Vector3(0, 0, -10))
+	check(en.max_hp < eh.max_hp and eh.max_hp < ex.max_hp, "enemy HP: Normal < Hard < Extreme", "%f %f %f" % [en.max_hp, eh.max_hp, ex.max_hp])
+	check(en.atk_dmg < eh.atk_dmg and eh.atk_dmg < ex.atk_dmg, "enemy damage scales by tier")
+	check(near(eh.max_hp, DB.ENEMIES["gnawer"]["hp"] * DB.hp_mult(1)), "Hard = the old tuning")
+	check(rx.lives == 1 and rh.lives == 3 and rn.lives == 3, "Extreme has one life")
+	var bn := rn.spawn_enemy("pit_brute", Vector3(0, 0, -10), 5)
+	check(near(bn.max_hp, DB.ENEMIES["pit_brute"]["hp"] * Modes.TIERS["normal"]["hp"]), "bosses scale by tier too")
+	for r in [rn, rh, rx]:
+		free_run(r)
+	await get_tree().process_frame
+	# random hero bonus gold, practice gold and lives
+	var rr := make_mode_run(Modes.random_hero(), Modes.config("random", "hard"))
+	await get_tree().process_frame
+	check(rr.gold == DB.START_GOLD + Modes.RANDOM_BONUS_GOLD, "Random Hero starts with bonus gold", str(rr.gold))
+	free_run(rr)
+	var rp := make_mode_run("sunspeaker", Modes.config("practice", "hard"), 8)
+	await get_tree().process_frame
+	check(rp.gold == Modes.PRACTICE_GOLD and rp.wave == 8 and rp.hero.level > 1, "Practice: free gold, start wave and level")
+	_g().god = false
+	var lives0 := rp.lives
+	rp.skip_prep()
+	rp._step(0.05)
+	rp.damage(rp.hero, 1e9, null, "Test")
+	check(rp.lives == lives0, "Practice: dying costs no life")
+	free_run(rp)
+	await get_tree().process_frame
+	# daily run is the same for everyone on a date
+	var d1 := Modes.daily("2026-10-20")
+	var d2 := Modes.daily("2026-10-20")
+	var d3 := Modes.daily("2026-10-21")
+	check(d1 == d2 and DB.HEROES.has(d1["hero"]) and Modes.DAILY_MODS.has(d1["mod"]), "Daily Run is fixed per date")
+	check(d1["seed"] != d3["seed"], "next day differs")
+	var gc := Modes.config("daily", "extreme", {"date": "2026-10-20"})
+	check(gc["tier"] == "hard" and gc["mod"] == d1["mod"] and int(gc["seed"]) == int(d1["seed"]), "Daily config: Hard + today's twist")
+	var glass := Modes.config("daily", "hard", {"date": "x"})
+	glass["hero_dmg"] = 1.35
+	var rg := make_mode_run("ashwarden", glass)
+	await get_tree().process_frame
+	var tgt := rg.spawn_enemy("shieldbearer", Vector3(0, 0, -10))
+	var dealt := rg.damage(tgt, 50.0, rg.hero, "Test", "magic")
+	check(near(dealt, 67.5, 0.1), "Glass Cannon: hero deals more", str(dealt))
+	free_run(rg)
+	await get_tree().process_frame
+	# endless: bosses keep cycling and grow
+	check(Modes.boss_kind(5) == "pit_brute" and Modes.boss_kind(20) == "warden" and Modes.boss_kind(21) == "", "boss waves 1-20 unchanged")
+	check(Modes.boss_kind(25) == "pit_brute" and Modes.boss_kind(30) == "matron" and Modes.boss_kind(40) == "warden" and Modes.boss_kind(45) == "pit_brute", "Endless bosses cycle")
+	check(Modes.boss_hp_mult(25) > 1.0 and Modes.boss_hp_mult(45) > Modes.boss_hp_mult(25), "Endless bosses grow each lap")
+	check(String(Modes.wave_info(21)["name"]).ends_with("II") and Modes.wave_info(21)["captain"] != "", "Endless wave 21 reuses wave 1 with a lap mark")
+	var re := make_mode_run("riftdancer", Modes.config("endless", "hard"), 20)
+	await get_tree().process_frame
+	_g().god = true
+	clear_wave(re)
+	check(re.result == "" and re.phase == "clear", "Endless: the Warden doesn't end the run", "%s %s" % [re.result, re.phase])
+	for i in 80:
+		re._step(1.0 / 30.0)
+	check(re.wave == 21 and re.phase == "prep", "Endless: wave 21 follows", "%d %s" % [re.wave, re.phase])
+	free_run(re)
+	await get_tree().process_frame
+	# records and unlocks from cleared waves
+	Profile.reset()
+	var rc := make_mode_run("hivemother", Modes.config("classic", "hard"), 3)
+	await get_tree().process_frame
+	check(int(Profile.d()["totals"]["runs"]) == 1, "run start counted")
+	clear_wave(rc)
+	check(int(Profile.hero_rec("hivemother")["best_wave"]) == 3 and Profile.is_unlocked("sanguine"), "clearing wave 3 records it and unlocks Sanguine")
+	check(int(Profile.d()["totals"]["kills"]) > 0, "kills saved on wave clear")
+	# saved run in camp
+	for i in 80:
+		rc._step(1.0 / 30.0)
+	check(rc.wave == 4 and rc.phase == "prep" and Profile.has_run(), "the run is saved back in camp")
+	rc.gold = 777
+	rc.hero.ranks = [1, 1, 0, 0]
+	rc.buy("iron_knuckles")
+	rc._save_progress()
+	var snap := Profile.load_run()
+	var lvl: int = rc.hero.level
+	var kills: int = rc.stats["kills"]
+	free_run(rc)
+	await get_tree().process_frame
+	var c2: Dictionary = snap["cfg"].duplicate()
+	c2["resume"] = snap
+	var rs := make_mode_run(String(snap["hero"]), c2)
+	await get_tree().process_frame
+	check(rs.hero_id == "hivemother" and rs.wave == 4 and rs.hero.level == lvl, "resume: hero, wave, level", "%s %d %d" % [rs.hero_id, rs.wave, rs.hero.level])
+	check(rs.gold == 777 - rs.buy_price("iron_knuckles") or rs.gold > 0, "resume: gold")
+	check(rs.hero.has_item("iron_knuckles") and rs.hero.ranks[0] == 1 and rs.hero.ranks[1] == 1, "resume: items and ranks")
+	check(int(rs.stats["kills"]) == kills and rs.phase == "prep", "resume: stats, in camp")
+	check(int(Profile.d()["totals"]["runs"]) == 1, "a resumed run isn't counted twice")
+	rs._end_run("defeat")
+	check(not Profile.has_run() and int(rs.end_info.get("score", 0)) > 0, "ending the run clears the save and scores it")
+	free_run(rs)
+	await get_tree().process_frame
+	# Extreme unlocks from Hard wave 10
+	Profile.d()["tier_best"]["hard"] = 10
+	check("Extreme tier" in Profile.check_unlocks() and Profile.tier_unlocked("extreme"), "Extreme unlocks after wave 10 on Hard")
+	# runs that don't count leave records alone
+	var t0 := int(Profile.d()["totals"]["waves"])
+	var rq := make_mode_run("ashwarden", Modes.config("practice", "hard"), 2)
+	await get_tree().process_frame
+	clear_wave(rq)
+	check(int(Profile.d()["totals"]["waves"]) == t0, "Practice doesn't count toward records")
+	free_run(rq)
+	await get_tree().process_frame
+	check(Modes.score(10, 200, 2, 1, "extreme") > Modes.score(10, 200, 2, 1, "hard") and Modes.score(10, 200, 2, 1, "hard") > Modes.score(10, 200, 2, 1, "normal"), "score scales by tier")
+	_g().god = false
+	Profile.reset()
+
+
+func test_training() -> void:
+	section("training (first-run tutorial)")
+	Profile.reset()
+	var r := make_mode_run("ashwarden", Modes.config("training"))
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var t = r.tutorial
+	check(t != null and t.step_id() == "welcome", "training starts with the coach")
+	var p0 := r.prep_t
+	for i in 60:
+		r._step(1.0 / 30.0)
+	check(r.phase == "prep" and r.prep_t == p0, "no wave timer while the coach drives")
+	t._on_action()
+	for i in 40:
+		r._step(1.0 / 30.0)
+	check(t.step_id() == "move", "Next -> move")
+	r.hero.pos = t.MOVE_SPOT
+	for i in 40:
+		r._step(1.0 / 30.0)
+	check(t.step_id() == "learn", "reaching the marker -> learn")
+	r.rank_up(0)
+	for i in 40:
+		r._step(1.0 / 30.0)
+	check(t.step_id() == "cast", "learning a skill -> cast")
+	r.try_cast(0)
+	for i in 40:
+		r._step(1.0 / 30.0)
+	check(t.step_id() == "shop", "casting -> shop")
+	r.buy("iron_knuckles")
+	for i in 40:
+		r._step(1.0 / 30.0)
+	check(t.step_id() == "arena", "buying -> arena")
+	t._on_action()
+	check(r.phase == "wave" and not r.hero.in_camp and t.spawned.size() == 5, "Fight! -> arena with a pack")
+	for i in 40:
+		r._step(1.0 / 30.0)
+	check(t.step_id() == "fight", "fight step")
+	# the hero can't fall in training
+	r.damage(r.hero, 1e9, t.spawned[0], "Test")
+	check(r.hero.alive and r.hero.hp >= 1.0, "the hero can't fall in training")
+	for e in t.spawned:
+		r.damage(e, 1e8, r.hero, "Test", "magic")
+	for i in 40:
+		r._step(1.0 / 30.0)
+	check(t.step_id() == "level" and r.hero.skill_points > 0, "pack down -> level up with a point to spend")
+	for slot in 4:
+		if r.rank_up(slot):
+			break
+	for i in 40:
+		r._step(1.0 / 30.0)
+	check(t.step_id() == "nook", "rank up -> nook")
+	var pen: Dictionary = t._nearest_pen()
+	r.hero.pos = pen["c"]
+	for i in 40:
+		r._step(1.0 / 30.0)
+	check(t.step_id() == "hold" and t.spawned.size() == 7, "inside a nook -> hold, new pack")
+	for e in t.spawned:
+		r.damage(e, 1e8, r.hero, "Test", "magic")
+	for i in 40:
+		r._step(1.0 / 30.0)
+	check(t.step_id() == "captain" and r.captain != null and r.captain.captain, "-> captain")
+	r.damage(r.captain, 1e8, r.hero, "Test", "magic")
+	for i in 40:
+		r._step(1.0 / 30.0)
+	check(t.step_id() == "done", "captain down -> done")
+	t._on_action()
+	check(r.result == "training" and Profile.d()["training_done"], "Finish ends training and remembers it")
+	check(int(Profile.d()["totals"]["runs"]) == 0, "training isn't a counted run")
+	free_run(r)
+	await get_tree().process_frame
+	Profile.reset()
