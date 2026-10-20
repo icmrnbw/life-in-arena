@@ -338,14 +338,19 @@ const AURAS := {
 }
 const DRUM_DMG := 2.0
 
-## Barrels. Pens are rings of barrels: smash one to open a gap, stand inside, and the pack has to
-## come through the gap one at a time. Powder kegs blow up shortly after they're broken.
-const PENS := [
-	{"c": Vector3(-13.5, 0, 6.0), "r": 2.6, "n": 13, "rot": 0.1},
-	{"c": Vector3(13.5, 0, 6.0), "r": 2.6, "n": 13, "rot": -0.1},
-	{"c": Vector3(0, 0, -12.5), "r": 2.6, "n": 13, "rot": 0.25},
+## Barrels, laid out like Life in Arena: big solid barrel stacks filling three corners of the arena. Smash your way
+## in to dig a corridor (tap a barrel, or push into it) and fight from the end of it: foes can only follow you single
+## file. Barrels sit on a square grid (BARREL_GRID apart), so a corridor one barrel wide (1.3 m of room) lets every hero and regular foes through
+## but not wide ones (Shieldbearers, Bloaters), which have to smash it wider. Powder kegs are packed into the stacks.
+## A stack is every grid cell past the corner lines (sx * x >= t and sz * z >= t) inside the arena wall.
+const STACKS := [
+	{"sx": 1, "sz": 1, "t": 7.5, "kegs": [Vector3(9.6, 0, 17.5), Vector3(14.0, 0, 9.6)]},
+	{"sx": -1, "sz": 1, "t": 7.5, "kegs": [Vector3(-9.6, 0, 17.5), Vector3(-14.0, 0, 9.6)]},
+	{"sx": -1, "sz": -1, "t": 10.0, "kegs": [Vector3(-10.6, 0, -18.0), Vector3(-15.0, 0, -10.6)]},
 ]
-const KEGS := [Vector3(-4.5, 0, -17.0), Vector3(16.8, 0, -3.5), Vector3(-16.8, 0, -3.5), Vector3(10.5, 0, -13.0)]
+const BARREL_GRID := 1.15          # barrel spacing
+const STACK_R := 21.6              # cells out to here are filled (the outer ones tuck against the wall)
+const KEGS := [Vector3(-4.5, 0, -17.0), Vector3(10.5, 0, -13.0)]   # loose kegs out in the open
 const BARREL_R := 0.5
 const BARREL_HP := 8.0          # hero swings deal BARREL_HERO_HIT, enemy swings 1 (big ones 2)
 const BARREL_HERO_HIT := 5.0
@@ -494,7 +499,7 @@ const EARLY_HP := 0.3
 const EARLY_DMG := 0.4
 
 
-## Enemy damage is a notch higher since barrel pens let you fight the pack one at a time.
+## Enemy damage is a notch higher since barrel stacks let you fight the pack one at a time.
 const DMG_BASE := 1.1
 const BOSS_DMG_BASE := 1.1
 

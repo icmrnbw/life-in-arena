@@ -1,24 +1,38 @@
 class_name BarrelField
 extends Node3D
-## Barrel pens and powder kegs in the arena (DB.PENS / DB.KEGS).
-## A pen is a ring of barrels with no way in. Smash one (or more) to open a gap: whoever is inside can only be
-## reached through it, so the pack queues up and comes in one at a time. Units too wide for the gap smash the
-## barrels next to it; a sealed pen gets broken open; bosses crash straight through. Kegs blow up after a short
-## fuse, hurting everything nearby (the hero too) and breaking barrels around them.
+## Barrel stacks and powder kegs in the arena (DB.STACKS / DB.KEGS), laid out like Life in Arena.
+## A stack is a solid block of barrels on a square grid filling a corner of the arena. Smash your way in to dig a
+## corridor and fight from the end of it: foes follow the corridor single file, so only the front one reaches you.
+## Foes path over the same grid (A*): a sealed corridor costs them a barrel to break, so they smash in; wide foes
+## don't fit a one-barrel corridor and chew it wider; bosses crash straight through. Kegs blow up after a short fuse,
+## hurting everything nearby (the hero too) and breaking barrels around them.
 ## Everything is restored at the start of each wave.
 
 const MK := preload("res://art/mesh_kit.gd")
 const SH := preload("res://art/shaders.gd")
 const WOOD := Color(0.62, 0.42, 0.24)
 const KEG_GLOW := Color(1.0, 0.55, 0.15)
+const N := 39                  # grid cells per side (N * BARREL_GRID covers the arena)
+const ORIGIN := -22.0
+const WIDE_R := 0.58           # foes wider than this (Shieldbearers, Bloaters, big elites) don't fit a corridor:
+const WIDE_PAD := 0.15         # they bump barrels as if this much wider
+const NARROW_COST := 30.0      # path cost of a barrel cell: breaking one is worth a long walk round
+const WIDE_COST := 4.0         # wide foes smash through rather than squeeze
+const DIG_DEPTH := 4           # barrels the bot digs into a stack
 
 var run: Run
-var pens: Array = []      # {c, r, n, rot, barrels: Array[Barrel], gaps: Array, gver: int}
+## Stack: {sx, sz, t, cells: Array[Vector2i], lane: Array[Vector2i] (a row from the face to the wall),
+## front: Vector3 (just outside lane[0]), step: Vector2i (dig direction)}.
+var stacks: Array = []
 var kegs: Array = []
 var all: Array = []
-var ver := 0              # bumps whenever a barrel breaks or the field resets (gap caches key on it)
-var through_pen := -1     # set by waypoint(): the pen the unit is currently passing through
+var ver := 0              # bumps whenever a barrel breaks or the field resets (path caches key on it)
 
+var _grid: Array = []     # N * N: Barrel or null
+var _astar: AStarGrid2D   # regular foes, the hero side
+var _astar_w: AStarGrid2D # wide foes
+var _paths := {}          # unit instance id -> {cells, i, t, ver, goal}
+var _bump := {}           # unit instance id -> [Barrel, run_time]: last barrel a foe walked into
 var _mm: MultiMesh
 var _kmm: MultiMesh
 var _dirty := true
@@ -28,29 +42,86 @@ var _t := 0.0
 func setup(r: Run) -> void:
 	run = r
 	name = "Barrels"
-	for i in DB.PENS.size():
-		var d: Dictionary = DB.PENS[i]
-		var pen := {"c": d["c"], "r": float(d["r"]), "n": int(d["n"]), "rot": float(d["rot"]), "barrels": [], "gaps": [], "gver": -1}
-		for j in pen["n"]:
-			var b := Barrel.new()
-			b.run = r
-			b.pen = i
-			b.slot = j
-			b.pos = pen["c"] + _ring_dir(pen, j) * pen["r"]
-			b.yaw = randf() * TAU
-			pen["barrels"].append(b)
-			all.append(b)
-		pens.append(pen)
-	for p in DB.KEGS:
-		var k := Barrel.new()
-		k.run = r
-		k.keg = true
-		k.pos = p
-		k.yaw = randf() * TAU
-		kegs.append(k)
-		all.append(k)
+	_grid.resize(N * N)
+	for si in DB.STACKS.size():
+		var d: Dictionary = DB.STACKS[si]
+		var st := {"sx": int(d["sx"]), "sz": int(d["sz"]), "t": float(d["t"]), "cells": [], "lane": []}
+		for j in N:
+			for i in N:
+				var c := cell_pos(Vector2i(i, j))
+				if st["sx"] * c.x >= st["t"] and st["sz"] * c.z >= st["t"] and Vector2(c.x, c.z).length() <= DB.STACK_R:
+					_add(Vector2i(i, j), si, false)
+					st["cells"].append(Vector2i(i, j))
+		for kp in d.get("kegs", []):
+			var kc := cell_of(kp)
+			if _grid[_idx(kc)] != null:
+				_grid[_idx(kc)].keg = true
+		_make_lane(st)
+		stacks.append(st)
+	for kp in DB.KEGS:
+		var kc := cell_of(kp)
+		if _grid[_idx(kc)] == null:
+			_add(kc, -1, true)
+	for b in all:
+		if b.keg:
+			kegs.append(b)
+	_astar = _make_astar()
+	_astar_w = _make_astar()
 	_build_visuals()
 	reset()
+
+
+func _add(c: Vector2i, si: int, keg: bool) -> void:
+	var b := Barrel.new()
+	b.run = run
+	b.pen = si
+	b.slot = _idx(c)
+	b.keg = keg
+	b.pos = cell_pos(c)
+	b.yaw = randf() * TAU
+	_grid[_idx(c)] = b
+	all.append(b)
+
+
+## The dig lane: a row of cells from the middle of the stack's x face, straight in towards the wall.
+func _make_lane(st: Dictionary) -> void:
+	var t: float = st["t"]
+	var face_len := sqrt(DB.STACK_R * DB.STACK_R - t * t) - t
+	var z := float(st["sz"]) * (t + face_len * 0.45)
+	var x := float(st["sx"]) * (t + DB.BARREL_GRID * 0.5)
+	var c := cell_of(Vector3(x, 0, z))
+	var step := Vector2i(int(st["sx"]), 0)
+	# start at the first barrel of the row
+	while not _in_grid(c) or _grid[_idx(c)] == null or _grid[_idx(c)].pen < 0:
+		c += step
+		if not _in_grid(c):
+			return
+	var lane := []
+	while _in_grid(c) and _grid[_idx(c)] != null:
+		lane.append(c)
+		c += step
+	st["lane"] = lane
+	st["step"] = step
+	st["front"] = cell_pos(lane[0] - step)
+
+
+func _make_astar() -> AStarGrid2D:
+	var a := AStarGrid2D.new()
+	a.region = Rect2i(0, 0, N, N)
+	a.cell_size = Vector2(DB.BARREL_GRID, DB.BARREL_GRID)
+	a.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
+	a.update()
+	for j in N:
+		for i in N:
+			var c := Vector2i(i, j)
+			var p := cell_pos(c)
+			var solid := Vector2(p.x, p.z).length() > DB.ARENA_R - 0.5 and _grid[_idx(c)] == null
+			for pl in DB.PILLARS:
+				if _flat(p - pl).length() < DB.PILLAR_R + 0.25:
+					solid = true
+			if solid:
+				a.set_point_solid(c, true)
+	return a
 
 
 func reset() -> void:
@@ -59,169 +130,188 @@ func reset() -> void:
 		b.lit = false
 		b.hp = DB.BARREL_HP
 		b.wob = 0.0
+		_set_cost(b)
 	ver += 1
+	_paths.clear()
+	_bump.clear()
 	_dirty = true
 
 
-static func _ring_dir(pen: Dictionary, j: int) -> Vector3:
-	var a: float = pen["rot"] + TAU * j / float(pen["n"])
-	return Vector3(cos(a), 0, sin(a))
+func _set_cost(b: Barrel) -> void:
+	var c := _cell2(b.slot)
+	if _astar == null or _astar.is_point_solid(c):
+		return
+	_astar.set_point_weight_scale(c, NARROW_COST if b.alive else 1.0)
+	_astar_w.set_point_weight_scale(c, WIDE_COST if b.alive else 1.0)
 
 
 static func _flat(v: Vector3) -> Vector3:
 	return Vector3(v.x, 0, v.z)
 
 
-# ---------------------------------------------------------------- queries
-## Index of the pen whose inside contains p, or -1.
-func pen_at(p: Vector3) -> int:
-	for i in pens.size():
-		if _flat(p - pens[i]["c"]).length() < pens[i]["r"] - 0.1:
-			return i
-	return -1
+# ---------------------------------------------------------------- grid
+static func _idx(c: Vector2i) -> int:
+	return c.y * N + c.x
 
 
-func intact(pen_i: int) -> int:
+static func _cell2(i: int) -> Vector2i:
+	return Vector2i(i % N, i / N)
+
+
+static func _in_grid(c: Vector2i) -> bool:
+	return c.x >= 0 and c.y >= 0 and c.x < N and c.y < N
+
+
+static func cell_of(p: Vector3) -> Vector2i:
+	return Vector2i(floori((p.x - ORIGIN) / DB.BARREL_GRID), floori((p.z - ORIGIN) / DB.BARREL_GRID))
+
+
+static func cell_pos(c: Vector2i) -> Vector3:
+	return Vector3(ORIGIN + DB.BARREL_GRID * (c.x + 0.5), 0, ORIGIN + DB.BARREL_GRID * (c.y + 0.5))
+
+
+## The intact barrel (or keg) in cell c, or null.
+func barrel_at(c: Vector2i) -> Barrel:
+	if not _in_grid(c):
+		return null
+	var b = _grid[_idx(c)]
+	return b if b != null and b.alive else null
+
+
+## How many of the four cells around p hold an intact barrel (4 = sealed in, 3 = the end of a corridor).
+func cover(p: Vector3) -> int:
+	var c := cell_of(p)
 	var n := 0
-	for b in pens[pen_i]["barrels"]:
-		if b.alive:
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		if barrel_at(c + d) != null:
 			n += 1
 	return n
 
 
-## Openings of a pen: Array of {dir: Vector3 (centre -> middle of the gap), width: float (metres of free space),
-## slots: Array[int]}. A pen with every barrel broken is one huge gap.
-func gaps(pen_i: int) -> Array:
-	var pen: Dictionary = pens[pen_i]
-	if pen["gver"] == ver:
-		return pen["gaps"]
-	var out := []
-	var bs: Array = pen["barrels"]
-	var n: int = pen["n"]
-	var first := -1
-	for j in n:
-		if bs[j].alive:
-			first = j
-			break
-	if first < 0:
-		out.append({"dir": Vector3(0, 0, 1), "width": 99.0, "slots": range(n)})
-	else:
-		var run_slots := []
-		for s in range(1, n + 1):
-			var j := (first + s) % n
-			if not bs[j].alive:
-				run_slots.append(j)
-			elif not run_slots.is_empty():
-				var k := run_slots.size()
-				var mid_a: float = pen["rot"] + TAU * (float(run_slots[0]) + (k - 1) * 0.5) / float(n)
-				# past half the ring the opening is as wide as the pen itself
-				var chord: float = 2.0 * pen["r"] * sin(minf(PI * float(k + 1) / float(n), PI * 0.5))
-				out.append({"dir": Vector3(cos(mid_a), 0, sin(mid_a)), "width": chord - 2.0 * DB.BARREL_R, "slots": run_slots})
-				run_slots = []
-	pen["gaps"] = out
-	pen["gver"] = ver
-	return out
+func intact(si: int) -> int:
+	var n := 0
+	for c in stacks[si]["cells"]:
+		if barrel_at(c) != null:
+			n += 1
+	return n
 
 
-## The gap of pen_i that a unit of radius `r` fits through, closest to `from` (by direction). {} if none.
-func best_gap(pen_i: int, r: float, from: Vector3) -> Dictionary:
-	var pen: Dictionary = pens[pen_i]
-	var rel := _flat(from - pen["c"])
-	var dir := rel.normalized() if rel.length() > 0.01 else Vector3(0, 0, 1)
-	var best := {}
-	var bd := -2.0
-	for g in gaps(pen_i):
-		if g["width"] < 2.0 * r + 0.04:
-			continue
-		var d: float = dir.dot(g["dir"])
-		if d > bd:
-			bd = d
-			best = g
-	return best
-
-
-## True when a unit of radius `r` walking straight from `a` to `b` would bump an intact barrel of pen_i.
-## Broken barrels are gone: a pen with its barrels smashed out of the way doesn't block anything.
-func blocks(pen_i: int, a: Vector3, b: Vector3, r: float) -> bool:
+# ---------------------------------------------------------------- queries
+## True when a unit of radius r can walk straight from a to b without bumping an intact barrel
+## (barrels right at b don't count: that's where it's going).
+func clear_line(a: Vector3, b: Vector3, r: float) -> bool:
 	var ab := _flat(b - a)
-	var l2 := ab.length_squared()
-	var reach := r + DB.BARREL_R + 0.05
-	for br in pens[pen_i]["barrels"]:
-		if not br.alive:
-			continue
-		var ap := _flat(br.pos - a)
-		var t := clampf(ap.dot(ab) / l2, 0.0, 1.0) if l2 > 0.0001 else 0.0
-		if (ap - ab * t).length() < reach:
-			return true
-	return false
+	var len := ab.length()
+	if len < 0.01:
+		return true
+	var reach := r + DB.BARREL_R - 0.02
+	# only sample where the segment crosses a stack's box (or passes a loose keg)
+	var t0 := 1.0
+	var t1 := 0.0
+	for st in stacks:
+		var lo := Vector2(minf(st["sx"] * st["t"], st["sx"] * 22.0), minf(st["sz"] * st["t"], st["sz"] * 22.0)) - Vector2(1.2, 1.2)
+		var hi := Vector2(maxf(st["sx"] * st["t"], st["sx"] * 22.0), maxf(st["sz"] * st["t"], st["sz"] * 22.0)) + Vector2(1.2, 1.2)
+		var span := _clip(Vector2(a.x, a.z), Vector2(ab.x, ab.z), lo, hi)
+		if span.x <= span.y:
+			t0 = minf(t0, span.x)
+			t1 = maxf(t1, span.y)
+	for k in kegs:
+		if k.alive and k.pen < 0 and _flat(k.pos - b).length() > 0.9:
+			var tk := clampf(_flat(k.pos - a).dot(ab) / (len * len), 0.0, 1.0)
+			if _flat(a + ab * tk - k.pos).length() < reach:
+				return false
+	if t0 > t1:
+		return true
+	var steps := maxi(1, ceili((t1 - t0) * len / 0.35))
+	for s in steps + 1:
+		var q := a + ab * lerpf(t0, t1, float(s) / steps)
+		var c := cell_of(q)
+		for dj in range(-1, 2):
+			for di in range(-1, 2):
+				var br := barrel_at(c + Vector2i(di, dj))
+				if br != null and _flat(br.pos - q).length() < reach and _flat(br.pos - b).length() > 0.9:
+					return false
+	return true
 
 
-## Where a unit at u.pos should walk next to reach `goal`, threading pen gaps. Sets through_pen.
+## Parametric span [t0, t1] of segment o + d*t (t in 0..1) inside the box lo..hi; t0 > t1 when it misses.
+static func _clip(o: Vector2, d: Vector2, lo: Vector2, hi: Vector2) -> Vector2:
+	var t0 := 0.0
+	var t1 := 1.0
+	for ax in 2:
+		var oo := o.x if ax == 0 else o.y
+		var dd := d.x if ax == 0 else d.y
+		var l := lo.x if ax == 0 else lo.y
+		var h := hi.x if ax == 0 else hi.y
+		if absf(dd) < 0.00001:
+			if oo < l or oo > h:
+				return Vector2(1, 0)
+		else:
+			var ta := (l - oo) / dd
+			var tb := (h - oo) / dd
+			t0 = maxf(t0, minf(ta, tb))
+			t1 = minf(t1, maxf(ta, tb))
+	return Vector2(t0, t1)
+
+
+## Where a unit at u.pos should walk next to reach `goal`: straight there when nothing is in the way, else along the
+## barrel grid (through dug corridors, or up to the barrel it has to break).
 func waypoint(u: Unit, goal: Vector3) -> Vector3:
-	through_pen = -1
 	if u.is_boss and u.team == 1:
-		return goal   # bosses crash straight through (see _push); threading gaps made them dither on the ring
-	for i in pens.size():
-		var pen: Dictionary = pens[i]
-		var c: Vector3 = pen["c"]
-		var r: float = pen["r"]
-		var ud := _flat(u.pos - c).length()
-		var gd := _flat(goal - c).length()
-		var u_in := ud < r - 0.1
-		var g_in := gd < r - 0.1
-		if u_in == g_in:
-			continue
-		if not blocks(i, u.pos, goal, u.radius):
-			through_pen = i
+		return goal   # bosses crash straight through (see _push)
+	var id := u.get_instance_id()
+	if clear_line(u.pos, goal, u.radius):
+		_paths.erase(id)
+		return goal
+	var gc := cell_of(goal)
+	var pd: Dictionary = _paths.get(id, {})
+	if pd.is_empty() or pd["ver"] != ver or pd["goal"] != gc or run.run_time - float(pd["t"]) > 0.6:
+		var a := _astar_w if u.radius > WIDE_R else _astar
+		var from := cell_of(u.pos)
+		if not _in_grid(from) or not _in_grid(gc):
 			return goal
-		var outside := goal if u_in else u.pos
-		var g := best_gap(i, u.radius, outside)
-		if g.is_empty():
-			return goal
-		var gdir: Vector3 = g["dir"]
-		var rel := _flat(u.pos - c)
-		var lateral := (rel - gdir * rel.dot(gdir)).length()
-		var lined := rel.dot(gdir) > 0.0 and lateral < maxf(0.18, float(g["width"]) * 0.5 - u.radius * 0.6) and absf(ud - r) < 1.9
-		var outer := c + gdir * (r + 1.6)
-		var inner := c + gdir * (r - 1.0)
-		if lined:
-			through_pen = i
-		if not u_in:
-			return inner if lined else outer
-		return outer if lined else inner
-	return goal
+		var cells := a.get_id_path(from, gc, true)
+		pd = {"cells": cells, "i": 1, "t": run.run_time, "ver": ver, "goal": gc}
+		_paths[id] = pd
+	var cells: Array[Vector2i] = pd["cells"]
+	if cells.size() < 2:
+		return goal
+	var i: int = pd["i"]
+	while i < cells.size() - 1 and _flat(cell_pos(cells[i]) - u.pos).length() < 0.45:
+		i += 1
+	pd["i"] = i
+	return goal if i >= cells.size() - 1 else cell_pos(cells[i])
 
 
 ## Static collision against intact barrels. Bosses smash whatever they walk into.
 func resolve(u: Unit, p: Vector3) -> Vector3:
 	if not u.collides:
 		return p
-	var reach := u.radius + DB.BARREL_R + 0.05
-	for pen in pens:
-		var d := _flat(p - pen["c"]).length()
-		if absf(d - pen["r"]) > reach:
-			continue
-		for b in pen["barrels"]:
-			if b.alive:
-				p = _push(u, p, b)
-	for k in kegs:
-		if k.alive:
-			p = _push(u, p, k)
+	var c := cell_of(p)
+	var ur := u.radius + (WIDE_PAD if u.team == 1 and u.radius > WIDE_R else 0.0)
+	var k := ceili((ur + DB.BARREL_R) / DB.BARREL_GRID)
+	for dj in range(-k, k + 1):
+		for di in range(-k, k + 1):
+			var b := barrel_at(c + Vector2i(di, dj))
+			if b != null:
+				p = _push(u, p, b, ur)
 	return p
 
 
-func _push(u: Unit, p: Vector3, b: Barrel) -> Vector3:
+func _push(u: Unit, p: Vector3, b: Barrel, ur: float) -> Vector3:
 	var off := _flat(p - b.pos)
-	var minr := u.radius + DB.BARREL_R
+	var minr := ur + DB.BARREL_R
 	var d := off.length()
 	if d >= minr:
 		return p
 	if u.is_boss and u.team == 1:
 		smash(b, u)
 		return p
+	if u.team == 1:
+		_bump[u.get_instance_id()] = [b, run.run_time]
 	if d < 0.001:
-		off = _flat(p - (pens[b.pen]["c"] if b.pen >= 0 else b.pos + Vector3(1, 0, 0)))
-		d = maxf(off.length(), 0.001)
+		off = Vector3(1, 0, 0)
+		d = 1.0
 	var q := b.pos + off / d * minr
 	return Vector3(q.x, 0, q.z)
 
@@ -230,45 +320,43 @@ func _push(u: Unit, p: Vector3, b: Barrel) -> Vector3:
 func barrel_near(p: Vector3, max_d: float) -> Barrel:
 	var best: Barrel = null
 	var bd := max_d
-	for b in all:
-		if not b.alive:
-			continue
-		var d := _flat(b.pos - p).length() - DB.BARREL_R
-		if d < bd:
-			bd = d
-			best = b
+	var c := cell_of(p)
+	var k := ceili((max_d + DB.BARREL_R) / DB.BARREL_GRID)
+	for dj in range(-k, k + 1):
+		for di in range(-k, k + 1):
+			var b := barrel_at(c + Vector2i(di, dj))
+			if b == null:
+				continue
+			var d := _flat(b.pos - p).length() - DB.BARREL_R
+			if d < bd:
+				bd = d
+				best = b
 	return best
 
 
-## For an enemy whose target sits inside a pen it can't get into (no gap wide enough), the barrel to break.
-## Returns `t` unchanged when the way in is open (or the unit doesn't walk through barrels).
+## The barrel a foe has to break on its way to `t`: the next cell of its path when that's a barrel (a sealed way in),
+## or, for foes too wide for the corridor, the barrel it keeps walking into. Otherwise `t` unchanged.
 func detour(e: Unit, t: Unit) -> Unit:
 	if t == null or t is Barrel or not e.collides or e.is_boss:
 		return t
-	var pi := pen_at(t.pos)
-	if pi < 0 or pen_at(e.pos) == pi:
+	var id := e.get_instance_id()
+	# a wide foe finishes the barrel it started on
+	if e.radius > WIDE_R and e is Enemy and (e as Enemy).target is Barrel and (e as Enemy).target.alive and e.edge_dist((e as Enemy).target) < 0.5:
+		return (e as Enemy).target
+	if e.radius > WIDE_R and _bump.has(id):
+		var bb: Array = _bump[id]
+		if bb[0].alive and run.run_time - float(bb[1]) < 0.5:
+			return bb[0]
+	var pd: Dictionary = _paths.get(id, {})
+	if pd.is_empty() or pd["ver"] != ver:
 		return t
-	if not best_gap(pi, e.radius, e.pos).is_empty():
-		return t
-	# widen the nearest (too narrow) opening, or break in where we stand
-	var aim := e.pos
-	var gs := gaps(pi)
-	if not gs.is_empty():
-		var rel := _flat(e.pos - pens[pi]["c"]).normalized()
-		var bd := -2.0
-		for g in gs:
-			if rel.dot(g["dir"]) > bd:
-				bd = rel.dot(g["dir"])
-				aim = pens[pi]["c"] + g["dir"] * pens[pi]["r"]
-	var best: Barrel = null
-	var bdist := 1e9
-	for b in pens[pi]["barrels"]:
-		if b.alive:
-			var d := _flat(b.pos - aim).length()
-			if d < bdist:
-				bdist = d
-				best = b
-	return best if best != null else t
+	var cells: Array[Vector2i] = pd["cells"]
+	var i: int = pd["i"]
+	for j in range(i, mini(i + 2, cells.size())):
+		var b := barrel_at(cells[j])
+		if b != null and e.edge_dist(b) < 1.6:
+			return b
+	return t
 
 
 # ---------------------------------------------------------------- damage
@@ -295,6 +383,7 @@ func smash(b: Barrel, _src: Unit = null, fuse := DB.KEG_FUSE) -> void:
 	b.alive = false
 	b.hp = 0.0
 	ver += 1
+	_set_cost(b)
 	_dirty = true
 	if run.hero.focus == b:
 		run.hero.focus = null

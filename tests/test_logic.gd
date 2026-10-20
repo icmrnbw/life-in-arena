@@ -784,90 +784,157 @@ func test_barrels_buffers() -> void:
 	check(near(drummed, base * DB.DRUM_DMG), "drummer doubles neighbours' damage", "%f vs %f" % [drummed, base])
 	h.hp = h.max_hp
 	r._clear_arena(false)
-	# pens: sealed until a barrel breaks; the hero breaks one in two swings
+	# stacks: solid blocks of barrels on a grid; the hero breaks one in two swings
 	var bf := r.barrels
 	bf.reset()
-	check(bf.gaps(0).is_empty() and bf.intact(0) == DB.PENS[0]["n"], "pens start sealed")
-	var b: Barrel = bf.pens[0]["barrels"][0]
+	var st: Dictionary = bf.stacks[0]
+	check(bf.stacks.size() == DB.STACKS.size() and st["cells"].size() > 30 and bf.intact(0) == st["cells"].size(), "stacks start solid", str(st["cells"].size()))
+	var clear_ok := true
+	for s2 in bf.stacks:
+		for c2 in s2["cells"]:
+			var p2 := BarrelField.cell_pos(c2)
+			for gk in DB.GATES:
+				if BarrelField._flat(DB.GATES[gk] - p2).length() < 4.0:
+					clear_ok = false
+			if BarrelField._flat(DB.ARENA_SPAWN - p2).length() < 3.0:
+				clear_ok = false
+			for pl in DB.PILLARS:
+				if BarrelField._flat(pl - p2).length() < DB.PILLAR_R + 1.0:
+					clear_ok = false
+	check(clear_ok, "stacks keep clear of the gates, pillars and the hero's entry")
+	var lane: Array = st["lane"]
+	check(lane.size() > BarrelField.DIG_DEPTH, "each stack has a lane to dig", str(lane.size()))
+	var lane_kegs := 0
+	for s2 in bf.stacks:
+		for k2 in mini(BarrelField.DIG_DEPTH + 1, s2["lane"].size()):
+			if bf.barrel_at(s2["lane"][k2]).keg:
+				lane_kegs += 1
+	check(lane_kegs == 0, "no keg in the bot's dig lane")
+	var b: Barrel = bf.barrel_at(lane[0])
 	r.damage(b, 10.0, h, "Attack")
 	check(b.alive, "barrel survives one hero swing")
 	r.damage(b, 10.0, h, "Attack")
-	check(not b.alive and bf.gaps(0).size() == 1, "second swing opens a gap")
-	var gw: float = bf.gaps(0)[0]["width"]
-	var gn := r.spawn_enemy("gnawer", Vector3(-6, 0, 12), 10)
-	var sb := r.spawn_enemy("shieldbearer", Vector3(-7, 0, 12), 10)
-	check(gw > gn.radius * 2.0 and gw < 2.0 * float(DB.ENEMIES["pit_brute"]["radius"]), "one-barrel gap fits regular foes, not big ones", "gap %.2f" % gw)
+	check(not b.alive and bf.barrel_at(lane[0]) == null, "second swing breaks it")
+	var room := 2.0 * DB.BARREL_GRID - 2.0 * DB.BARREL_R
+	check(room > 2.0 * 0.62 and room > 2.0 * h.radius and room < 2.0 * (BarrelField.WIDE_R + BarrelField.WIDE_PAD),
+		"a one-barrel corridor fits every hero and regular foes, not wide ones", str(room))
 	# collision: can't walk through an intact barrel
-	var b2: Barrel = bf.pens[0]["barrels"][4]
-	var c: Vector3 = bf.pens[0]["c"]
-	var outside := c + (b2.pos - c) * 1.5
-	gn.pos = outside
-	var q := r.resolve_pos(gn, b2.pos, outside)
-	check(BarrelField._flat(q - b2.pos).length() >= gn.radius + DB.BARREL_R - 0.01, "barrels block movement")
-	# with a gap they path in; a sealed pen gets broken into
-	h.pos = c
-	check(gn.pick_target() == h, "foes path to the gap when there is one")
-	bf.reset()
-	check(sb.pick_target() is Barrel, "a sealed pen gets broken into")
-	# queue: with the hero inside, only a couple of gnawers reach it at once
+	var gn := r.spawn_enemy("gnawer", Vector3(0, 0, 3), 10)
+	var b0: Barrel = bf.barrel_at(lane[1])
+	var into := b0.pos - Vector3(float(st["sx"]), 0, 0) * 0.6
+	var q := r.resolve_pos(gn, into, into)
+	check(BarrelField._flat(q - b0.pos).length() >= gn.radius + DB.BARREL_R - 0.01, "barrels block movement")
+	# dig a corridor: three sides covered at its end; foes come down it single file
 	r._clear_arena(false)
 	bf.reset()
-	r.damage(bf.pens[0]["barrels"][0], 99.0, h, "Attack")
-	r.damage(bf.pens[0]["barrels"][0], 99.0, h, "Attack")
-	var gdir: Vector3 = bf.gaps(0)[0]["dir"]
-	_g().god = true
-	h.pos = c - gdir * 0.3
+	for k in BarrelField.DIG_DEPTH:
+		bf.smash(bf.barrel_at(lane[k]), null)
+	var end_p := BarrelField.cell_pos(lane[BarrelField.DIG_DEPTH - 1])
+	check(bf.cover(end_p) == 3, "the end of a dug corridor has barrels on three sides", str(bf.cover(end_p)))
+	var front: Vector3 = st["front"]
+	var away := Vector3(-float(st["sx"]), 0, 0)
+	_g().god = false
+	var hp_keep := h.max_hp
+	h.max_hp = 1e7
+	var in_corridor := 0
+	var taken0 := float(r.stats["damage_taken"])
 	for i in 7:
-		r.spawn_enemy("gnawer", c + gdir * 6.0 + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)), 10)
-	var max_adj := 0
-	var inside_n := 0
-	for i in 150:
-		h.pos = c - gdir * 0.3
+		r.spawn_enemy("gnawer", front + away * 6.0 + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)), 10)
+	for i in 300:
+		h.pos = end_p
+		h.hp = h.max_hp
 		h.move_input = Vector2.ZERO
 		h.atk_cd = 99.0
 		r._step(1.0 / 30.0)
-		var adj := 0
+		in_corridor = 0
 		for e in r.enemies:
-			if e.alive and h.edge_dist(e) < 0.6:
-				adj += 1
-		max_adj = maxi(max_adj, adj)
-		inside_n = 0
-		for e in r.enemies:
-			if bf.pen_at(e.pos) == 0:
-				inside_n += 1
-	check(inside_n >= 1, "gnawers get in through the gap", str(inside_n))
-	check(max_adj <= 4, "the pen limits how many reach the hero", str(max_adj))
-	r._clear_arena(false)
-	# smashed barrels are gone: nobody walks around (or dithers at) a pen with no barrels left in the way
-	bf.reset()
-	for pb in bf.pens[0]["barrels"]:
-		bf.smash(pb, null)
-	h.pos = c + Vector3(-4.5, 0, 0)
-	var walker := r.spawn_enemy("gnawer", c + Vector3(5.5, 0, 0.3), 10)
-	check(r.steer_dir(walker, h.pos).dot(BarrelField._flat(h.pos - walker.pos).normalized()) > 0.98, "foes walk straight across a smashed pen")
+			if bf.cover(e.pos) >= 2:
+				in_corridor += 1
+	var taken_corridor := float(r.stats["damage_taken"]) - taken0
+	check(in_corridor >= 1, "gnawers come down the corridor", str(in_corridor))
+	# the same pack against a hero out in the open
 	r._clear_arena(false)
 	bf.reset()
-	var pen2: Dictionary = bf.pens[2]
-	for j in pen2["n"]:
-		if j % 2 == 0:
-			bf.smash(pen2["barrels"][j], null)
-	var hp2 := Vector3(2.25, 0, -8.6)
-	var brute := r.spawn_enemy("pit_brute", Vector3(-1.77, 0, -18.9), 10)
-	var reached := false
+	var open_p := Vector3(0, 0, 3)
+	for i in 7:
+		r.spawn_enemy("gnawer", open_p + Vector3(randf_range(-2, 2), 0, -6.0 + randf_range(-2, 2)), 10)
+	taken0 = float(r.stats["damage_taken"])
 	for i in 300:
-		h.pos = hp2
+		h.pos = open_p
+		h.hp = h.max_hp
+		h.move_input = Vector2.ZERO
+		h.atk_cd = 99.0
+		r._step(1.0 / 30.0)
+	var taken_open := float(r.stats["damage_taken"]) - taken0
+	h.max_hp = hp_keep
+	h.hp = hp_keep
+	_g().god = true
+	check(taken_corridor < taken_open * 0.6, "dug in, the pack hurts far less than in the open", "%d in the corridor vs %d in the open" % [int(taken_corridor), int(taken_open)])
+	# sealed in: the way in costs a barrel, so foes break it
+	r._clear_arena(false)
+	bf.reset()
+	for k in range(1, BarrelField.DIG_DEPTH):
+		bf.smash(bf.barrel_at(lane[k]), null)
+	var sealed_gn := r.spawn_enemy("gnawer", front + away * 4.0, 10)
+	var broke := false
+	for i in 300:
+		h.pos = end_p
+		h.atk_cd = 99.0
+		r._step(1.0 / 30.0)
+		if bf.barrel_at(lane[0]) == null or sealed_gn.target is Barrel:
+			broke = true
+			break
+	check(broke, "a sealed corridor gets broken into")
+	# wide foes chew the corridor wider
+	r._clear_arena(false)
+	bf.reset()
+	for k in BarrelField.DIG_DEPTH:
+		bf.smash(bf.barrel_at(lane[k]), null)
+	var wide := r.spawn_enemy("shieldbearer", front + away * 3.0, 10)
+	var chewed := false
+	var n0 := bf.intact(0)
+	for i in 450:
+		h.pos = end_p
+		h.atk_cd = 99.0
+		r._step(1.0 / 30.0)
+		if bf.intact(0) < n0:
+			chewed = true
+			break
+	check(chewed, "a shieldbearer smashes the corridor wider", "pos %s" % wide.pos)
+	# a boss crashes through to the hero
+	r._clear_arena(false)
+	bf.reset()
+	for k in BarrelField.DIG_DEPTH:
+		bf.smash(bf.barrel_at(lane[k]), null)
+	var brute := r.spawn_enemy("pit_brute", front + away * 6.0, 10)
+	var reached := false
+	for i in 400:
+		h.pos = end_p
 		h.move_input = Vector2.ZERO
 		h.atk_cd = 99.0
 		r._step(1.0 / 30.0)
 		if h.edge_dist(brute) <= brute.atk_range + 0.3:
 			reached = true
 			break
-	check(reached, "a boss crashes through a broken pen to the hero", "edge %.2f" % h.edge_dist(brute))
+	check(reached, "a boss crashes through the stack to the hero", "edge %.2f" % h.edge_dist(brute))
 	_g().god = false
+	# smashed barrels are gone: foes walk straight across a flattened stack
+	r._clear_arena(false)
+	bf.reset()
+	for c3 in st["cells"]:
+		bf.smash(bf.barrel_at(c3), null, 99.0)
+	var sx := float(st["sx"])
+	var sz := float(st["sz"])
+	h.pos = Vector3(sx * 11.0, 0, sz * 16.0)
+	var walker := r.spawn_enemy("gnawer", Vector3(sx * 16.0, 0, sz * 11.0), 10)
+	check(r.steer_dir(walker, h.pos).dot(BarrelField._flat(h.pos - walker.pos).normalized()) > 0.98, "foes walk straight across a flattened stack")
 	r._clear_arena(false)
 	# kegs: blast after the fuse, hurts foes and the hero, breaks barrels nearby
 	bf.reset()
-	var k: Barrel = bf.kegs[0]
+	var k: Barrel = null
+	for k4 in bf.kegs:
+		if k4.pen < 0 and k == null:
+			k = k4
 	var foe := r.spawn_enemy("shieldbearer", k.pos + Vector3(1.5, 0, 0), 10)
 	h.pos = k.pos + Vector3(-1.5, 0, 0)
 	h.hp = h.max_hp
@@ -880,7 +947,7 @@ func test_barrels_buffers() -> void:
 	check(not foe.alive or foe.hp < foe.max_hp * 0.6, "keg blast hurts nearby foes", "%f / %f" % [foe.hp, foe.max_hp])
 	check(h.hp < h.max_hp, "keg blast hurts the hero too")
 	bf.reset()
-	check(k.alive and bf.gaps(0).is_empty(), "barrels restored on reset")
+	check(k.alive and bf.intact(0) == st["cells"].size(), "barrels restored on reset")
 	free_run(r)
 	await get_tree().process_frame
 
