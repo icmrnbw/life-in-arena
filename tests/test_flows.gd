@@ -378,12 +378,38 @@ func test_touch() -> void:
 		var txt := _all_text(main.pause_ui)
 		for sid in run.hero.skill_ids:
 			check(txt.contains(String(DB.SKILLS[sid]["name"])), "skill card lists " + sid)
+		# swiping the content (not just the scrollbar) scrolls the card
+		var sc := _find_scroll(main.pause_ui)
+		var sbar := sc.get_v_scroll_bar() if sc else null
+		if sbar and sbar.max_value - sbar.page > 4.0:
+			var r := sc.get_global_rect()
+			var from := Vector2(r.position.x + r.size.x * 0.5, r.end.y - 40.0)
+			touch(2, from, true)
+			await frames(1)
+			for i in 12:
+				drag(2, from - Vector2(0, 20.0 * (i + 1)), Vector2(0, -20.0))
+				await frames(1)
+			touch(2, from - Vector2(0, 240.0), false)
+			await frames(3)
+			check(sc.scroll_vertical > 0, "swiping the skill card scrolls it", "scroll=%d" % sc.scroll_vertical)
+		else:
+			print("  info skill card fits without scrolling")
 		var close := find_button(main.pause_ui, "Close")
 		check(close != null, "skill card has Close")
 		if close:
 			close.pressed.emit()
 			await frames(2)
 	check(main.pause_ui == null and not get_tree().paused, "Close shuts the skill card and resumes")
+
+
+func _find_scroll(n: Node) -> ScrollContainer:
+	if n is ScrollContainer:
+		return n
+	for c in n.get_children():
+		var f := _find_scroll(c)
+		if f:
+			return f
+	return null
 
 
 func _all_text(n: Node) -> String:
