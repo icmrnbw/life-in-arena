@@ -88,6 +88,7 @@ static func title_screen(on_play: Callable, on_heroes := Callable()) -> Control:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 24)
 	row.add_child(_toggle("Sound", "sound"))
+	row.add_child(_toggle("Music", "music"))
 	row.add_child(_toggle("Screen shake", "shake"))
 	if not OS.has_feature("mobile"):
 		var q := UIK.button("Quit", "", Vector2(140, 64))
@@ -488,7 +489,13 @@ static func pause_menu(on_resume: Callable, on_quit: Callable) -> Control:
 	r.add_theme_font_size_override("font_size", 30)
 	r.pressed.connect(on_resume)
 	v.add_child(r)
-	v.add_child(_toggle("Sound", "sound"))
+	var audio_row := HBoxContainer.new()
+	audio_row.add_theme_constant_override("separation", 12)
+	for pair in [["Sound", "sound"], ["Music", "music"]]:
+		var tg := _toggle(pair[0], pair[1])
+		tg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		audio_row.add_child(tg)
+	v.add_child(audio_row)
 	v.add_child(_toggle("Screen shake", "shake"))
 	v.add_child(_toggle("Open shop when near", "auto_shop"))
 	var help := UIK.label("Left thumb: move.  Tap a skill: quick cast.\nDrag from a skill: aim, release to cast;\ndrag back onto it to cancel.  Tap + to rank up.\nThe (i) button shows what every skill does.", "SmallLabel", 19, UIK.col("dim", Color(0.75, 0.7, 0.62)))
