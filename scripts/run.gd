@@ -77,6 +77,7 @@ var cam_zoom := 1.0
 var shake_amt := 0.0
 var hud: Node
 var bot: Node
+var soak: Node     # --soak: crash soak monitor (scripts/soak.gd)
 var shop_node: Node3D
 var fountain_node: Node3D
 var _num_budget := 0.0
@@ -185,6 +186,10 @@ func _ready() -> void:
 		bot = bot_script.new()
 		add_child(bot)
 		bot.setup(self)
+	if Game.args.has("soak"):
+		soak = load("res://scripts/soak.gd").new()
+		add_child(soak)
+		soak.setup(self)
 
 	phase = "prep"
 	prep_t = DB.FIRST_PREP_TIME if wave == 1 else DB.PREP_TIME
@@ -626,6 +631,9 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 	if t is Barrel:
 		return barrels.hit(t, src)
 	if t.invuln_t > 0.0:
+		return 0.0
+	# the wave is already won: a late projectile, pool or burn mustn't kill the hero and replay a cleared wave
+	if t == hero and phase in ["clear", "victory_wait"]:
 		return 0.0
 	var a := amount
 	if src != null and src.team == 0:
@@ -1377,6 +1385,8 @@ func _step(dt: float) -> void:
 	if bot:
 		Game.mark(13)
 		bot.tick(dt)
+	if soak:
+		soak.tick(dt)
 
 
 func _tick_burns(dt: float) -> void:
