@@ -10,6 +10,7 @@ const Fx := preload("res://art/fx.gd")
 const Icons := preload("res://art/icons.gd")
 const UiTheme := preload("res://art/ui_theme.gd")
 const WeatherFx := preload("res://art/weather_fx.gd")
+const ArenaFx := preload("res://art/arena_fx.gd")
 
 var palette := {
 	"ember": Color("ff7a2f"), "gold": Color("f2c14e"), "hp": Color("d83a3a"), "mana": Color("3a7bd8"),
@@ -107,6 +108,15 @@ func bonfire(parent: Node3D, pos: Vector3) -> Node3D:
 	return World.bonfire(parent, pos)
 
 ## Weather visuals for a run (rain, mist, dust, embers, lightning, sky mood); see art/weather_fx.gd.
+func arena_fx(run_node: Node) -> Node:
+	if run_node == null:
+		return null
+	var a: Node3D = ArenaFx.new()
+	run_node.add_child(a)
+	a.setup(run_node)
+	return a
+
+
 func weather_fx(run_node: Node) -> Node:
 	if run_node == null:
 		return null

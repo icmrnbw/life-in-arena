@@ -115,10 +115,6 @@ func foe_dmg_mult() -> float:
 	return float(info().get("foe_dmg", 1.0))
 
 
-func gold_mult() -> float:
-	return float(info().get("gold", 1.0))
-
-
 ## Shots with the wind hit harder, shots into it softer.
 func shot_mult(dir: Vector3) -> float:
 	if wind == Vector3.ZERO:
@@ -185,10 +181,10 @@ func _lightning() -> void:
 		p = e.pos if e.alive else Vector3.ZERO
 	else:
 		var a := run.rng.randf() * TAU
-		p = Vector3(cos(a), 0, sin(a)) * run.rng.randf_range(0.0, DB.ARENA_R - 3.0)
+		p = Vector3(cos(a), 0, sin(a)) * run.rng.randf_range(0.0, run.arena_safe_r() - 3.0)
 	p.y = 0.0
-	if p.length() > DB.ARENA_R - 1.0:
-		p = p.normalized() * (DB.ARENA_R - 1.0)
+	if p.length() > run.arena_safe_r() - 1.0:
+		p = p.normalized() * (run.arena_safe_r() - 1.0)
 	var r := DB.LIGHTNING_R
 	run.fx("telegraph_circle", {"pos": p, "radius": r, "duration": DB.LIGHTNING_TELE, "color": Color(0.55, 0.75, 1.0)})
 	run.add_hazard({"type": "circle", "pos": p, "r": r, "t": DB.LIGHTNING_TELE + 0.1})
@@ -221,10 +217,10 @@ func _ember_fall() -> void:
 		p = h.pos + Vector3(run.rng.randf_range(-3, 3), 0, run.rng.randf_range(-3, 3))
 	else:
 		var a := run.rng.randf() * TAU
-		p = Vector3(cos(a), 0, sin(a)) * run.rng.randf_range(2.0, DB.ARENA_R - 3.0)
+		p = Vector3(cos(a), 0, sin(a)) * run.rng.randf_range(2.0, run.arena_safe_r() - 3.0)
 	p.y = 0.0
-	if p.length() > DB.ARENA_R - 1.5:
-		p = p.normalized() * (DB.ARENA_R - 1.5)
+	if p.length() > run.arena_safe_r() - 1.5:
+		p = p.normalized() * (run.arena_safe_r() - 1.5)
 	run.fx("telegraph_circle", {"pos": p, "radius": DB.EMBER_R, "duration": 1.0, "color": Color(1.0, 0.5, 0.15)})
 	run.add_hazard({"type": "circle", "pos": p, "r": DB.EMBER_R, "t": 1.0 + DB.EMBER_TIME})
 	run.schedule(1.0, _ember_land.bind(p))

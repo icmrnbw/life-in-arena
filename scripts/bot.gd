@@ -313,8 +313,8 @@ func _move(dt: float) -> void:
 		v = v * 0.3 + hz * 3.0
 	# stay off the outer wall
 	var rr := Vector2(h.pos.x, h.pos.z).length()
-	if rr > DB.ARENA_R - 4.0 and not h.in_camp:
-		v += run._flat(-h.pos).normalized() * (rr - (DB.ARENA_R - 4.0)) * 0.6
+	if rr > run.arena_safe_r() - 4.0 and not h.in_camp:
+		v += run._flat(-h.pos).normalized() * (rr - (run.arena_safe_r() - 4.0)) * 0.6
 	# out in the open, keep off the barrel stacks: kiting into one gets you pinned
 	if run.barrels and not h.in_camp and run.barrels.cover(h.pos) < 2:
 		var nb := run.barrels.barrel_near(h.pos, 2.5)

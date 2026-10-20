@@ -308,7 +308,6 @@ func enemies_on_line(a: Vector3, b: Vector3, width: float) -> Array:
 func stop_at_pillars(from: Vector3, to: Vector3) -> Vector3:
 	for i in range(1, 15):
 		var p := from + (to - from) * (i / 14.0)
-		for pl in DB.PILLARS:
-			if Vector2(p.x - pl.x, p.z - pl.z).length() < DB.PILLAR_R + hero.radius:
-				return from + (to - from) * ((i - 1) / 14.0)
+		if run.arena.solid_at(p, hero.radius):
+			return from + (to - from) * ((i - 1) / 14.0)
 	return to

@@ -34,6 +34,7 @@ var chanters: Array = []   # alive Ward Chanters (foes near them take no damage)
 var drummers: Array = []   # alive War Drummers (foes near them deal double damage)
 var barrels: BarrelField
 var weather: Weather
+var arena: Arena
 var immune_shown_t := -10.0
 var hints_shown := {}
 ## Mode and tier settings (Modes.config); the hot multipliers are copied into plain vars below.
@@ -136,6 +137,8 @@ func _ready() -> void:
 	barrels = BarrelField.new()
 	world.add_child(barrels)
 	barrels.setup(self)
+	arena = Arena.new()
+	arena.setup(self, res if res is Dictionary else {})
 	units_root = Node3D.new()
 	units_root.name = "Units"
 	add_child(units_root)
@@ -794,7 +797,7 @@ func kill(t: Unit, src: Unit) -> void:
 			hero.kit.on_enemy_killed(e)
 		if not e.no_reward:
 			stats["kills"] += 1
-			var g := int(round(e.gold_val * weather.gold_mult()))
+			var g := int(round(e.gold_val))
 			if g > 0:
 				add_gold(g)
 				if rng.randf() < 0.5 or e.is_boss:
@@ -931,12 +934,9 @@ func _tick_projectiles(dt: float) -> void:
 				_proj_hit(p, u)
 				done = true
 				break
-		if not done:
-			for pl in DB.PILLARS:
-				if Vector2(pp.x - pl.x, pp.z - pl.z).length() < DB.PILLAR_R:
-					done = true
-					fx("hit", {"pos": pp})
-					break
+		if not done and pp.z < 30.0 and arena.blocks_shot(pp):
+			done = true
+			fx("hit", {"pos": pp})
 		if not done and p["life"] <= 0.0:
 			done = true
 		if not done and Vector2(pp.x, pp.z).length() > DB.ARENA_R + 1.0 and pp.z < 30.0:
@@ -1097,10 +1097,12 @@ func resolve_pos(u: Unit, p: Vector3, old: Vector3) -> Vector3:
 			d = d.normalized() * minr
 			p.x = pl.x + d.x
 			p.z = pl.z + d.y
+	if arena:
+		p = arena.resolve(u, p)
 	if barrels:
 		p = barrels.resolve(u, p)
 	var r := Vector2(p.x, p.z).length()
-	var lim2 := DB.ARENA_R - u.radius - 0.3
+	var lim2 := arena_r() - u.radius - 0.3
 	if r > lim2:
 		var k := lim2 / r
 		p.x *= k
@@ -1144,19 +1146,38 @@ func steer_dir(u: Unit, goal: Vector3) -> Vector3:
 	var dir := to / dist
 	if u.pos.z > 30.0:
 		return dir
-	for pl in DB.PILLARS:
-		var rel := _flat(pl - u.pos)
+	for ob in (arena.obstacles() if arena else _pillar_obs()):
+		var c: Vector3 = ob[0]
+		var orad: float = ob[1]
+		var rel := _flat(c - u.pos)
 		var along := rel.dot(dir)
-		if along <= 0.0 or along > dist + DB.PILLAR_R:
+		if along <= 0.0 or along > dist + orad:
 			continue
 		var perp := rel - dir * along
-		var clear := DB.PILLAR_R + u.radius + 0.4
+		var clear := orad + u.radius + 0.4
 		if perp.length() < clear and rel.length() < 7.0:
-			# steer to the side away from the pillar center
+			# steer to the side away from the obstacle center
 			var side := -perp.normalized() if perp.length() > 0.01 else Vector3(dir.z, 0, -dir.x)
-			var w := 1.0 - clampf((rel.length() - DB.PILLAR_R) / 5.0, 0.0, 1.0)
+			var w := 1.0 - clampf((rel.length() - orad) / 5.0, 0.0, 1.0)
 			dir = (dir + side * (0.6 + 1.2 * w)).normalized()
 	return dir
+
+
+func _pillar_obs() -> Array:
+	var out := []
+	for pl in DB.PILLARS:
+		out.append([pl, DB.PILLAR_R])
+	return out
+
+
+## Walkable radius of the arena floor right now (shrinks when the rim crumbles).
+func arena_r() -> float:
+	return arena.radius if arena else DB.ARENA_R
+
+
+## Radius AI and the bot should stay inside: the coming crack line while the rim is about to fall.
+func arena_safe_r() -> float:
+	return arena.safe_radius() if arena else DB.ARENA_R
 
 
 func _separate(dt: float) -> void:
@@ -1888,6 +1909,7 @@ func start_wave() -> void:
 	chanters.clear()
 	drummers.clear()
 	barrels.reset()
+	arena.reset()
 	hero.aegis_ready = true
 	max_wave_reached = maxi(max_wave_reached, wave)
 	if hud and hud.has_method("close_shop"):
@@ -1947,6 +1969,14 @@ func start_wave() -> void:
 		Audio.play("wave")
 		schedule(3.0, hint_once.bind("stacks", "Barrel stacks: smash your way in (tap or push into the barrels) and dig a corridor. Foes can only follow you single file."))
 	spawn_queue.sort_custom(func(a, b): return a["t"] < b["t"])
+	# --arena=topple|crumble: force the boss-fight arena changes in any wave (screenshots, crash soaks)
+	match Game.arg("arena", ""):
+		"topple":
+			schedule(3.0, arena.topple.bind(0, Vector3(0.3, 0, -1), null))
+			schedule(5.0, arena.topple.bind(2, Vector3(-1, 0, 0.4), null))
+		"crumble":
+			schedule(3.0, arena.crumble)
+			schedule(12.0, arena.crumble)
 
 
 func _tick_wave(dt: float) -> void:
@@ -1962,7 +1992,7 @@ func _tick_wave(dt: float) -> void:
 		var g: Vector3 = s["gate"]
 		var jitter := Vector3(rng.randf_range(-1.6, 1.6), 0, rng.randf_range(-1.6, 1.6))
 		var inward := _flat(-g).normalized() * rng.randf_range(0.0, 1.5)
-		var e: Enemy = spawn_enemy(s["kind"], g + jitter + inward)
+		var e: Enemy = spawn_enemy(s["kind"], arena.gate_point(g + jitter + inward))
 		if s.get("tint", false):
 			e.set_tint(Color(0.75, 0.85, 1.25))
 			e.twin_index = 1
@@ -2129,6 +2159,7 @@ func _clear_arena(fx_burst: bool) -> void:
 	chanters.clear()
 	drummers.clear()
 	pit_enraged = false
+	arena.reset()
 	for p in projs:
 		_release_proj(p)
 	projs.clear()

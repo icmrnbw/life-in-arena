@@ -7,6 +7,7 @@ const SH := preload("res://art/shaders.gd")
 
 const GATES := [Vector2(0, -22), Vector2(22, 0), Vector2(-22, 0), Vector2(15.5, -15.5)]
 const PILLARS := [Vector2(-9, -6), Vector2(9, -6), Vector2(0, 10)]
+const PILLAR_PIVOT := 0.8   # pillars topple about this height (top of the plinth)
 const CAMP := Vector3(0, 0, 40)
 const SHOP := Vector3(-4, 0, 42)
 const FOUNTAIN := Vector3(4, 0, 42)
@@ -84,7 +85,9 @@ static func build(parent: Node3D) -> Dictionary:
 	# ---------------- arena stone
 	var k := MK.new()
 	_walls(k, flames, arena_lights)
-	_pillars(k, flames, arena_lights)
+	var pillar_mks: Array = []
+	var pillar_flames: Array = []
+	_pillars(k, flames, arena_lights, pillar_mks, pillar_flames)
 	_gates(k, flames, arena_lights)
 	_cliff(k, Vector3.ZERO, 24.6, 17.0, Color("3c3444"), 64, 11)
 	arena_lights.append(Vector4(0, 0, 5.5, 0.55))
@@ -95,6 +98,17 @@ static func build(parent: Node3D) -> Dictionary:
 	arena_mesh.material_override = wmat
 	arena_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(arena_mesh)
+	# pillar shafts are their own nodes so they can topple (scripts/arena.gd); the plinths stay in ArenaStone
+	var pillar_res: Array = []
+	for i in pillar_mks.size():
+		var pmi := MeshInstance3D.new()
+		pmi.name = "Pillar%d" % i
+		pmi.mesh = (pillar_mks[i] as MK).build()
+		pmi.material_override = wmat
+		pmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		pmi.position = Vector3(PILLARS[i].x, PILLAR_PIVOT, PILLARS[i].y)
+		root.add_child(pmi)
+		pillar_res.append({"node": pmi, "flame": pillar_flames[i]})
 	var lights := PackedVector4Array()
 	for l in arena_lights:
 		lights.append(l)
@@ -146,10 +160,10 @@ static func build(parent: Node3D) -> Dictionary:
 	_teleport_pad(root)
 
 	# ---------------- flames, embers, void rocks
-	_flames(root, flames)
+	var flames_mm := _flames(root, flames)
 	_embers(root)
 	_void_rocks(root)
-	return {"shop": shop, "fountain": fountain}
+	return {"shop": shop, "fountain": fountain, "pillars": pillar_res, "flames_mm": flames_mm}
 
 # =================================================================== arena
 
@@ -235,15 +249,22 @@ static func _brazier(k: MK, c: Vector3, s: float, flames: Array) -> void:
 	flames.append([c + Vector3(0, 1.3 * s, 0), Vector2(1.0, 1.7) * s])
 	k.cur_aux = 1.0
 
-static func _pillars(k: MK, flames: Array, lights: Array) -> void:
+## Plinths go into `k`; each shaft + top goes into its own MK in `out_mks` (local to the pillar's pivot,
+## PILLAR_PIVOT above its base) and the index of its flame (-1 = none) into `out_flames`.
+static func _pillars(k0: MK, flames: Array, lights: Array, out_mks: Array, out_flames: Array) -> void:
 	var stone := Color("706a78"); var stone_d := Color("524c5a"); var bronze := Color("9a6a36"); var rune := Color("ff7a2f")
 	for idx in PILLARS.size():
 		var pp: Vector2 = PILLARS[idx]
-		var c := Vector3(pp.x, 0, pp.y)
+		var base := Vector3(pp.x, 0, pp.y)
 		var broken := idx == 2
+		k0.cur_aux = 1.0
+		k0.cyl(1.95, 2.1, 0.55, base + Vector3(0, 0.27, 0), stone_d, Vector3.ZERO, -1, 8)
+		k0.cyl(1.7, 1.85, 0.3, base + Vector3(0, 0.68, 0), stone, Vector3.ZERO, -1, 8)
+		var k := MK.new()
+		out_mks.append(k)
+		var c := Vector3(0, -PILLAR_PIVOT, 0)   # base in pivot space
+		var nflames := flames.size()
 		k.cur_aux = 1.0
-		k.cyl(1.95, 2.1, 0.55, c + Vector3(0, 0.27, 0), stone_d, Vector3.ZERO, -1, 8)
-		k.cyl(1.7, 1.85, 0.3, c + Vector3(0, 0.68, 0), stone, Vector3.ZERO, -1, 8)
 		var sh := 3.6 if broken else 5.0
 		k.cyl(1.38, 1.5, sh, c + Vector3(0, 0.8 + sh * 0.5, 0), stone, Vector3.ZERO, -1, 10)
 		k.cur_aux = 0.0
@@ -261,7 +282,7 @@ static func _pillars(k: MK, flames: Array, lights: Array) -> void:
 			for i in 6:
 				var a := TAU * i / 6.0 + 0.4
 				var rr := 2.3 + fposmod(i * 0.53, 0.9)
-				k.box(Vector3(0.7, 0.45, 0.6), c + Vector3(cos(a) * rr, 0.22, sin(a) * rr), stone_d, Vector3(fposmod(i * 31.0, 40.0) - 20.0, i * 47.0, fposmod(i * 17.0, 30.0) - 15.0))
+				k0.box(Vector3(0.7, 0.45, 0.6), base + Vector3(cos(a) * rr, 0.22, sin(a) * rr), stone_d, Vector3(fposmod(i * 31.0, 40.0) - 20.0, i * 47.0, fposmod(i * 17.0, 30.0) - 15.0))
 			k.cur_aux = 0.0
 			_brazier(k, c + Vector3(0, 0.8 + sh + 0.2, 0), 1.4, flames)
 		else:
@@ -273,7 +294,12 @@ static func _pillars(k: MK, flames: Array, lights: Array) -> void:
 			k.cyl(0.92, 0.92, 0.06, top + Vector3(0, 0.42, 0), rune, Vector3.ZERO, 2.0, 10)
 			flames.append([top + Vector3(0, 0.4, 0), Vector2(1.7, 2.6)])
 		lights.append(Vector4(pp.x, pp.y, 8.5, 0.75))
-	k.cur_aux = 0.0
+		k.cur_aux = 0.0
+		# flames were placed in pivot space: move them to the world
+		out_flames.append(nflames if flames.size() > nflames else -1)
+		for fi in range(nflames, flames.size()):
+			flames[fi][0] += base + Vector3(0, PILLAR_PIVOT, 0)
+	k0.cur_aux = 0.0
 
 static func _gates(k: MK, flames: Array, lights: Array) -> void:
 	var stone := Color("736e7c"); var stone_d := Color("4e4958"); var iron := Color("2a2626"); var rune := Color("ff7a2f")
@@ -593,7 +619,7 @@ static func _ramp(a: Color, b: Color) -> Gradient:
 	g.set_color(0, a); g.set_color(1, b)
 	return g
 
-static func _flames(root: Node3D, flames: Array) -> void:
+static func _flames(root: Node3D, flames: Array) -> MultiMesh:
 	var qm := QuadMesh.new()
 	qm.size = Vector2.ONE
 	qm.center_offset = Vector3(0, 0.5, 0)
@@ -635,6 +661,7 @@ static func _flames(root: Node3D, flames: Array) -> void:
 		sp.scale_amount_min = 0.05; sp.scale_amount_max = 0.1
 		sp.color_ramp = _ramp(Color(1.0, 0.8, 0.4, 1.0), Color(1.0, 0.25, 0.05, 0.0))
 		root.add_child(sp)
+	return mm
 
 static func _embers(root: Node3D) -> void:
 	var e := CPUParticles3D.new()

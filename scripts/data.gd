@@ -325,7 +325,7 @@ const ITEMS := {
 ## Weather: rolled for every wave (it is already falling in camp, so the shop visit can answer it) and sometimes
 ## turning mid-wave. speed: everyone's move speed; fire: damage of FIRE_TAGS and burns; range: shot range (hero and foes);
 ## wind: shots with the wind deal up to +wind share, shots into it as much less, and everyone drifts downwind;
-## foe_dmg / foe_speed / gold: Blood Moon. lightning / embers: telegraphed strikes / burning patches during waves.
+## foe_dmg / foe_speed: Blood Moon. lightning / embers: telegraphed strikes / burning patches during waves.
 const WEATHER := {
 	"clear": {"name": "Clear Skies", "color": Color(1.0, 0.88, 0.6), "desc": "Calm air. Nothing changes."},
 	"rain": {"name": "Rain", "color": Color(0.55, 0.75, 1.0), "speed": 0.9, "fire": 0.6,
@@ -338,8 +338,8 @@ const WEATHER := {
 		"desc": "Wind pushes everyone. Shots with the wind hit 30% harder, shots into it 30% softer."},
 	"emberfall": {"name": "Emberfall", "color": Color(1.0, 0.55, 0.25), "fire": 1.5, "embers": true,
 		"desc": "Fire and burns deal 50% more. Falling embers set patches of sand alight."},
-	"bloodmoon": {"name": "Blood Moon", "color": Color(1.0, 0.35, 0.35), "foe_dmg": 1.15, "foe_speed": 1.1, "gold": 1.3,
-		"desc": "Foes hit 15% harder and move 10% faster, but drop 30% more gold."},
+	"bloodmoon": {"name": "Blood Moon", "color": Color(1.0, 0.35, 0.35), "foe_dmg": 1.15, "foe_speed": 1.1,
+		"desc": "Foes hit 15% harder and move 10% faster."},
 }
 const FIRE_TAGS := ["Emberbrand Burn", "Ember Totem", "Ash Wall", "Mortar", "Ember Patch"]
 const WIND_DRIFT := 1.1           # m/s everyone drifts downwind in a Gale
@@ -539,6 +539,17 @@ const GATE_NAMES := ["N", "E", "W", "NE"]
 const PILLARS := [Vector3(-9, 0, -6), Vector3(9, 0, -6), Vector3(0, 0, 10)]
 const PILLAR_R := 1.6
 const ARENA_R := 22.0
+# Arena changes in boss fights (scripts/arena.gd)
+const RUBBLE_W := 1.3          # half-width of a fallen pillar
+const RUBBLE_LEN := 7.0        # how far a fallen pillar reaches from its base
+const TOPPLE_TIME := 0.75      # fall time (telegraphed)
+const TOPPLE_STUN := 3.0       # a boss that charges into a pillar is stunned this long
+const CRUSH_BOSS := 0.04       # max-hp share a falling pillar takes off a boss
+const CRUSH_FOE := 0.6         # ... off other foes
+const CRUSH_HERO := 0.25       # ... off the hero
+const RIM_STEPS := [18.0, 15.0]  # walkable radius after each Warden phase change
+const RIM_WARN := 3.0          # seconds of cracking before the rim falls
+const RIM_HERO := 0.2          # max-hp share the hero loses scrambling off a falling rim
 const CAMP_CENTER := Vector3(0, 0, 40)
 const CAMP_R := 9.0
 const SHOP_POS := Vector3(-4, 0, 42)

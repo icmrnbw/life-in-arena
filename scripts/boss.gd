@@ -210,7 +210,7 @@ func _ai_kite(dt: float) -> void:
 		set_state("run")
 	elif d < 6.5:
 		var away := run._flat(pos - t.pos).normalized()
-		if Vector2(pos.x, pos.z).length() > DB.ARENA_R - 4.0:
+		if Vector2(pos.x, pos.z).length() > run.arena_safe_r() - 4.0:
 			away = Vector3(-away.z, 0, away.x)
 		run.move_unit(self, away * speed() * 0.7 * dt)
 		turn_toward(t.pos - pos, dt)
@@ -264,6 +264,11 @@ func _slam_hit(center: Vector3, r: float, dmg: float) -> void:
 			run.damage(u, dmg, self, display_name, "phys")
 			if u.alive and not u.no_push:
 				u.knock = (off.normalized() if off.length() > 0.1 else Vector3(1, 0, 0)) * 9.0
+	# a slam on a pillar knocks it over, away from the boss
+	for i in run.arena.pillars.size():
+		var pl: Dictionary = run.arena.pillars[i]
+		if pl["up"] and run._flat(pl["pos"] - center).length() <= r + DB.PILLAR_R * 0.5:
+			run.arena.topple(i, run._flat(pl["pos"] - pos), self)
 
 
 func _charge() -> void:
@@ -273,7 +278,7 @@ func _charge() -> void:
 	var length := minf(run._flat(target.pos - pos).length() + 5.0, 26.0)
 	var end := pos + dir * length
 	# keep inside the arena
-	var lim := DB.ARENA_R - radius - 0.5
+	var lim := run.arena_safe_r() - radius - 0.5
 	if Vector2(end.x, end.z).length() > lim:
 		var e2 := Vector2(end.x, end.z).normalized() * lim
 		end = Vector3(e2.x, 0, e2.y)
@@ -305,7 +310,11 @@ func _tick_charge(dt: float) -> void:
 	var old := pos
 	pos = run.resolve_pos(self, pos + dir * stepl, pos)
 	if run._flat(pos - old).length() < stepl * 0.5 and not done:
-		done = true   # hit a pillar
+		done = true   # hit something solid
+		var pi := run.arena.pillar_hit(pos, radius)
+		if pi >= 0:
+			run.arena.topple(pi, dir, self, true)
+			chain_charge = false
 	face(dir)
 	for u in run.hero_side_targets():
 		if charge["hit"].has(u):
@@ -328,7 +337,7 @@ func _tick_charge(dt: float) -> void:
 		return
 	if done:
 		charge = {}
-		stun_t = 1.2   # dazed after a charge: punish window
+		stun_t = maxf(stun_t, 1.2)   # dazed after a charge: punish window (longer after a pillar)
 		run.fx("slam", {"pos": pos, "radius": 2.5})
 		run.shake(0.4)
 		set_state("idle", true)
@@ -480,6 +489,7 @@ func _warden_phase() -> void:
 		run.shake(0.7)
 		run.banner_requested.emit("The Warden enrages", "Phase %d" % phase)
 		set_state("cast", true)
+		run.schedule(2.2, run.arena.crumble)
 
 
 # ------------------------------------------------------------ final gauntlet
@@ -500,7 +510,7 @@ func _gauntlet_check() -> bool:
 	_stop_beam()
 	clear_mark()
 	run.fx("teleport", {"pos": pos})
-	pos = Vector3(0, 0, -18.5)
+	pos = Vector3(0, 0, -(run.arena_r() - 3.5))
 	face(Vector3(0, 0, 1))
 	if node:
 		node.position = pos
