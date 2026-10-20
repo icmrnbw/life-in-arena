@@ -15,7 +15,7 @@ var orbit_flip_t := 4.0
 var passive := false
 ## --noshop=N: buy nothing before wave N+1 (checks that skills and movement alone can't carry the early waves).
 var noshop := 0
-## Barrel pen play (smart bot, regular waves): smash the barrel facing the arena, hold just inside the gap.
+## Barrel nook play (smart bot, regular waves): smash the front barrel of the nearest nook, hold just inside the hole.
 var use_pens := true
 var pen_wave := -1
 var pen_i := -1
@@ -311,10 +311,13 @@ func _move(dt: float) -> void:
 	var hz := _hazard_push()
 	if hz.length() > 0.01:
 		v = v * 0.3 + hz * 3.0
-	# stay off the outer wall
+	# stay off the outer wall: the barrel nooks along it make dead-end corners
 	var rr := Vector2(h.pos.x, h.pos.z).length()
-	if rr > DB.ARENA_R - 4.0 and not h.in_camp:
-		v += run._flat(-h.pos).normalized() * (rr - (DB.ARENA_R - 4.0)) * 0.6
+	if rr > DB.PEN_R_IN - 2.0 and not h.in_camp:
+		v += run._flat(-h.pos).normalized() * (rr - (DB.PEN_R_IN - 2.0)) * 0.6
+	# left a nook mid-wave: out through the hole, not into the barrels
+	if run.barrels and run.barrels.pen_at(h.pos) >= 0 and not h.in_camp:
+		v = run._flat(run.barrels.waypoint(h, Vector3(0, 0, 3)) - h.pos).normalized() * 2.0 + v * 0.2
 	# unstick
 	if stuck_left > 0.0:
 		stuck_left -= dt
@@ -367,15 +370,8 @@ func _pen_play(dt: float) -> bool:
 			if d < bd:
 				bd = d
 				pen_i = i
-		# the slot facing the arena centre
-		var pen: Dictionary = bf.pens[pen_i]
-		var to_c := run._flat(-pen["c"]).normalized()
-		var best := -2.0
-		for j in pen["n"]:
-			var dd := BarrelField._ring_dir(pen, j).dot(to_c)
-			if dd > best:
-				best = dd
-				pen_slot = j
+		# the front-row barrel facing the arena centre
+		pen_slot = bf.pens[pen_i]["mid_slot"]
 	if pen_quit or pen_i < 0:
 		return false
 	var pen: Dictionary = bf.pens[pen_i]
@@ -397,21 +393,22 @@ func _pen_play(dt: float) -> bool:
 	else:
 		pen_dry_t += dt
 	# nothing dying (ranged foes plinking from outside, or nobody coming in): go fight in the open
-	if wide or pen_idle_t > 3.0 or pen_dry_t > 12.0 or (h.focus != null and h.focus.alive and not (h.focus is Barrel) and run._flat(h.focus.pos - c).length() > r + h.atk_range + 1.0):
+	if wide or pen_idle_t > 6.0 or pen_dry_t > 12.0 or (h.focus != null and h.focus.alive and not (h.focus is Barrel) and run._flat(h.focus.pos - c).length() > r + h.atk_range + 1.0):
 		pen_quit = true
 		return false
 	var goal: Vector3
 	if gs.is_empty():
-		# break in through the chosen slot
+		# dig in through the chosen barrel
 		var b: Barrel = pen["barrels"][pen_slot]
 		h.focus = b
-		goal = c + BarrelField._ring_dir(pen, pen_slot) * (r + 1.1)
+		goal = b.pos + run._flat(b.pos - c).normalized() * 1.1
 	else:
+		var gp: Vector3 = gs[0]["p"]
 		var gdir: Vector3 = gs[0]["dir"]
-		var hold := r - 1.25 if not h.kit.bot_profile().get("ranged", false) else 0.4
+		var hold := 2.2   # deep in the nook: only what squeezes through the hole reaches you
 		if hp_frac < 0.4:
-			hold = -0.8   # back off to the far side
-		goal = c + gdir * hold
+			hold = 2.8   # back against the wall
+		goal = gp - gdir * hold
 		if not inside:
 			goal = bf.waypoint(h, goal)
 	var to := run._flat(goal - h.pos)

@@ -787,8 +787,20 @@ func test_barrels_buffers() -> void:
 	# pens: sealed until a barrel breaks; the hero breaks one in two swings
 	var bf := r.barrels
 	bf.reset()
-	check(bf.gaps(0).is_empty() and bf.intact(0) == DB.PENS[0]["n"], "pens start sealed")
-	var b: Barrel = bf.pens[0]["barrels"][0]
+	check(bf.gaps(0).is_empty() and bf.intact(0) == bf.pens[0]["n"], "pens start sealed")
+	# nooks sit against the wall, clear of the gates, and nobody fits between the end wall and the arena wall
+	var gate_ok := true
+	for pen in bf.pens:
+		for gk in DB.GATES:
+			if BarrelField._flat(DB.GATES[gk] - pen["c"]).length() < pen["r"] + 2.0:
+				gate_ok = false
+		if BarrelField._flat(pen["c"] - DB.ARENA_SPAWN).length() < pen["r"] + 1.5:
+			gate_ok = false
+	check(gate_ok, "nooks keep clear of the gates and the hero's entry")
+	var wall_gap := DB.ARENA_R - 0.3 - (DB.PEN_R_OUT + DB.BARREL_R)
+	check(wall_gap < 2.0 * float(DB.ENEMIES["gnawer"]["radius"]), "end walls seal against the arena wall", str(wall_gap))
+	check(bf.pen_at(bf.pens[0]["c"]) == 0 and bf.pen_at(bf.pens[0]["c"] * 0.75) == -1, "inside the nook vs out in the arena")
+	var b: Barrel = bf.pens[0]["barrels"][bf.pens[0]["mid_slot"]]
 	r.damage(b, 10.0, h, "Attack")
 	check(b.alive, "barrel survives one hero swing")
 	r.damage(b, 10.0, h, "Attack")
@@ -798,7 +810,7 @@ func test_barrels_buffers() -> void:
 	var sb := r.spawn_enemy("shieldbearer", Vector3(-7, 0, 12), 10)
 	check(gw > gn.radius * 2.0 and gw < 2.0 * float(DB.ENEMIES["pit_brute"]["radius"]), "one-barrel gap fits regular foes, not big ones", "gap %.2f" % gw)
 	# collision: can't walk through an intact barrel
-	var b2: Barrel = bf.pens[0]["barrels"][4]
+	var b2: Barrel = bf.pens[0]["barrels"][2]
 	var c: Vector3 = bf.pens[0]["c"]
 	var outside := c + (b2.pos - c) * 1.5
 	gn.pos = outside
@@ -809,20 +821,21 @@ func test_barrels_buffers() -> void:
 	check(gn.pick_target() == h, "foes path to the gap when there is one")
 	bf.reset()
 	check(sb.pick_target() is Barrel, "a sealed pen gets broken into")
-	# queue: with the hero inside, only a couple of gnawers reach it at once
+	# queue: with the hero dug in, the pack can't all reach it at once
 	r._clear_arena(false)
 	bf.reset()
-	r.damage(bf.pens[0]["barrels"][0], 99.0, h, "Attack")
-	r.damage(bf.pens[0]["barrels"][0], 99.0, h, "Attack")
+	r.damage(b, 99.0, h, "Attack")
+	r.damage(b, 99.0, h, "Attack")
 	var gdir: Vector3 = bf.gaps(0)[0]["dir"]
+	var dug_in: Vector3 = bf.gaps(0)[0]["p"] - gdir * 2.2   # back to the wall, like the bot holds
 	_g().god = true
-	h.pos = c - gdir * 0.3
+	h.pos = dug_in
 	for i in 7:
 		r.spawn_enemy("gnawer", c + gdir * 6.0 + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2)), 10)
 	var max_adj := 0
 	var inside_n := 0
 	for i in 150:
-		h.pos = c - gdir * 0.3
+		h.pos = dug_in
 		h.move_input = Vector2.ZERO
 		h.atk_cd = 99.0
 		r._step(1.0 / 30.0)
@@ -836,14 +849,15 @@ func test_barrels_buffers() -> void:
 			if bf.pen_at(e.pos) == 0:
 				inside_n += 1
 	check(inside_n >= 1, "gnawers get in through the gap", str(inside_n))
-	check(max_adj <= 4, "the pen limits how many reach the hero", str(max_adj))
+	check(max_adj <= 5 and inside_n < 7, "the nook limits how many reach the hero; the rest queue outside", "%d adjacent, %d inside" % [max_adj, inside_n])
 	r._clear_arena(false)
 	# smashed barrels are gone: nobody walks around (or dithers at) a pen with no barrels left in the way
 	bf.reset()
 	for pb in bf.pens[0]["barrels"]:
 		bf.smash(pb, null)
-	h.pos = c + Vector3(-4.5, 0, 0)
-	var walker := r.spawn_enemy("gnawer", c + Vector3(5.5, 0, 0.3), 10)
+	var side := Vector3(-c.z, 0, c.x).normalized()
+	h.pos = c + side * 4.5
+	var walker := r.spawn_enemy("gnawer", c - side * 5.5 + c.normalized() * 0.3, 10)
 	check(r.steer_dir(walker, h.pos).dot(BarrelField._flat(h.pos - walker.pos).normalized()) > 0.98, "foes walk straight across a smashed pen")
 	r._clear_arena(false)
 	bf.reset()
@@ -851,8 +865,8 @@ func test_barrels_buffers() -> void:
 	for j in pen2["n"]:
 		if j % 2 == 0:
 			bf.smash(pen2["barrels"][j], null)
-	var hp2 := Vector3(2.25, 0, -8.6)
-	var brute := r.spawn_enemy("pit_brute", Vector3(-1.77, 0, -18.9), 10)
+	var hp2: Vector3 = pen2["c"]
+	var brute := r.spawn_enemy("pit_brute", hp2 * 0.55, 10)
 	var reached := false
 	for i in 300:
 		h.pos = hp2

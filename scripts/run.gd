@@ -952,7 +952,7 @@ func steer_dir(u: Unit, goal: Vector3) -> Vector3:
 	if u.pos.z > 30.0:
 		return dir
 	if barrels and not (u.is_boss and u.team == 1):
-		# walk around pens instead of into them (unless threading one's gap); bosses smash through
+		# walk around nooks instead of into them (unless threading one's gap); bosses smash through
 		for i in barrels.pens.size():
 			if i == barrels.through_pen:
 				continue
@@ -1766,7 +1766,7 @@ func start_wave() -> void:
 		if wave_rule != "":
 			schedule(2.6, toast.bind(String(info.get("desc", "")), DB.WAVE_RULES[wave_rule]["color"]))
 		Audio.play("wave")
-		schedule(3.0, hint_once.bind("pens", "Barrel pens: smash one barrel (tap it, or push into it) and fight from inside. Foes must come through the gap one by one."))
+		schedule(3.0, hint_once.bind("nooks", "Barrel nooks: smash a barrel (tap or push into it) and dig in with your back to the wall. Foes come in one by one."))
 	spawn_queue.sort_custom(func(a, b): return a["t"] < b["t"])
 
 

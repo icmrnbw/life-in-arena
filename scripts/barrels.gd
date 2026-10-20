@@ -1,10 +1,11 @@
 class_name BarrelField
 extends Node3D
-## Barrel pens and powder kegs in the arena (DB.PENS / DB.KEGS).
-## A pen is a ring of barrels with no way in. Smash one (or more) to open a gap: whoever is inside can only be
-## reached through it, so the pack queues up and comes in one at a time. Units too wide for the gap smash the
-## barrels next to it; a sealed pen gets broken open; bosses crash straight through. Kegs blow up after a short
-## fuse, hurting everything nearby (the hero too) and breaking barrels around them.
+## Barrel nooks and powder kegs in the arena (DB.PENS / DB.KEGS), laid out like Life in Arena.
+## A nook ("pen" in code) is a pocket against the arena wall, sealed by a chain of barrels: an end wall running in
+## from the arena wall, a front row, and another end wall back out. Smash one (or more) to dig in: whoever is inside
+## can only be reached through the hole, so the pack queues up and comes in one at a time. Units too wide for the hole
+## smash the barrels next to it; a sealed nook gets broken open; bosses crash straight through. Kegs blow up after a
+## short fuse, hurting everything nearby (the hero too) and breaking barrels around them.
 ## Everything is restored at the start of each wave.
 
 const MK := preload("res://art/mesh_kit.gd")
@@ -12,8 +13,11 @@ const SH := preload("res://art/shaders.gd")
 const WOOD := Color(0.62, 0.42, 0.24)
 const KEG_GLOW := Color(1.0, 0.55, 0.15)
 
+## Pen: {a0, a1 (angle span, radians), r_in, c (middle of the pocket), r (bounding radius), n, mid_slot (front-row
+## barrel facing the arena centre), ends: [wall point at a0, wall point at a1], barrels: Array[Barrel] in chain order,
+## gaps, gver}.
+var pens: Array = []
 var run: Run
-var pens: Array = []      # {c, r, n, rot, barrels: Array[Barrel], gaps: Array, gver: int}
 var kegs: Array = []
 var all: Array = []
 var ver := 0              # bumps whenever a barrel breaks or the field resets (gap caches key on it)
@@ -29,14 +33,13 @@ func setup(r: Run) -> void:
 	run = r
 	name = "Barrels"
 	for i in DB.PENS.size():
-		var d: Dictionary = DB.PENS[i]
-		var pen := {"c": d["c"], "r": float(d["r"]), "n": int(d["n"]), "rot": float(d["rot"]), "barrels": [], "gaps": [], "gver": -1}
-		for j in pen["n"]:
+		var pen := make_pen(DB.PENS[i])
+		for j in pen["slots"].size():
 			var b := Barrel.new()
 			b.run = r
 			b.pen = i
 			b.slot = j
-			b.pos = pen["c"] + _ring_dir(pen, j) * pen["r"]
+			b.pos = pen["slots"][j]
 			b.yaw = randf() * TAU
 			pen["barrels"].append(b)
 			all.append(b)
@@ -53,6 +56,38 @@ func setup(r: Run) -> void:
 	reset()
 
 
+## Geometry of one nook from its DB.PENS entry. Barrel spots go in chain order: end wall a0 (wall inwards),
+## front row (a0 -> a1), end wall a1 (outwards to the wall).
+static func make_pen(d: Dictionary) -> Dictionary:
+	var r_in: float = d.get("r_in", DB.PEN_R_IN)
+	var arc: int = d.get("arc", DB.PEN_ARC)
+	var am := deg_to_rad(float(d["a"]))
+	var half := arc * DB.PEN_SPACING / r_in * 0.5
+	var a0 := am - half
+	var a1 := am + half
+	var m := ceili((DB.PEN_R_OUT - r_in) / 1.05)
+	var slots := []
+	for k in range(m, 0, -1):
+		slots.append(_polar(a0, r_in + (DB.PEN_R_OUT - r_in) * k / float(m)))
+	for j in arc + 1:
+		slots.append(_polar(lerpf(a0, a1, j / float(arc)), r_in))
+	for k in range(1, m + 1):
+		slots.append(_polar(a1, r_in + (DB.PEN_R_OUT - r_in) * k / float(m)))
+	# the arena wall closes the chain: units can't get between the last barrel and it
+	var wall_r := DB.ARENA_R - 0.3 + DB.BARREL_R
+	var c_r := (r_in + DB.ARENA_R - 0.3) * 0.5
+	var c := _polar(am, c_r)
+	var br := 0.0
+	for p in slots:
+		br = maxf(br, _flat(p - c).length())
+	return {"a0": a0, "a1": a1, "am": am, "r_in": r_in, "c": c, "r": br, "n": slots.size(), "mid_slot": m + arc / 2,
+		"ends": [_polar(a0, wall_r), _polar(a1, wall_r)], "slots": slots, "barrels": [], "gaps": [], "gver": -1}
+
+
+static func _polar(a: float, r: float) -> Vector3:
+	return Vector3(cos(a) * r, 0, sin(a) * r)
+
+
 func reset() -> void:
 	for b in all:
 		b.alive = true
@@ -63,20 +98,24 @@ func reset() -> void:
 	_dirty = true
 
 
-static func _ring_dir(pen: Dictionary, j: int) -> Vector3:
-	var a: float = pen["rot"] + TAU * j / float(pen["n"])
-	return Vector3(cos(a), 0, sin(a))
-
-
 static func _flat(v: Vector3) -> Vector3:
 	return Vector3(v.x, 0, v.z)
 
 
 # ---------------------------------------------------------------- queries
+## True when p is inside pen (behind the front row, between the end walls).
+static func inside(pen: Dictionary, p: Vector3) -> bool:
+	var rr := Vector2(p.x, p.z).length()
+	if rr < pen["r_in"] + 0.1:
+		return false
+	var d := absf(wrapf(atan2(p.z, p.x) - pen["am"], -PI, PI))
+	return d * rr < (pen["a1"] - pen["am"]) * rr - 0.1
+
+
 ## Index of the pen whose inside contains p, or -1.
 func pen_at(p: Vector3) -> int:
 	for i in pens.size():
-		if _flat(p - pens[i]["c"]).length() < pens[i]["r"] - 0.1:
+		if inside(pens[i], p):
 			return i
 	return -1
 
@@ -89,8 +128,8 @@ func intact(pen_i: int) -> int:
 	return n
 
 
-## Openings of a pen: Array of {dir: Vector3 (centre -> middle of the gap), width: float (metres of free space),
-## slots: Array[int]}. A pen with every barrel broken is one huge gap.
+## Openings of a pen: Array of {p: Vector3 (middle of the hole), dir: Vector3 (outward normal through the hole),
+## width: float (metres of free space), slots: Array[int]}. A pen with every barrel broken is one huge gap.
 func gaps(pen_i: int) -> Array:
 	var pen: Dictionary = pens[pen_i]
 	if pen["gver"] == ver:
@@ -98,43 +137,40 @@ func gaps(pen_i: int) -> Array:
 	var out := []
 	var bs: Array = pen["barrels"]
 	var n: int = pen["n"]
-	var first := -1
-	for j in n:
-		if bs[j].alive:
-			first = j
-			break
-	if first < 0:
-		out.append({"dir": Vector3(0, 0, 1), "width": 99.0, "slots": range(n)})
+	if intact(pen_i) == 0:
+		out.append({"p": _polar(pen["am"], pen["r_in"]), "dir": -_polar(pen["am"], 1.0), "width": 99.0, "slots": range(n)})
 	else:
-		var run_slots := []
-		for s in range(1, n + 1):
-			var j := (first + s) % n
-			if not bs[j].alive:
-				run_slots.append(j)
-			elif not run_slots.is_empty():
-				var k := run_slots.size()
-				var mid_a: float = pen["rot"] + TAU * (float(run_slots[0]) + (k - 1) * 0.5) / float(n)
-				# past half the ring the opening is as wide as the pen itself
-				var chord: float = 2.0 * pen["r"] * sin(minf(PI * float(k + 1) / float(n), PI * 0.5))
-				out.append({"dir": Vector3(cos(mid_a), 0, sin(mid_a)), "width": chord - 2.0 * DB.BARREL_R, "slots": run_slots})
-				run_slots = []
+		var j := 0
+		while j < n:
+			if bs[j].alive:
+				j += 1
+				continue
+			var k := j
+			while k + 1 < n and not bs[k + 1].alive:
+				k += 1
+			var before: Vector3 = bs[j - 1].pos if j > 0 else pen["ends"][0]
+			var after: Vector3 = bs[k + 1].pos if k + 1 < n else pen["ends"][1]
+			var mid := (before + after) * 0.5
+			var t := _flat(after - before).normalized()
+			var nrm := Vector3(t.z, 0, -t.x)
+			if nrm.dot(mid - pen["c"]) < 0.0:
+				nrm = -nrm
+			out.append({"p": mid, "dir": nrm, "width": _flat(after - before).length() - 2.0 * DB.BARREL_R, "slots": range(j, k + 1)})
+			j = k + 1
 	pen["gaps"] = out
 	pen["gver"] = ver
 	return out
 
 
-## The gap of pen_i that a unit of radius `r` fits through, closest to `from` (by direction). {} if none.
+## The gap of pen_i that a unit of radius `r` fits through, closest to `from`. {} if none.
 func best_gap(pen_i: int, r: float, from: Vector3) -> Dictionary:
-	var pen: Dictionary = pens[pen_i]
-	var rel := _flat(from - pen["c"])
-	var dir := rel.normalized() if rel.length() > 0.01 else Vector3(0, 0, 1)
 	var best := {}
-	var bd := -2.0
+	var bd := 1e9
 	for g in gaps(pen_i):
 		if g["width"] < 2.0 * r + 0.04:
 			continue
-		var d: float = dir.dot(g["dir"])
-		if d > bd:
+		var d := _flat(g["p"] + g["dir"] * 1.6 - from).length()
+		if d < bd:
 			bd = d
 			best = g
 	return best
@@ -163,12 +199,8 @@ func waypoint(u: Unit, goal: Vector3) -> Vector3:
 		return goal   # bosses crash straight through (see _push); threading gaps made them dither on the ring
 	for i in pens.size():
 		var pen: Dictionary = pens[i]
-		var c: Vector3 = pen["c"]
-		var r: float = pen["r"]
-		var ud := _flat(u.pos - c).length()
-		var gd := _flat(goal - c).length()
-		var u_in := ud < r - 0.1
-		var g_in := gd < r - 0.1
+		var u_in := inside(pen, u.pos)
+		var g_in := inside(pen, goal)
 		if u_in == g_in:
 			continue
 		if not blocks(i, u.pos, goal, u.radius):
@@ -178,12 +210,14 @@ func waypoint(u: Unit, goal: Vector3) -> Vector3:
 		var g := best_gap(i, u.radius, outside)
 		if g.is_empty():
 			return goal
+		var gp: Vector3 = g["p"]
 		var gdir: Vector3 = g["dir"]
-		var rel := _flat(u.pos - c)
-		var lateral := (rel - gdir * rel.dot(gdir)).length()
-		var lined := rel.dot(gdir) > 0.0 and lateral < maxf(0.18, float(g["width"]) * 0.5 - u.radius * 0.6) and absf(ud - r) < 1.9
-		var outer := c + gdir * (r + 1.6)
-		var inner := c + gdir * (r - 1.0)
+		var rel := _flat(u.pos - gp)
+		var along := rel.dot(gdir)
+		var lateral := (rel - gdir * along).length()
+		var lined := lateral < maxf(0.18, float(g["width"]) * 0.5 - u.radius * 0.6) and absf(along) < 1.9
+		var outer := gp + gdir * 1.6
+		var inner := gp - gdir * 1.0
 		if lined:
 			through_pen = i
 		if not u_in:
@@ -198,8 +232,7 @@ func resolve(u: Unit, p: Vector3) -> Vector3:
 		return p
 	var reach := u.radius + DB.BARREL_R + 0.05
 	for pen in pens:
-		var d := _flat(p - pen["c"]).length()
-		if absf(d - pen["r"]) > reach:
+		if _flat(p - pen["c"]).length() > pen["r"] + reach:
 			continue
 		for b in pen["barrels"]:
 			if b.alive:
@@ -252,14 +285,12 @@ func detour(e: Unit, t: Unit) -> Unit:
 		return t
 	# widen the nearest (too narrow) opening, or break in where we stand
 	var aim := e.pos
-	var gs := gaps(pi)
-	if not gs.is_empty():
-		var rel := _flat(e.pos - pens[pi]["c"]).normalized()
-		var bd := -2.0
-		for g in gs:
-			if rel.dot(g["dir"]) > bd:
-				bd = rel.dot(g["dir"])
-				aim = pens[pi]["c"] + g["dir"] * pens[pi]["r"]
+	var bd := 1e9
+	for g in gaps(pi):
+		var d := _flat(g["p"] - e.pos).length()
+		if d < bd:
+			bd = d
+			aim = g["p"]
 	var best: Barrel = null
 	var bdist := 1e9
 	for b in pens[pi]["barrels"]:

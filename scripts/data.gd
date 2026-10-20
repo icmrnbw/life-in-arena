@@ -338,14 +338,18 @@ const AURAS := {
 }
 const DRUM_DMG := 2.0
 
-## Barrels. Pens are rings of barrels: smash one to open a gap, stand inside, and the pack has to
-## come through the gap one at a time. Powder kegs blow up shortly after they're broken.
-const PENS := [
-	{"c": Vector3(-13.5, 0, 6.0), "r": 2.6, "n": 13, "rot": 0.1},
-	{"c": Vector3(13.5, 0, 6.0), "r": 2.6, "n": 13, "rot": -0.1},
-	{"c": Vector3(0, 0, -12.5), "r": 2.6, "n": 13, "rot": 0.25},
-]
-const KEGS := [Vector3(-4.5, 0, -17.0), Vector3(16.8, 0, -3.5), Vector3(-16.8, 0, -3.5), Vector3(10.5, 0, -13.0)]
+## Barrels, laid out like Life in Arena: nooks of barrels built against the arena wall. A nook is a sealed pocket
+## (a row of barrels in front, a short barrel wall at each end, the arena wall behind). Smash one barrel to dig in:
+## with your back to the wall the pack can only reach you through the hole, one at a time.
+## "a" is the nook's angle around the arena (degrees, atan2(z, x)); the gaps are left for the gates and the south entry.
+## A powder keg sits in front of every nook: pop it when the pack bunches up at your hole.
+const PENS := [{"a": 21.25}, {"a": 61.25}, {"a": 118.75}, {"a": 158.75}, {"a": -158.75}, {"a": -118.75}]
+const PEN_R_IN := 18.2          # radius of the front row
+const PEN_R_OUT := 21.2         # outermost barrel of the end walls (touches the arena wall)
+const PEN_ARC := 2              # front row spacings (3 barrels): just wide enough for the hero
+const PEN_SPACING := 1.2        # front row barrel spacing: one smashed barrel leaves a ~1.4 m hole
+const KEGS := [Vector3(-4.5, 0, -17.0), Vector3(10.5, 0, -13.0), Vector3(12.86, 0, 5.0), Vector3(6.63, 0, 12.1),
+	Vector3(-6.63, 0, 12.1), Vector3(-12.86, 0, 5.0), Vector3(-12.86, 0, -5.0), Vector3(-6.63, 0, -12.1)]
 const BARREL_R := 0.5
 const BARREL_HP := 8.0          # hero swings deal BARREL_HERO_HIT, enemy swings 1 (big ones 2)
 const BARREL_HERO_HIT := 5.0
@@ -494,7 +498,7 @@ const EARLY_HP := 0.3
 const EARLY_DMG := 0.4
 
 
-## Enemy damage is a notch higher since barrel pens let you fight the pack one at a time.
+## Enemy damage is a notch higher since barrel nooks let you fight the pack one at a time.
 const DMG_BASE := 1.1
 const BOSS_DMG_BASE := 1.1
 
