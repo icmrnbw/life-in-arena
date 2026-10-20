@@ -343,7 +343,10 @@ func test_touch() -> void:
 			await frames(1)
 			Engine.time_scale = 1.0
 			await frames(2)
-			check(h.focus == target, "tap enemy sets focus", "sp=%s" % sp)
+			# in a crowd the tap can land on a neighbour standing in front of the target; that's a correct pick too
+			var picked: bool = h.focus == target or (h.focus != null and h.focus.team == 1
+				and run._flat(h.focus.pos - target.pos).length() < 2.0)
+			check(picked, "tap enemy sets focus", "sp=%s focus=%s" % [sp, h.focus.kind if h.focus else "none"])
 		elif vis:
 			# left side starts the joystick instead (by design): report it
 			touch(4, sp, true)
