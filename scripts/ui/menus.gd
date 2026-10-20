@@ -116,7 +116,7 @@ static func title_screen(on_play: Callable, on_heroes := Callable(), on_continue
 		q.pressed.connect(func(): Game.quit_game())
 		row.add_child(q)
 	v.add_child(row)
-	var tip := _outlined(UIK.label("Survive 20 waves in the Pit. Shop between waves. Unlock heroes by playing.", "SmallLabel", 20, UIK.col("dim", Color(0.75, 0.7, 0.62))), 6)
+	var tip := _outlined(UIK.label("Survive 20 waves in the Pit. 3 lives. Shop between waves.", "SmallLabel", 20, UIK.col("dim", Color(0.75, 0.7, 0.62))), 6)
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(tip)
 	if not Game.prev_crash.is_empty():
@@ -482,7 +482,7 @@ static func _training_end(root: Control, v: VBoxContainer, on_play: Callable, on
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
 	var lines := ["You know the basics. Now pick a mode and a hero.",
-		"Classic is the full 20 waves. Random Hero and the Daily Run let you try heroes you haven't unlocked yet.",
+		"Classic is the full 20 waves. Random Hero and the Daily Run hand you a hero you might not have tried yet.",
 		"Practice gives you any hero, any wave and free gold to learn them."]
 	for s in lines:
 		var l := UIK.label(s, "", 21, UIK.col("text", Color(0.95, 0.9, 0.82)))

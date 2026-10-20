@@ -3,8 +3,9 @@ extends RefCounted
 ## Replayability content: difficulty tiers, game modes, Daily Run modifiers, hero unlocks, Endless waves and the run score.
 ## A run's settings live in Run.cfg (built by config()); Profile keeps what carries over between runs.
 
-## Heroes everyone starts with; the rest are unlocked by playing (never paid).
-const STARTER_HEROES := ["ashwarden", "riftdancer", "hivemother"]
+## Heroes everyone starts with: all of them (Ernest's call). UNLOCKS below only applies to heroes left out of this
+## list, so moving heroes out of it brings unlock-by-playing back without other changes.
+const STARTER_HEROES := DB.HERO_ORDER
 
 ## "stat": what Profile.progress() measures, "n": the target. Order = the order they tend to unlock in.
 const UNLOCKS := {
@@ -33,7 +34,7 @@ const TIERS := {
 const MODE_ORDER := ["classic", "random", "endless", "daily", "practice", "training"]
 const MODES := {
 	"classic": {"name": "Classic", "desc": "Pick a hero and survive 20 waves. Bosses on every 5th wave.", "icon": "portrait_ashwarden", "tiers": true},
-	"random": {"name": "Random Hero", "desc": "The Pit picks your hero, even one you haven't unlocked yet. +150 starting gold.", "icon": "portrait_twinhide", "tiers": true},
+	"random": {"name": "Random Hero", "desc": "The Pit picks your hero for you. +150 starting gold.", "icon": "portrait_twinhide", "tiers": true},
 	"endless": {"name": "Endless", "desc": "Past the Warden the waves never stop. How far can you go?", "icon": "portrait_sunspeaker", "tiers": true},
 	"daily": {"name": "Daily Run", "desc": "Today's hero and twist, the same for everyone. Hard tier. Beat your best score.", "icon": "portrait_gunsmith", "tiers": false},
 	"practice": {"name": "Practice", "desc": "Any hero, any wave, 99,999 gold, no lives lost. Nothing counts toward records.", "icon": "portrait_stoneshaper", "tiers": true},

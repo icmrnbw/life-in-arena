@@ -542,6 +542,9 @@ func test_end_screens() -> void:
 func test_modes_flow() -> void:
 	section("modes: locks, training, random, daily, practice, continue, records")
 	Profile.reset()
+	check(Profile.is_unlocked("sanguine") and Profile.tier_unlocked("extreme"), "everything open from the start")
+	# lock heroes to test the lock UI that unlock rules would use
+	Profile.d()["unlocked"] = ["ashwarden", "riftdancer", "hivemother"]
 	main.show_hero_select()
 	await frames(2)
 	var hs = main.screen

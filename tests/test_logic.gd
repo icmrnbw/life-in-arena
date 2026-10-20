@@ -1091,14 +1091,23 @@ func clear_wave(r: Run) -> void:
 			break
 
 
+## Locks every hero but the original three and the Extreme tier, to test the unlock rules.
+func lock_some() -> void:
+	Profile.d()["unlocked"] = ["ashwarden", "riftdancer", "hivemother"]
+	Profile.d()["tiers"] = ["normal", "hard"]
+
+
 func test_replayability() -> void:
 	section("profile, unlocks, tiers, modes, saved run")
 	Profile.reset()
-	check(Profile.is_unlocked("ashwarden") and Profile.is_unlocked("riftdancer") and Profile.is_unlocked("hivemother"), "starter heroes unlocked")
-	check(not Profile.is_unlocked("sanguine") and not Profile.is_unlocked("sunspeaker"), "others locked at first")
-	check(Profile.tier_unlocked("normal") and Profile.tier_unlocked("hard") and not Profile.tier_unlocked("extreme"), "Extreme locked at first")
+	var all_open := true
 	for id in DB.HERO_ORDER:
+		all_open = all_open and Profile.is_unlocked(id)
 		check(Modes.STARTER_HEROES.has(id) or Modes.UNLOCKS.has(id), "unlock rule for " + id)
+	check(all_open and Profile.tier_unlocked("extreme"), "every hero and tier is open from the start")
+	# the unlock rules still work for heroes taken out of the starting list
+	lock_some()
+	check(not Profile.is_unlocked("sanguine") and not Profile.tier_unlocked("extreme"), "test lock applies")
 	# tiers scale enemies
 	var rn := make_mode_run("ashwarden", Modes.config("classic", "normal"))
 	var rh := make_mode_run("ashwarden", Modes.config("classic", "hard"))
@@ -1166,6 +1175,7 @@ func test_replayability() -> void:
 	await get_tree().process_frame
 	# records and unlocks from cleared waves
 	Profile.reset()
+	lock_some()
 	var rc := make_mode_run("hivemother", Modes.config("classic", "hard"), 3)
 	await get_tree().process_frame
 	check(int(Profile.d()["totals"]["runs"]) == 1, "run start counted")

@@ -12,7 +12,7 @@ static var _loaded := false
 
 
 static func defaults() -> Dictionary:
-	return {"version": VERSION, "unlocked": Modes.STARTER_HEROES.duplicate(), "tiers": ["normal", "hard"],
+	return {"version": VERSION, "unlocked": Modes.STARTER_HEROES.duplicate(), "tiers": Modes.TIER_ORDER.duplicate(),
 		"training_done": false, "training_offered": false, "last_tier": "hard",
 		"totals": {"runs": 0, "wins": 0, "kills": 0, "bosses": 0, "waves": 0, "deaths": 0, "time": 0.0},
 		"heroes": {},       # id -> {runs, best_wave, wins, kills}
@@ -51,6 +51,9 @@ static func load_profile() -> void:
 	for h in Modes.STARTER_HEROES:
 		if not (data["unlocked"] as Array).has(h):
 			data["unlocked"].append(h)
+	for t in defaults()["tiers"]:
+		if not (data["tiers"] as Array).has(t):
+			data["tiers"].append(t)
 
 
 static func save() -> void:
