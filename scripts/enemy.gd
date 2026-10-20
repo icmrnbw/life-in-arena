@@ -338,7 +338,7 @@ func _ai_ranged(dt: float) -> void:
 	elif d < 5.0 and run.wave_time < 90.0:
 		var away := run._flat(pos - t.pos).normalized()
 		# don't back into the wall: slide sideways near the edge
-		if Vector2(pos.x, pos.z).length() > DB.ARENA_R - 3.0:
+		if Vector2(pos.x, pos.z).length() > run.arena_safe_r() - 3.0:
 			away = Vector3(-away.z, 0, away.x)
 		run.move_unit(self, away * speed() * 0.85 * dt)
 		turn_toward(t.pos - pos, dt)
@@ -384,7 +384,7 @@ func _ai_support(dt: float) -> void:
 	var mv := Vector3.ZERO
 	if d < 3.2:
 		mv = run._flat(pos - t.pos).normalized()
-		if Vector2(pos.x, pos.z).length() > DB.ARENA_R - 3.0:
+		if Vector2(pos.x, pos.z).length() > run.arena_safe_r() - 3.0:
 			mv = Vector3(-mv.z, 0, mv.x)
 	elif run._flat(_support_goal - pos).length() > 1.0:
 		mv = run.steer_dir(self, _support_goal)

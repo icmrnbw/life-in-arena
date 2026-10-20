@@ -539,6 +539,17 @@ const GATE_NAMES := ["N", "E", "W", "NE"]
 const PILLARS := [Vector3(-9, 0, -6), Vector3(9, 0, -6), Vector3(0, 0, 10)]
 const PILLAR_R := 1.6
 const ARENA_R := 22.0
+# Arena changes in boss fights (scripts/arena.gd)
+const RUBBLE_W := 1.3          # half-width of a fallen pillar
+const RUBBLE_LEN := 7.0        # how far a fallen pillar reaches from its base
+const TOPPLE_TIME := 0.75      # fall time (telegraphed)
+const TOPPLE_STUN := 3.0       # a boss that charges into a pillar is stunned this long
+const CRUSH_BOSS := 0.04       # max-hp share a falling pillar takes off a boss
+const CRUSH_FOE := 0.6         # ... off other foes
+const CRUSH_HERO := 0.25       # ... off the hero
+const RIM_STEPS := [18.0, 15.0]  # walkable radius after each Warden phase change
+const RIM_WARN := 3.0          # seconds of cracking before the rim falls
+const RIM_HERO := 0.2          # max-hp share the hero loses scrambling off a falling rim
 const CAMP_CENTER := Vector3(0, 0, 40)
 const CAMP_R := 9.0
 const SHOP_POS := Vector3(-4, 0, 42)

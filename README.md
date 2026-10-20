@@ -47,13 +47,14 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - Rain: everyone moves 10% slower, fire deals 40% less. Thunderstorm: rain plus telegraphed lightning that hurts foes and you alike.
   - Fog: shots reach 30% less far, yours and the Hexcasters'. Gale: wind pushes everyone, shots with the wind hit 30% harder, into it 30% softer.
   - Emberfall: fire deals 50% more and embers set patches of sand alight. Blood Moon (wave 8+): foes hit 15% harder and move 10% faster.
+- The arena changes in boss fights. A boss slam on a pillar, or a boss charge into one, knocks it over into a rubble wall that blocks movement and shots and crushes whatever is under it; a charge into a pillar also stuns the boss for 3 seconds, so bait the Pit Brute into one. When the Warden changes phase, the outer ring of the floor cracks and falls into the void 3 seconds later (radius 22, then 18, then 15): foes on it fall, you scramble back in and lose 20% health. Everything is rebuilt for the next wave. `--arena=topple` or `--arena=crumble` forces either in any wave for testing.
 - A camp between waves with a shop of 28 items, including recipes. Cleaving Axe's splash only works on melee hits and Splinter Quiver's ricochet only on shots (anyone can buy them; the other kind just gets the stats), and range bonuses only lengthen shots. Hooded Lantern and Oilskin Cloak answer the weather.
 - Touch controls: a joystick, tap-to-cast and drag-to-aim.
 - All art is procedural and original, generated in code.
 - Music: three original medieval-style tunes, composed and synthesized in code by `tools/compose_music.py` (no samples or third-party recordings, so nothing to license). A tavern tune (lute, recorder, harp, drone; D Dorian) plays on the title screen and in camp, a battle tune (shawm, lute, tabor drum; E Dorian) during waves, and a boss tune (war drums, low voices, bell; D Phrygian) on boss waves. Tunes crossfade, duck while paused, and have their own Music toggle on the title and pause screens.
 
 ## Install (Android)
-Download `builds/emberpit-0.5.4-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.5.5-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.

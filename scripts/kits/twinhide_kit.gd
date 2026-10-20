@@ -277,10 +277,7 @@ func tick(dt: float) -> void:
 				l["hit"][e] = true
 				run.damage(e, l["dmg"], hero, "Spirit Lance", "magic", {"color": VIOLET})
 				run.fx("hit", {"pos": e.pos + Vector3(0, 1.0, 0), "color": VIOLET})
-			var stop := false
-			for pl in DB.PILLARS:
-				if Vector2(b.x - pl.x, b.z - pl.z).length() < DB.PILLAR_R:
-					stop = true
+			var stop := run.arena.blocks_shot(b)
 			var n: Node3D = l["node"]
 			if n and is_instance_valid(n):
 				n.position = b + Vector3(0, 1.2, 0)

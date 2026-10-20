@@ -70,6 +70,7 @@ func _main() -> void:
 	await test_training()
 	await test_melee_ranged_items()
 	await test_weather()
+	await test_arena_changes()
 	print("\n==== RESULT: %d passed, %d failed" % [passed, failed])
 	for f in fails:
 		print("FAILED: ", f)
@@ -1533,5 +1534,95 @@ func test_weather() -> void:
 		check(r.weather.shift_at < 0.0, "boss waves keep their weather")
 	check(seen.size() >= 6, "wave 12 can roll most weathers", str(seen.keys()))
 	check(shifts > 40 and shifts < 120, "about 40% of regular waves turn", str(shifts))
+	free_run(r)
+	await get_tree().process_frame
+
+
+func _steps(r: Run, secs: float) -> void:
+	for i in int(secs * 30.0):
+		r._step(1.0 / 30.0)
+
+
+func test_arena_changes() -> void:
+	section("arena changes (toppling pillars, crumbling rim)")
+	_g().god = true
+	var r := await _arena_run("ashwarden", 5)
+	var a := r.arena
+	check(a.pillars.size() == DB.PILLARS.size() and a.radius == DB.ARENA_R, "arena starts whole")
+	check(a.blocks_shot(Vector3(-9, 0, -6)) and not a.blocks_shot(Vector3(-9, 0, 0)), "standing pillar blocks shots")
+	# the Brute charges into a pillar: it falls, he is stunned
+	r.hero.pos = Vector3(12, 0, 12)
+	var brute := r.spawn_enemy("pit_brute", Vector3(-9, 0, 3), 5) as Boss
+	brute.chain_charge = false
+	brute._start_charge(Vector3(-9, 0, -16))
+	var foe := r.spawn_enemy("gnawer", Vector3(-9, 0, -12), 5)
+	foe.collides = false
+	var foe_hp := foe.hp
+	for i in 60:
+		r.hero.pos = Vector3(12, 0, 12)
+		foe.pos = Vector3(-9, 0, -12)
+		r._step(1.0 / 30.0)
+		if not a.pillars[0]["up"]:
+			break
+	check(not a.pillars[0]["up"], "a charge into a pillar topples it")
+	check(brute.stun_t >= DB.TOPPLE_STUN - 0.2, "the Brute is stunned by the pillar", "stun %.2f" % brute.stun_t)
+	var pl: Dictionary = a.pillars[0]
+	check(pl["dir"].z < -0.9, "it falls the way he was charging")
+	foe.pos = Vector3(-9, 0, -12)
+	foe.stun_t = 5.0
+	_steps(r, DB.TOPPLE_TIME + 0.1)
+	check(foe.hp < foe_hp * 0.5 or not foe.alive, "the falling pillar crushes foes under it", "%.0f / %.0f" % [foe.hp, foe_hp])
+	var mid: Vector3 = (pl["a"] + pl["b"]) * 0.5
+	check(a.blocks_shot(mid) and a.solid_at(mid, 0.5), "rubble blocks shots and movement")
+	var pushed := r.resolve_pos(r.hero, mid, mid + Vector3(3, 0, 0))
+	check(Run.seg_closest(pushed, pl["a"], pl["b"]).distance_to(pushed) >= DB.RUBBLE_W + r.hero.radius - 0.01, "units are pushed out of rubble")
+	check(a.solid_at(Vector3(-9, 0, -6), 0.1), "the stump stays solid")
+	# a slam on a pillar knocks it over too
+	brute.stun_t = 0.0
+	brute.pos = Vector3(9, 0, -1)
+	brute._slam_hit(Vector3(9, 0, -4), 3.0, 1.0)
+	check(not a.pillars[1]["up"] and a.pillars[1]["dir"].z < -0.5, "a boss slam on a pillar topples it away from him")
+	# the floor is whole again next wave
+	r._clear_arena(false)
+	check(a.pillars[0]["up"] and a.pillars[1]["up"] and a.obstacles().size() == DB.PILLARS.size(), "pillars stand again after the wave")
+	free_run(r)
+	await get_tree().process_frame
+	# crumbling rim: Warden phase changes
+	r = await _arena_run("ashwarden", 20)
+	a = r.arena
+	var wd := r.spawn_enemy("warden", Vector3(0, 0, -8), 20) as Boss
+	r.gauntlet_i = DB.GAUNTLET.size()   # skip the echoes here; they have their own test
+	wd.hp = wd.max_hp * 0.6
+	wd.tick(1.0 / 30.0)
+	check(wd.phase == 2, "Warden reaches phase 2")
+	r.hero.pos = Vector3(0, 0, 3)
+	_steps(r, 2.4)
+	check(a.warn_r == float(DB.RIM_STEPS[0]), "the rim cracks after the phase change", "warn %.1f" % a.warn_r)
+	var edge_foe := r.spawn_enemy("gnawer", Vector3(20, 0, 0), 20)
+	edge_foe.no_push = false
+	_g().god = false
+	var hp0 := r.hero.hp
+	r.hero.pos = Vector3(-20, 0, 0)
+	var br: Barrel = null
+	for b in r.barrels.all:
+		if b.alive and Vector2(b.pos.x, b.pos.z).length() > DB.RIM_STEPS[0] + 0.5:
+			br = b
+			break
+	a._fall()
+	check(a.radius == float(DB.RIM_STEPS[0]) and a.warn_r < 0.0, "the rim falls: the arena shrinks")
+	check(not edge_foe.alive, "foes on the falling rim go down with it")
+	check(Vector2(r.hero.pos.x, r.hero.pos.z).length() < a.radius and r.hero.hp < hp0, "the hero scrambles back in and is hurt")
+	check(br == null or not br.alive, "barrels on the falling rim are gone")
+	var far := r.resolve_pos(r.hero, Vector3(0, 0, -21), Vector3(0, 0, -17))
+	check(Vector2(far.x, far.z).length() <= a.radius, "nobody walks past the new edge")
+	check(Vector2(a.gate_point(Vector3(0, 0, -22)).x, a.gate_point(Vector3(0, 0, -22)).z).length() < a.radius, "foes now come in at the new edge")
+	a.crumble()
+	_steps(r, DB.RIM_WARN + 0.2)
+	check(a.radius == float(DB.RIM_STEPS[1]), "a second step falls")
+	a.crumble()
+	check(a.warn_r < 0.0, "no more than DB.RIM_STEPS collapses")
+	r._clear_arena(false)
+	check(a.radius == DB.ARENA_R, "the floor is whole again after the wave")
+	_g().god = false
 	free_run(r)
 	await get_tree().process_frame

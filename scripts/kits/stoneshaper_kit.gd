@@ -145,10 +145,9 @@ func _tick_boulder(dt: float) -> void:
 	var b: Vector3 = a + boulder["dir"] * step
 	boulder["left"] -= step
 	var stop: bool = boulder["left"] <= 0.0
-	for pl in DB.PILLARS:
-		if Vector2(b.x - pl.x, b.z - pl.z).length() < DB.PILLAR_R + 0.9:
-			stop = true
-	if Vector2(b.x, b.z).length() > DB.ARENA_R - 1.2:
+	if run.arena.solid_at(b, 0.9):
+		stop = true
+	if Vector2(b.x, b.z).length() > run.arena_r() - 1.2:
 		stop = true
 	boulder["pos"] = b
 	var n: Unit = boulder["node"]
@@ -182,10 +181,9 @@ func _tick_boulder(dt: float) -> void:
 ## True when `e` (moving) has run into something solid; returns the foe it hit, if any, via `other`.
 func _impact(e: Unit, other: Array) -> bool:
 	var p := e.pos
-	for pl in DB.PILLARS:
-		if Vector2(p.x - pl.x, p.z - pl.z).length() < DB.PILLAR_R + e.radius + 0.3:
-			return true
-	if Vector2(p.x, p.z).length() > DB.ARENA_R - e.radius - 0.6:
+	if run.arena.solid_at(p, e.radius + 0.3):
+		return true
+	if Vector2(p.x, p.z).length() > run.arena_r() - e.radius - 0.6:
 		return true
 	for w in run.walls:
 		var c := Run.seg_closest(p, w["a"], w["b"])

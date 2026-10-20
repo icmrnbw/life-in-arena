@@ -399,6 +399,22 @@ func smash(b: Barrel, _src: Unit = null, fuse := DB.KEG_FUSE) -> void:
 		run.hint_once("keg", "Powder keg! It blows up everything around it. Step back!")
 
 
+## The floor under `b` fell away (crumbling rim): gone without a blast.
+func drop(b: Barrel) -> void:
+	if not b.alive:
+		return
+	b.alive = false
+	b.hp = 0.0
+	b.lit = false
+	ver += 1
+	_set_cost(b)
+	_dirty = true
+	if run.hero.focus == b:
+		run.hero.focus = null
+	if run.hero.atk_target == b:
+		run.hero.atk_target = null
+
+
 func _explode(b: Barrel) -> void:
 	if not b.lit:
 		return
