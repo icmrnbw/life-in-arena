@@ -61,7 +61,7 @@ Download `builds/emberpit-0.5.5-debug.apk` on your phone, allow installing from 
 - `tools/setup_env.sh` rebuilds the export environment (Godot, templates and a minimal Android SDK).
 - `tools/export_android.sh` exports `build/emberpit-debug.apk`.
 - `tests/run_all.sh` runs the logic, regression and flow tests (`--soak` adds the quick crash soak). GitHub Actions runs it plus a soak on every push (`.github/workflows/tests.yml`; start it by hand with "full" ticked for every hero in every scenario).
-- `tests/test_regressions.gd`: one test per bug that reached phones (Twin Matron kills, camp return, wave replay after a death, hero model after respawn, late hits after a cleared wave), plus every hero through casts, a boss kill, a death and a respawn. Add a test here for each crash you fix.
+- `tests/test_regressions.gd`: one test per bug that reached phones (Twin Matron kills, camp return, wave replay after a death, hero model after respawn, late hits after a cleared wave, Sanguine bleeds on the Hollow Choir), plus every hero through casts, a boss kill, a death and a respawn. Add a test here for each crash you fix.
 - `tools/soak.py`: crash soak. Runs the bot through heroes x scenarios (bosses 5/10/15/20, Endless, Daily, deaths and replays, arena changes) with the `--soak` monitor (`scripts/soak.gd`) and reports crashes, hangs, script errors, freezes, the hero under the ground or stuck in its death pose, skipped waves, stuck phases, NaN positions and node leaks to `qa/soak/<time>/report.md`. `--full` = every hero in every scenario, `--render` adds GL runs under xvfb, `--repeat N` for rare bugs.
 
 ## Docs
