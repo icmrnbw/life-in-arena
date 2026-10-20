@@ -96,10 +96,12 @@ def run_job(job, a, out):
         game.append("--autoplay")
     game += sc_args
     if job["render"]:
-        cmd = ["xvfb-run", "-a", "-s", "-screen 0 1600x720x24", godot_bin(), "--rendering-driver", "opengl3",
+        # llvmpipe draws on the CPU next to other runs, so only flag much longer stalls than on a phone
+        game.append("--soak-freeze-ms=5000")
+        cmd = ["xvfb-run", "-a", "-s", "-screen 0 1600x720x24", godot_bin(), "--audio-driver", "Dummy", "--rendering-driver", "opengl3",
                "--path", ROOT, "--resolution", "1600x720", "--"] + game
     else:
-        cmd = [godot_bin(), "--headless", "--path", ROOT, "--"] + game
+        cmd = [godot_bin(), "--headless", "--audio-driver", "Dummy", "--path", ROOT, "--"] + game
     t0 = time.time()
     hung = False
     try:
