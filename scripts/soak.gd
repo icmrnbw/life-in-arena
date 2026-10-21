@@ -4,7 +4,8 @@ extends Node
 ## - freezes: a real frame longer than --soak-freeze-ms (default 1500)
 ## - broken positions: NaN/inf, the hero or a foe far outside the world, the hero below the ground
 ## - the hero model stuck in its death pose (or missing) while the hero is alive (the 0.4.2 "under the earth" bug)
-## - wave flow: a wave skipped after a death (0.4.4), a wave number that jumps, a wave that never ends,
+## - wave flow: a wave skipped after a death (0.4.4), a wave number that jumps, a fight where no damage lands
+##   for 90 s, a wave that never ends,
 ##   or a phase (clear, dead, prep) that never moves on (the camp-return freeze)
 ## - live foes without a model, bosses left over after a cleared wave
 ## - nodes or orphan nodes that keep piling up from one camp visit to the next
@@ -16,7 +17,8 @@ const PREP_SLACK_S := 20.0
 
 var run: Run
 var freeze_ms := 1500
-var wave_limit_s := 600.0     # sim seconds; enrage makes real waves end long before this
+var wave_limit_s := 1800.0    # sim seconds; a slow hero under --god can take 10+ minutes on wave 20, but not this long
+const STALL_S := 90.0         # sim seconds with foes alive and no damage dealt to them = stalemate
 var issues := {}              # key -> {what, detail, n, t, wave}
 var preps: Array = []         # [{wave, nodes, orphans, static_mb}] sampled on each camp visit
 var checks := 0
@@ -31,12 +33,14 @@ var _phase_t := 0.0
 var _death_wave := -1
 var _pose_bad_t := 0.0
 var _empty_wave_t := 0.0
+var _stall_t := 0.0
+var _dealt := -1.0
 
 
 func setup(r: Run) -> void:
 	run = r
 	freeze_ms = int(Game.arg("soak-freeze-ms", "1500"))
-	wave_limit_s = float(Game.arg("soak-wave-limit", "600"))
+	wave_limit_s = float(Game.arg("soak-wave-limit", "1800"))
 	_last_ms = Time.get_ticks_msec()
 	_last_phase = r.phase
 	_last_wave = r.wave
@@ -93,14 +97,30 @@ func _check_flow(dt: float) -> void:
 		issue("stuck_prep", "prep never ends", "%.0f s" % _phase_t)
 	if ph == "wave":
 		if run.wave_time > wave_limit_s:
-			issue("long_wave_%d" % run.wave, "wave never ends", "%.0f s, %d foes, %d queued" % [run.wave_time, run.enemies.size(), run.spawn_queue.size()])
+			issue("long_wave_%d" % run.wave, "wave never ends", "%.0f s, %d queued, %s" % [run.wave_time, run.spawn_queue.size(), _foes_left()])
 		var alive_n := 0
 		for e in run.enemies:
 			if e.alive:
 				alive_n += 1
+		# damage keeps flowing while the fight progresses; none for a long time means foes nobody can hit or reach
+		var dealt := 0.0
+		for v in run.stats["damage_by"].values():
+			dealt += float(v)
+		_stall_t = _stall_t + dt if alive_n > 0 and dealt <= _dealt else 0.0
+		_dealt = dealt
+		if _stall_t > STALL_S:
+			issue("stall_%d" % run.wave, "fight stalled: no damage dealt", "%.0f s, %s" % [_stall_t, _foes_left()])
 		_empty_wave_t = _empty_wave_t + dt if alive_n == 0 and run.spawn_queue.is_empty() else 0.0
 		if _empty_wave_t > 5.0:
 			issue("empty_wave_%d" % run.wave, "wave has no foes left but doesn't clear", "%.0f s" % _empty_wave_t)
+
+
+func _foes_left() -> String:
+	var left := []
+	for e in run.enemies:
+		if e.alive and left.size() < 6:
+			left.append("%s hp %d at (%.0f, %.0f)%s" % [e.kind, int(e.hp), e.pos.x, e.pos.z, " untargetable" if e.untargetable else ""])
+	return "foes: " + ", ".join(left)
 
 
 func _on_phase(from: String, to: String) -> void:

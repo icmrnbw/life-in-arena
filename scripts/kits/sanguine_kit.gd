@@ -209,6 +209,9 @@ func tick(dt: float) -> void:
 	if bleeds.is_empty():
 		return
 	for e in bleeds.keys():
+		# a bleed tick can kill a foe that takes others with it (Hollow Choir, Warden adds), clearing their bleeds
+		if not bleeds.has(e):
+			continue
 		var b: Dictionary = bleeds[e]
 		if not e.alive:
 			bleeds.erase(e)

@@ -165,6 +165,7 @@ func _main() -> void:
 	await test_last_kill_and_death_same_step()
 	await test_respawn_model()
 	await test_save_resume()
+	await test_sanguine_bleed_kills_choir()
 	await test_soak_monitor()
 	await test_every_hero()
 	_end_section()
@@ -401,6 +402,35 @@ func test_save_resume() -> void:
 	await steps(r2, 60)
 	check(r2.phase == "wave" and r2.enemies.size() > 0, "resumed run plays")
 	await free_run(r2)
+
+
+# ------------------------------------------------------------------ Sanguine bleeds (found by the CI soak)
+func test_sanguine_bleed_kills_choir() -> void:
+	section("Sanguine bleed kills the Hollow Choir, which takes its bleeding adds with it")
+	var r := make_run("sanguine", 15)
+	await get_tree().process_frame
+	start_wave(r)
+	await wait_bosses(r, 1)
+	var choir: Boss = null
+	for b in r.boss_units:
+		if b.kind == "hollow_choir":
+			choir = b
+	check(choir != null, "Choir spawned")
+	if choir:
+		choir._summon_adds("choir_add", 3)
+		await steps(r, 2)
+		var kit = r.hero.kit
+		# the Choir bleeds first, so its death clears the adds' bleeds while the kit is still walking the list
+		kit.bleeds[choir] = {"t": 5.0, "dps": 10.0, "tick": 0.0}
+		for a in choir.adds:
+			if a.alive:
+				kit.bleeds[a] = {"t": 5.0, "dps": 10.0, "tick": 0.0}
+		choir.phase_invuln = 0.0
+		choir.hp = 1.0
+		kit.tick(0.05)
+		check(not choir.alive, "the bleed killed the Choir")
+		check(kit.bleeds.is_empty(), "no bleeds left on dead foes", str(kit.bleeds.size()))
+	await free_run(r)
 
 
 # ------------------------------------------------------------------ the soak monitor itself
