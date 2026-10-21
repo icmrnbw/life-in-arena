@@ -317,10 +317,45 @@ const ITEMS := {
 	"mana_draught": {"name": "Mana Draught", "kind": "consumable", "cost": 90, "stack": 5, "active": "mana_potion", "active_cd": 1.0,
 		"desc": "Restore 250 mana over 6 s. Stacks to 5"},
 	"tome_of_might": {"name": "Tome of Might", "kind": "consumable", "cost": 500, "noslot": true,
-		"desc": "+2 primary attribute permanently (no slot)"},
+		"desc": "+5 primary attribute permanently (no slot)"},
 	"phoenix_feather": {"name": "Phoenix Feather", "kind": "consumable", "cost": 1500, "noslot": true, "max_per_run": 1,
 		"desc": "+1 life (once per run, no slot)"},
 }
+
+## Training Grounds (the shop's Upgrades tab), like Life in Arena's stat shop: permanent stat ranks for gold, no slot.
+## Ranks never run out ("max" caps the few that would break the game); each rank costs "step" more than the last,
+## so late-game gold always has somewhere to go. "wave": the first wave whose camp offers it. "stats" per rank use
+## the item stat keys (hero.recalc adds them like item stats).
+const UPGRADE_ORDER := ["train_str", "train_agi", "train_int", "train_regen", "train_meditate",
+	"train_dmg", "train_armor", "train_haste", "train_vigor", "train_focus"]
+
+const UPGRADES := {
+	"train_str": {"name": "Strength", "wave": 3, "cost": 200, "step": 40, "stats": {"str": 3.0},
+		"desc": "+3 Strength (more HP and HP regen)"},
+	"train_agi": {"name": "Agility", "wave": 3, "cost": 200, "step": 40, "stats": {"agi": 3.0},
+		"desc": "+3 Agility (more armor and attack speed)"},
+	"train_int": {"name": "Intellect", "wave": 3, "cost": 200, "step": 40, "stats": {"int": 3.0},
+		"desc": "+3 Intellect (more mana and mana regen)"},
+	"train_regen": {"name": "Troll Blood", "wave": 3, "cost": 150, "step": 35, "stats": {"hp_regen": 1.5},
+		"desc": "+1.5 HP regen per second"},
+	"train_meditate": {"name": "Meditation", "wave": 3, "cost": 150, "step": 35, "stats": {"mana_regen": 0.75},
+		"desc": "+0.75 mana regen per second"},
+	"train_dmg": {"name": "Weapon Drills", "wave": 5, "cost": 250, "step": 50, "stats": {"dmg": 6.0},
+		"desc": "+6 attack damage"},
+	"train_armor": {"name": "Plating", "wave": 5, "cost": 250, "step": 50, "stats": {"armor": 1.5},
+		"desc": "+1.5 armor"},
+	"train_haste": {"name": "Battle Rhythm", "wave": 5, "cost": 250, "step": 50, "stats": {"as": 0.05},
+		"desc": "+5% attack speed"},
+	"train_vigor": {"name": "Vigor", "wave": 10, "cost": 300, "step": 60, "stats": {"hp": 150.0},
+		"desc": "+150 max HP"},
+	"train_focus": {"name": "Focus", "wave": 10, "cost": 400, "step": 150, "max": 5, "stats": {"cdr": 0.03},
+		"desc": "-3% skill cooldowns (up to 5 ranks)"},
+}
+
+
+static func upgrade_cost(id: String, rank: int) -> int:
+	var d: Dictionary = UPGRADES.get(id, {})
+	return int(d.get("cost", 0)) + int(d.get("step", 0)) * rank
 
 ## Weather: rolled for every wave (it is already falling in camp, so the shop visit can answer it) and sometimes
 ## turning mid-wave. speed: everyone's move speed; fire: damage of FIRE_TAGS and burns; range: shot range (hero and foes);

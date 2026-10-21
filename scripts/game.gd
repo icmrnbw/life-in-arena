@@ -252,6 +252,8 @@ func build_report() -> Dictionary:
 		rep["gold"] = run.gold
 		rep["items"] = run.hero.items.map(func(it): return it["id"])
 		rep["ranks"] = run.hero.ranks.duplicate()
+		rep["train"] = run.hero.train.duplicate()
+		rep["tomes"] = run.hero.bonus.duplicate()
 		rep["damage_by"] = run.stats["damage_by"].duplicate()
 		rep["shield_blocks"] = run.stats.get("shield_blocks", 0)
 		rep["shield_hits"] = run.stats.get("shield_hits", 0)

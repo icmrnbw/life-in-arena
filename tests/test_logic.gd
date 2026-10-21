@@ -59,6 +59,7 @@ func _main() -> void:
 	await test_cooldowns()
 	await test_shop()
 	await test_consumables()
+	await test_upgrades()
 	await test_lives()
 	await test_waves()
 	await test_gold()
@@ -495,7 +496,7 @@ func test_consumables() -> void:
 	var int0 := h.int_v
 	var n0 := h.items.size()
 	r.buy("tome_of_might")
-	check(near(h.int_v - int0, 2.0) and h.items.size() == n0, "Tome: +2 primary, no slot")
+	check(near(h.int_v - int0, 5.0) and h.items.size() == n0, "Tome: +5 primary, no slot")
 	# phoenix
 	var l0 := r.lives
 	check(r.buy("phoenix_feather") == "", "buy Phoenix Feather")
@@ -503,6 +504,56 @@ func test_consumables() -> void:
 	check(r.can_buy("phoenix_feather") == "Only one per run", "second Phoenix blocked", r.can_buy("phoenix_feather"))
 	check(h.items.size() == n0, "Phoenix uses no slot")
 	free_run(r)
+	await get_tree().process_frame
+
+
+# ------------------------------------------------------------------ training grounds (stat upgrades)
+func test_upgrades() -> void:
+	section("training upgrades")
+	for id in DB.UPGRADE_ORDER:
+		check(DB.UPGRADES.has(id), "upgrade exists %s" % id)
+	var r := make_run("riftdancer", 1)
+	await get_tree().process_frame
+	var h := r.hero
+	r.gold = 100000
+	check(r.can_upgrade("train_str").begins_with("Opens"), "Training is shut before wave 3", r.can_upgrade("train_str"))
+	r.wave = 3
+	check(r.can_upgrade("train_str") == "", "Strength opens at wave 3")
+	check(r.can_upgrade("train_dmg").begins_with("Opens"), "Weapon Drills wait for wave 5")
+	var hp0 := h.max_hp
+	var p0 := r.upgrade_price("train_str")
+	check(r.buy_upgrade("train_str") == "" and r.gold == 100000 - p0, "buy Strength rank 1")
+	check(near(h.max_hp - hp0, 3.0 * 21.0), "+3 Strength = +63 max HP", str(h.max_hp - hp0))
+	check(r.upgrade_price("train_str") == p0 + int(DB.UPGRADES["train_str"]["step"]), "next rank costs more")
+	for i in 30:
+		r.buy_upgrade("train_str")
+	check(r.upgrade_rank("train_str") == 31, "ranks never run out", str(r.upgrade_rank("train_str")))
+	r.wave = 10
+	var dmg0 := h.atk_dmg
+	r.buy_upgrade("train_dmg")
+	check(near(h.atk_dmg - dmg0, 6.0), "Weapon Drills +6 damage")
+	var reg0 := h.hp_regen
+	r.buy_upgrade("train_regen")
+	check(near(h.hp_regen - reg0, 1.5), "Troll Blood +1.5 HP regen")
+	for i in 8:
+		r.buy_upgrade("train_focus")
+	check(r.upgrade_rank("train_focus") == 5 and r.can_upgrade("train_focus") == "Fully trained", "Focus caps at 5 ranks")
+	check(near(h.cd_mult, 1.0 - 0.15), "Focus 5 = -15% cooldowns", str(h.cd_mult))
+	var n0 := h.items.size()
+	check(n0 == 0, "Training takes no slot")
+	# survives a save + continue
+	var snap := r.snapshot()
+	var hp1 := h.max_hp
+	free_run(r)
+	await get_tree().process_frame
+	var r2 := make_run("riftdancer", 1)
+	await get_tree().process_frame
+	r2._restore(JSON.parse_string(JSON.stringify(snap)))
+	check(r2.upgrade_rank("train_str") == 31 and near(r2.hero.max_hp, hp1), "Training ranks survive a saved run", str(r2.hero.train))
+	r2.phase = "wave"
+	r2.hero.in_camp = false
+	check(r2.can_upgrade("train_str") == "Shop is only open in camp", "no training mid-wave")
+	free_run(r2)
 	await get_tree().process_frame
 
 
