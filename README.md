@@ -54,7 +54,7 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
 - Music: three original medieval-style tunes, composed and synthesized in code by `tools/compose_music.py` (no samples or third-party recordings, so nothing to license). A tavern tune (lute, recorder, harp, drone; D Dorian) plays on the title screen and in camp, a battle tune (shawm, lute, tabor drum; E Dorian) during waves, and a boss tune (war drums, low voices, bell; D Phrygian) on boss waves. Tunes crossfade, duck while paused, and have their own Music toggle on the title and pause screens.
 
 ## Install (Android)
-Download `builds/emberpit-0.5.8-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.5.9-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.

@@ -77,7 +77,7 @@ void fragment() {
 # Translucent parts (wings) and ghosts (afterimage)
 const UNIT_GHOST := """
 shader_type spatial;
-render_mode blend_add, depth_draw_never, cull_disabled, unshaded, shadows_disabled;
+render_mode blend_add, depth_draw_never, cull_disabled, unshaded, shadows_disabled, fog_disabled;
 uniform vec4 tint : source_color = vec4(1.0);
 uniform vec4 flash : source_color = vec4(1.0, 1.0, 1.0, 0.0);
 uniform vec4 glow_color : source_color = vec4(0.3, 1.0, 0.9, 1.0);
@@ -376,7 +376,7 @@ void fragment() {
 
 const FLAME := """
 shader_type spatial;
-render_mode blend_add, depth_draw_never, cull_disabled, unshaded, shadows_disabled;
+render_mode blend_add, depth_draw_never, cull_disabled, unshaded, shadows_disabled, fog_disabled;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
 uniform vec4 col_hot : source_color = vec4(1.0, 0.85, 0.45, 1.0);
 uniform vec4 col_cool : source_color = vec4(1.0, 0.32, 0.06, 1.0);
@@ -563,7 +563,7 @@ void fragment() {
 # Glow billboards and additive meshes (projectile cores, flashes, beams, columns)
 const ADD := """
 shader_type spatial;
-render_mode blend_add, depth_draw_never, cull_disabled, unshaded, shadows_disabled;
+render_mode blend_add, depth_draw_never, cull_disabled, unshaded, shadows_disabled, fog_disabled;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
 uniform vec4 color : source_color = vec4(1.0, 0.6, 0.2, 1.0);
 uniform vec4 color2 : source_color = vec4(1.0, 1.0, 0.8, 1.0);
@@ -643,10 +643,10 @@ static func shader(key: String) -> Shader:
 		"floor": code = FLOOR
 		"grass": code = GRASS
 		"water": code = WATER
-		"water_add": code = WATER.replace("render_mode cull_disabled, specular_disabled, unshaded;", "render_mode blend_add, depth_draw_never, cull_disabled, unshaded;")
+		"water_add": code = WATER.replace("render_mode cull_disabled, specular_disabled, unshaded;", "render_mode blend_add, depth_draw_never, cull_disabled, unshaded, fog_disabled;")
 		"flame": code = FLAME
 		"decal_mix": code = DECAL.replace("BLEND_MODE", "blend_mix")
-		"decal_add": code = DECAL.replace("BLEND_MODE", "blend_add")
+		"decal_add": code = DECAL.replace("BLEND_MODE", "blend_add, fog_disabled")
 		"add": code = ADD
 		_: code = UNIT
 	var s := Shader.new()
@@ -705,6 +705,7 @@ static func mat(key: String) -> Material:
 			var pm := StandardMaterial3D.new()
 			pm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			pm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+			pm.disable_fog = true
 			pm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			pm.vertex_color_use_as_albedo = true
 			pm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES

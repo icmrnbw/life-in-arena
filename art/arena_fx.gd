@@ -21,6 +21,7 @@ func setup(_run_node: Node) -> void:
 	_crack_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_crack_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_crack_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	_crack_mat.disable_fog = true
 	_crack_mat.vertex_color_use_as_albedo = true
 	_crack_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	crack_mi.material_override = _crack_mat
