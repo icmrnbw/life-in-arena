@@ -30,6 +30,7 @@ var clouds: CPUParticles3D        # thin cloud banks sliding past higher up (Fog
 var dust: CPUParticles3D
 var embers: CPUParticles3D
 var _bolts: Array = []            # [{node, t}]
+var _idle_t := {}                 # particle system -> seconds since it stopped emitting
 
 
 func setup(run_node: Node) -> void:
@@ -103,6 +104,9 @@ func _streaks(amount: int, c: Color, sz: Vector2) -> CPUParticles3D:
 	p.gravity = Vector3.ZERO
 	p.color = c
 	p.emitting = false
+	# Hidden until it first emits: a never-run CPUParticles3D's instance buffer is left uninitialised, and some
+	# mobile GPUs (Ernest's phone, 0.5.7) draw that garbage as big bright random-coloured blobs around the camera.
+	p.visible = false
 	p.visibility_aabb = AABB(Vector3(-30, -20, -30), Vector3(60, 40, 60))
 	add_child(p)
 	return p
@@ -125,6 +129,9 @@ func _parts(amount: int, mat: String, c: Color, smin: float, smax: float, life: 
 	g.colors = PackedColorArray([Color(c, 0.0), c, c, Color(c, 0.0)])
 	p.color_ramp = g
 	p.emitting = false
+	# Hidden until it first emits: a never-run CPUParticles3D's instance buffer is left uninitialised, and some
+	# mobile GPUs (Ernest's phone, 0.5.7) draw that garbage as big bright random-coloured blobs around the camera.
+	p.visible = false
 	p.visibility_aabb = AABB(Vector3(-30, -20, -30), Vector3(60, 40, 60))
 	add_child(p)
 	return p
@@ -151,6 +158,10 @@ func set_weather(id: String, w: Vector3) -> void:
 		dust.direction = (w + Vector3(0, 0.05, 0)).normalized()
 		dust.gravity = w * 2.0
 	embers.emitting = cur == "emberfall"
+	for p in [rain, splash, mist, clouds, dust, embers]:
+		if p.emitting:
+			p.visible = true
+			_idle_t[p] = 0.0
 
 
 func follow(p: Vector3) -> void:
@@ -197,6 +208,15 @@ func lightning(p: Vector3) -> void:
 
 
 func _process(dt: float) -> void:
+	# hide systems that stopped emitting once their last particles have faded
+	for p in _idle_t.keys():
+		var ps := p as CPUParticles3D
+		if ps.emitting:
+			continue
+		_idle_t[p] += dt
+		if _idle_t[p] > ps.lifetime:
+			ps.visible = false
+			_idle_t.erase(p)
 	if not _bolts.is_empty():
 		var keep := []
 		for b in _bolts:

@@ -40,6 +40,7 @@ func setup(_run_node: Node) -> void:
 	debris = CPUParticles3D.new()
 	debris.name = "RimDebris"
 	debris.emitting = false
+	debris.visible = false   # see WeatherFx: never-run particle buffers draw garbage on some mobile GPUs
 	debris.one_shot = true
 	debris.explosiveness = 0.85
 	debris.amount = 90
@@ -75,6 +76,7 @@ func crack(inner: float, outer: float, dur: float) -> void:
 	debris.emission_ring_inner_radius = inner
 	debris.amount = 40
 	debris.emitting = false
+	debris.visible = true
 	debris.restart()   # pebbles shaking loose
 
 
@@ -87,6 +89,7 @@ func collapse(inner: float, _outer: float) -> void:
 	debris.emission_ring_radius = _outer
 	debris.emission_ring_inner_radius = inner
 	debris.amount = 120
+	debris.visible = true
 	debris.restart()
 
 
