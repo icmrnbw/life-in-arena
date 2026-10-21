@@ -20,6 +20,7 @@ const HERO_BG := {
 	"stone": ["#9a6a34", "#1c1006", "#ffc070"],
 	"gun": ["#245a90", "#060e1c", "#a0e0ff"],
 	"sun": ["#b08a20", "#1e1404", "#fff0a0"],
+	"train": ["#7a5424", "#170e05", "#ffd27a"],
 }
 
 const GRADS := """
@@ -150,7 +151,7 @@ static func all_ids() -> Array:
 		"brawlers_wraps", "fletchers_quiver", "hooded_lantern", "oilskin_cloak", "cleaving_axe", "skullcrusher", "berserkers_torc",
 		"hawkeye_lens", "splinter_quiver", "skirmisher_cloak",
 		"portrait_ashwarden", "portrait_riftdancer", "portrait_hivemother",
-		"gold", "life", "attack", "armor", "speed", "pause", "info", "shop"] + WAVE2_IDS
+		"gold", "life", "attack", "armor", "speed", "pause", "info", "shop"] + WAVE2_IDS + TRAIN_IDS
 
 const WAVE2_IDS := ["crimson_cleave", "blood_rush", "hemorrhage", "undying_pact",
 	"snare_trap", "blast_charge", "tripwire", "killing_field",
@@ -161,6 +162,13 @@ const WAVE2_IDS := ["crimson_cleave", "blood_rush", "hemorrhage", "undying_pact"
 	"sunbeam", "solar_flare", "sanctum", "dawn_lance",
 	"portrait_sanguine", "portrait_snarewright", "portrait_twinhide", "portrait_gravekeeper",
 	"portrait_stoneshaper", "portrait_gunsmith", "portrait_sunspeaker"]
+
+const TRAIN_IDS := ["train_str", "train_agi", "train_int", "train_regen", "train_meditate",
+	"train_dmg", "train_armor", "train_haste", "train_vigor", "train_focus"]
+
+## Training upgrade badge: a gold up-chevron in the top-right corner of the glyph.
+static func _up() -> String:
+	return '<path d="M84 34 L98 18 L112 34 L104 34 L98 27 L92 34 Z" fill="url(#gold)"' + _o(3) + '/>'
 
 static func _flame(x: float, y: float, s: float, fill := "url(#fire)") -> String:
 	# flame shape with tip at (x, y - 30s), base at (x, y)
@@ -368,6 +376,57 @@ static func _svg_for(id: String) -> String:
 				+ '<path d="M34 110 C38 80 52 50 86 20 C98 16 104 24 98 36 C84 64 62 88 34 110 Z" fill="url(#fire)"' + _o() + '/>'
 				+ '<path d="M34 110 C52 84 70 56 94 26" stroke="#fff6c8" stroke-width="3" fill="none"/>'
 				+ '<path d="M54 76 L44 70 M62 66 L52 58 M70 56 L62 46 M64 82 L70 90 M72 72 L80 78 M80 60 L88 64" stroke="#a83a10" stroke-width="2.5"/>')
+		# ---------------------------------------------------------- training upgrades
+		"train_str":
+			return _framed("train", '<path d="M30 112 L36 70 C30 58 34 40 50 36 H80 C96 38 102 54 96 70 L100 112 Z" fill="url(#blood)"' + _o() + '/>'
+				+ '<path d="M42 50 H88 M42 62 H88" stroke="' + D + '" stroke-width="3"/>'
+				+ '<rect x="40" y="18" width="50" height="22" rx="9" fill="url(#bronze)"' + _o() + '/>'
+				+ '<path d="M52 18 V40 M65 18 V40 M78 18 V40" stroke="' + D + '" stroke-width="3"/>' + _up())
+		"train_agi":
+			return _framed("train", '<path d="M20 100 C44 96 72 78 96 30 C100 22 108 24 106 34 C92 80 60 104 22 108 Z" fill="url(#acid)"' + _o() + '/>'
+				+ '<path d="M26 104 C56 96 82 72 100 32" stroke="#f4ffb0" stroke-width="3" fill="none"/>'
+				+ '<path d="M50 92 L40 80 M64 82 L56 68 M76 70 L70 56 M86 56 L82 44" stroke="#3a8a14" stroke-width="3"/>' + _up())
+		"train_int":
+			return _framed("train", '<ellipse cx="62" cy="64" rx="44" ry="42" fill="url(#glowB)"/>'
+				+ '<path d="M62 22 L88 52 L62 106 L36 52 Z" fill="url(#mana)"' + _o() + '/>'
+				+ '<path d="M36 52 H88 M62 22 L52 52 L62 106 L72 52 Z" stroke="' + D + '" stroke-width="2.5" fill="none"/>'
+				+ '<path d="M56 34 L50 48" stroke="#e6f4ff" stroke-width="4"/>' + _up())
+		"train_regen":
+			return _framed("train", '<ellipse cx="60" cy="68" rx="46" ry="44" fill="url(#glowR)" opacity="0.6"/>'
+				+ '<path d="M60 108 C32 88 16 72 22 50 C28 30 50 28 60 46 C70 28 92 30 98 50 C104 72 88 88 60 108 Z" fill="url(#blood)"' + _o() + '/>'
+				+ '<path d="M60 56 V88 M44 72 H76" stroke="' + D + '" stroke-width="13" stroke-linecap="round"/>'
+				+ '<path d="M60 56 V88 M44 72 H76" stroke="#d8ffd0" stroke-width="7" stroke-linecap="round"/>' + _up())
+		"train_meditate":
+			return _framed("train", '<ellipse cx="60" cy="70" rx="44" ry="42" fill="url(#glowB)" opacity="0.7"/>'
+				+ '<path d="M60 18 C74 42 92 60 92 80 C92 98 78 110 60 110 C42 110 28 98 28 80 C28 60 46 42 60 18 Z" fill="url(#mana)"' + _o() + '/>'
+				+ '<path d="M60 64 V96 M44 80 H76" stroke="' + D + '" stroke-width="13" stroke-linecap="round"/>'
+				+ '<path d="M60 64 V96 M44 80 H76" stroke="#e6f4ff" stroke-width="7" stroke-linecap="round"/>'
+				+ '<ellipse cx="46" cy="58" rx="5" ry="9" fill="#ffffff" opacity="0.5"/>' + _up())
+		"train_dmg":
+			return _framed("train", '<path d="M24 104 L80 32 L100 24 L94 46 L32 110 Z" fill="url(#metal)"' + _o() + '/>'
+				+ '<path d="M104 104 L48 32 L28 24 L34 46 L96 110 Z" fill="url(#metal)"' + _o() + '/>'
+				+ '<path d="M18 88 L40 110 M110 88 L88 110" stroke="' + D + '" stroke-width="13" stroke-linecap="round"/>'
+				+ '<path d="M18 88 L40 110 M110 88 L88 110" stroke="url(#gold)" stroke-width="7" stroke-linecap="round"/>')
+		"train_armor":
+			return _framed("train", '<path d="M60 16 L98 28 V60 C98 86 82 102 60 112 C38 102 22 86 22 60 V28 Z" fill="url(#metal)"' + _o() + '/>'
+				+ '<path d="M60 28 L86 36 V60 C86 78 76 90 60 98 Z" fill="#6a7284"/>'
+				+ '<path d="M34 48 H86 M30 66 H90" stroke="' + D + '" stroke-width="3"/>'
+				+ '<circle cx="40" cy="40" r="3" fill="#2a2e38"/><circle cx="80" cy="40" r="3" fill="#2a2e38"/>' + _up())
+		"train_haste":
+			return _framed("train", '<path d="M40 104 L86 34 L102 26 L98 44 L50 112 Z" fill="url(#metal)"' + _o() + '/>'
+				+ '<path d="M34 92 L56 112" stroke="' + D + '" stroke-width="12" stroke-linecap="round"/>'
+				+ '<path d="M34 92 L56 112" stroke="url(#gold)" stroke-width="6" stroke-linecap="round"/>'
+				+ '<path d="M18 62 C26 48 34 40 48 34 M14 80 C24 66 34 56 50 50 M20 98 C28 86 36 78 46 72" stroke="url(#teal)" stroke-width="6" fill="none" stroke-linecap="round"/>' + _up())
+		"train_vigor":
+			return _framed("train", '<ellipse cx="62" cy="66" rx="48" ry="46" fill="url(#glowE)" opacity="0.7"/>'
+				+ '<path d="M62 112 C30 90 12 72 18 48 C24 26 50 22 62 42 C74 22 100 26 106 48 C112 72 94 90 62 112 Z" fill="url(#fire)"' + _o() + '/>'
+				+ '<path d="M38 62 H52 L58 50 L66 80 L72 62 H86" stroke="' + D + '" stroke-width="5" fill="none"/>')
+		"train_focus":
+			return _framed("train", '<circle cx="64" cy="66" r="42" fill="url(#ivory)"' + _o() + '/>'
+				+ '<circle cx="64" cy="66" r="32" fill="none" stroke="#a8641a" stroke-width="3"/>'
+				+ '<path d="M64 66 V42 M64 66 L82 76" stroke="' + D + '" stroke-width="6" stroke-linecap="round"/>'
+				+ '<path d="M64 26 V34 M64 98 V106 M24 66 H32 M96 66 H104" stroke="' + D + '" stroke-width="4"/>'
+				+ '<circle cx="64" cy="66" r="5" fill="url(#gold)"' + _o(2) + '/>')
 		# ---------------------------------------------------------- portraits
 		"portrait_ashwarden":
 			return _framed("ash", '<ellipse cx="64" cy="66" rx="44" ry="40" fill="url(#glowE)" opacity="0.5"/>'

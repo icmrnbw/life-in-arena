@@ -231,6 +231,7 @@ func snapshot() -> Dictionary:
 		its.append(e)
 	return {"version": Profile.VERSION, "hero": hero_id, "wave": wave, "gold": gold, "lives": lives, "level": hero.level,
 		"xp": hero.xp, "skill_points": hero.skill_points, "ranks": hero.ranks.duplicate(), "bonus": hero.bonus.duplicate(),
+		"train": hero.train.duplicate(),
 		"items": its, "stats": stats.duplicate(true), "max_wave": max_wave_reached, "waves_cleared": waves_cleared,
 		"run_time": run_time, "feathers": feathers, "cfg": c, "saved_at": int(Time.get_unix_time_from_system()),
 		"kills_saved": int(get_meta("kills_saved", 0))}
@@ -246,6 +247,11 @@ func _restore(s: Dictionary) -> void:
 	var b: Dictionary = s.get("bonus", {})
 	for k in hero.bonus:
 		hero.bonus[k] = float(b.get(k, 0.0))
+	hero.train.clear()
+	var tr: Dictionary = s.get("train", {})
+	for id in tr:
+		if DB.UPGRADES.has(String(id)):
+			hero.train[String(id)] = clampi(int(tr[id]), 0, int(DB.UPGRADES[String(id)].get("max", 999)))
 	hero.items.clear()
 	for it in s.get("items", []):
 		if it is Dictionary and DB.ITEMS.has(String(it.get("id", ""))):
@@ -1864,7 +1870,7 @@ func buy(id: String, choice := "") -> String:
 	var price := buy_price(id)
 	gold -= price
 	if id == "tome_of_might":
-		hero.bonus[hero.data["primary"]] += 2.0
+		hero.bonus[hero.data["primary"]] += 5.0
 		hero.recalc()
 		fx("level_up", {"pos": hero.pos})
 	elif id == "phoenix_feather":
@@ -1903,6 +1909,44 @@ func sell(idx: int) -> void:
 	hero.items.remove_at(idx)
 	hero.recalc()
 	Audio.play("buy")
+
+
+# ---------------------------------------------------------------- training grounds (stat upgrades)
+func upgrade_rank(id: String) -> int:
+	return int(hero.train.get(id, 0))
+
+
+func upgrade_price(id: String) -> int:
+	return DB.upgrade_cost(id, upgrade_rank(id))
+
+
+## Returns "" when the next rank can be bought now, or a reason.
+func can_upgrade(id: String) -> String:
+	if not DB.UPGRADES.has(id):
+		return "Unknown upgrade"
+	var d: Dictionary = DB.UPGRADES[id]
+	if wave < int(d["wave"]):
+		return "Opens at wave %d" % int(d["wave"])
+	if d.has("max") and upgrade_rank(id) >= int(d["max"]):
+		return "Fully trained"
+	if not shop_open_allowed():
+		return "Shop is only open in camp"
+	if gold < upgrade_price(id):
+		return "Not enough gold"
+	return ""
+
+
+func buy_upgrade(id: String) -> String:
+	var why := can_upgrade(id)
+	if why != "":
+		toast(why, Art.palette.get("danger", Color.RED))
+		return why
+	gold -= upgrade_price(id)
+	hero.train[id] = upgrade_rank(id) + 1
+	hero.recalc()
+	fx("level_up", {"pos": hero.pos})
+	Audio.play("buy")
+	return ""
 
 
 # ---------------------------------------------------------------- phases
@@ -2127,7 +2171,20 @@ func _return_to_camp() -> void:
 	prep_t = DB.PREP_TIME
 	weather.roll_for(wave)
 	Game.on_prep()
+	_training_hint()
 	_save_progress()
+
+
+## Tells the player once when the shop's Training tab opens new upgrades.
+func _training_hint() -> void:
+	var opened := []
+	for id in DB.UPGRADE_ORDER:
+		if int(DB.UPGRADES[id]["wave"]) == wave:
+			opened.append(DB.UPGRADES[id]["name"])
+	if opened.is_empty():
+		return
+	var text := ("Training is open in the shop: %s" if wave == DB.UPGRADES[DB.UPGRADE_ORDER[0]]["wave"] else "New Training upgrades: %s") % ", ".join(opened)
+	schedule(3.0, hint_once.bind("train_%d" % wave, text))
 
 
 ## Saves the run in camp so it can be continued after the app is closed (not Practice or Training).

@@ -1,10 +1,12 @@
 extends Control
-## Shop overlay: recommended row, tabs (Basic / Advanced / Consumables), item grid, details, inventory with sell.
+## Shop overlay: recommended row, tabs (Basic / Advanced / Consumables / Training), item grid, details, inventory with sell.
+## Training = stat upgrades bought rank by rank (DB.UPGRADES), opening from wave 3.
 
 var run: Run
 var hud: Node
 var tab := "basic"
 var selected := ""
+var selected_up := ""   # a Training upgrade (DB.UPGRADES id) instead of an item
 var selected_slot := -1
 var gold_label: Label
 var grid: GridContainer
@@ -90,8 +92,8 @@ func setup(r: Run, h: Node) -> void:
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 8)
 	left.add_child(tabs)
-	for t in [["basic", "Basic"], ["advanced", "Advanced"], ["consumable", "Consumables"]]:
-		var tb := UIK.button(t[1], "", Vector2(180, 56))
+	for t in [["basic", "Basic"], ["advanced", "Advanced"], ["consumable", "Consumables"], ["upgrades", "Training"]]:
+		var tb := UIK.button(t[1], "", Vector2(176, 56))
 		tb.toggle_mode = true
 		var key: String = t[0]
 		tb.pressed.connect(func(): _set_tab(key))
@@ -154,7 +156,8 @@ func setup(r: Run, h: Node) -> void:
 	inv_row = HBoxContainer.new()
 	inv_row.add_theme_constant_override("separation", 8)
 	outer.add_child(inv_row)
-	_set_tab("basic")
+	var t0 := Game.arg("tab", "basic")   # test hook: --scene=shop --tab=upgrades
+	_set_tab(t0 if tab_buttons.has(t0) else "basic")
 	_refresh()
 
 
@@ -164,6 +167,11 @@ func _set_tab(t: String) -> void:
 		tab_buttons[k].button_pressed = k == t
 	for c in grid.get_children():
 		c.queue_free()
+	if t == "upgrades":
+		for id in DB.UPGRADE_ORDER:
+			grid.add_child(_upgrade_button(id))
+		_refresh()
+		return
 	for id in DB.ITEM_ORDER:
 		var d: Dictionary = DB.ITEMS[id]
 		if d["kind"] != t:
@@ -236,8 +244,63 @@ func _item_button(id: String, sz: Vector2, show_name: bool, icon_px := 64.0) -> 
 	return b
 
 
+## Training tile: icon, name, rank and next price (or why it can't be bought yet).
+func _upgrade_button(id: String) -> Button:
+	var d: Dictionary = DB.UPGRADES[id]
+	var b := Button.new()
+	b.theme_type_variation = "ShopItemButton"
+	b.custom_minimum_size = Vector2(174, 96)
+	b.focus_mode = Control.FOCUS_NONE
+	b.clip_contents = true
+	b.tooltip_text = d["name"]
+	var hb := HBoxContainer.new()
+	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hb.offset_left = 8
+	hb.offset_right = -6
+	hb.add_theme_constant_override("separation", 8)
+	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(hb)
+	var ic := UIK.icon_rect(id, 64)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hb.add_child(ic)
+	var tv := VBoxContainer.new()
+	tv.alignment = BoxContainer.ALIGNMENT_CENTER
+	tv.add_theme_constant_override("separation", 0)
+	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hb.add_child(tv)
+	var nm := UIK.label(d["name"], "", 18, Color(1, 0.95, 0.88))
+	nm.autowrap_mode = TextServer.AUTOWRAP_WORD
+	nm.max_lines_visible = 2
+	nm.custom_minimum_size = Vector2(80, 0)
+	tv.add_child(nm)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tv.add_child(row)
+	var pr := UIK.label("", "", 18, UIK.col("gold", Color.GOLD))
+	row.add_child(pr)
+	var rk := UIK.label("", "", 15, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+	row.add_child(rk)
+	b.set_meta("upgrade", id)
+	b.set_meta("name_label", nm)
+	b.set_meta("rank_label", rk)
+	b.set_meta("price_label", pr)
+	b.pressed.connect(func(): _select_upgrade(id))
+	return b
+
+
+func _select_upgrade(id: String) -> void:
+	selected_up = id
+	selected = ""
+	selected_slot = -1
+	Audio.play("click")
+	_refresh()
+
+
 func _select(id: String) -> void:
 	selected = id
+	selected_up = ""
 	selected_slot = -1
 	Audio.play("click")
 	_refresh()
@@ -245,11 +308,17 @@ func _select(id: String) -> void:
 
 func _select_slot(i: int) -> void:
 	selected_slot = i
+	selected_up = ""
 	selected = run.hero.items[i]["id"] if i < run.hero.items.size() else ""
 	_refresh()
 
 
 func _buy(choice: String) -> void:
+	if selected_up != "":
+		if run.buy_upgrade(selected_up) == "":
+			hud.show_toast("%s rank %d" % [DB.UPGRADES[selected_up]["name"], run.upgrade_rank(selected_up)], UIK.col("gold", Color.GOLD))
+		_refresh()
+		return
 	if selected == "":
 		return
 	var c := choice
@@ -273,7 +342,7 @@ func _sell() -> void:
 
 
 func _process(_d: float) -> void:
-	var key := str(run.gold) + "|" + str(run.hero.items)
+	var key := str(run.gold) + "|" + str(run.hero.items) + "|" + str(run.hero.train)
 	if key != _last_items:
 		_last_items = key
 		_refresh()
@@ -288,6 +357,9 @@ func _refresh() -> void:
 		owned.append(it["id"])
 	# grid prices
 	for b in grid.get_children():
+		if b.has_meta("upgrade"):
+			_refresh_upgrade_tile(b)
+			continue
 		if not b.has_meta("item"):
 			continue
 		var id: String = b.get_meta("item")
@@ -340,13 +412,21 @@ func _refresh() -> void:
 			b2.modulate = Color(1, 1, 1, 0.5)
 		inv_row.add_child(b2)
 	var extra := UIK.label("", "SmallLabel", 19, UIK.col("dim", Color(0.7, 0.65, 0.6)))
-	extra.text = "  Tomes: +%d %s   Lives: %d" % [int(run.hero.bonus[run.hero.data["primary"]]), run.hero.data["primary"].to_upper(), run.lives]
+	var ranks := 0
+	for k in run.hero.train:
+		ranks += int(run.hero.train[k])
+	extra.text = "  Tomes: +%d %s   Training ranks: %d   Lives: %d" % [int(run.hero.bonus[run.hero.data["primary"]]),
+		run.hero.data["primary"].to_upper(), ranks, run.lives]
 	inv_row.add_child(extra)
 	# details
 	buy_alt_btn.visible = false
+	if selected_up != "":
+		_show_upgrade(selected_up)
+		return
 	if selected == "":
 		d_name.text = "Select an item"
-		d_desc.text = "Tap an item to see what it does. Advanced items combine the parts you own automatically."
+		d_desc.text = "Tap an item to see what it does. Advanced items combine the parts you own automatically." if tab != "upgrades" \
+			else "Training: permanent stat upgrades, no slot. Buy them again and again; each rank costs a little more."
 		d_recipe.text = ""
 		d_price.text = ""
 		d_icon.texture = UIK.icon("shop")
@@ -392,3 +472,55 @@ func _refresh() -> void:
 	if selected == "sage_circlet":
 		buy_btn.text = "Buy (+Int)" if why2 == "" else why2
 		buy_alt_btn.visible = why2 == ""
+
+
+func _refresh_upgrade_tile(b: Button) -> void:
+	var id: String = b.get_meta("upgrade")
+	var d: Dictionary = DB.UPGRADES[id]
+	var rank := run.upgrade_rank(id)
+	var why := run.can_upgrade(id)
+	var rk: Label = b.get_meta("rank_label")
+	var pr: Label = b.get_meta("price_label")
+	rk.text = "Lv %d" % rank if not d.has("max") else "Lv %d/%d" % [rank, int(d["max"])]
+	if why.begins_with("Opens"):
+		pr.text = "Wave %d" % int(d["wave"])
+	elif why == "Fully trained":
+		pr.text = "Max"
+	else:
+		pr.text = str(run.upgrade_price(id))
+	b.modulate = Color(1, 1, 1) if why == "" else Color(0.6, 0.6, 0.6)
+	(b.get_meta("name_label") as Label).add_theme_color_override("font_color", UIK.col("gold", Color.GOLD) if id == selected_up else Color(1, 0.95, 0.88))
+
+
+func _show_upgrade(id: String) -> void:
+	var d: Dictionary = DB.UPGRADES[id]
+	var rank := run.upgrade_rank(id)
+	d_icon.texture = UIK.icon(id)
+	d_name.text = "%s (rank %d)" % [d["name"], rank]
+	d_desc.text = d["desc"] + " per rank. Permanent, no slot."
+	var parts := []
+	for k in d["stats"]:
+		parts.append(_stat_text(k, float(d["stats"][k]) * rank))
+	d_recipe.text = ("Trained so far: " + ", ".join(parts)) if rank > 0 else "Not trained yet."
+	sell_btn.visible = false
+	buy_btn.visible = true
+	var why := run.can_upgrade(id)
+	d_price.text = "" if why.begins_with("Opens") or why == "Fully trained" else "Next rank: %d" % run.upgrade_price(id)
+	buy_btn.disabled = why != ""
+	buy_btn.text = "Train" if why == "" else why
+	buy_btn.add_theme_font_size_override("font_size", 22 if why == "" else 15)
+
+
+static func _stat_text(k: String, v: float) -> String:
+	match k:
+		"str": return "+%d Strength" % int(v)
+		"agi": return "+%d Agility" % int(v)
+		"int": return "+%d Intellect" % int(v)
+		"hp_regen": return "+%.1f HP/s" % v
+		"mana_regen": return "+%.2f mana/s" % v
+		"dmg": return "+%d damage" % int(v)
+		"armor": return "+%.1f armor" % v
+		"as": return "+%d%% attack speed" % int(round(v * 100.0))
+		"hp": return "+%d HP" % int(v)
+		"cdr": return "-%d%% cooldowns" % int(round(v * 100.0))
+	return "%s +%s" % [k, v]

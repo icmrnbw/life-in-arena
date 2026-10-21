@@ -148,8 +148,26 @@ func _shop() -> void:
 	if needs2.is_empty():
 		if run.feathers == 0 and run.gold >= 1500 and run.lives <= 2:
 			run.buy("phoenix_feather")
-		while run.gold >= 500 + (1500 if run.feathers == 0 and run.lives <= 2 else 0) and run.can_buy("tome_of_might") == "":
-			run.buy("tome_of_might")
+		# spare gold: the cheapest Training rank that suits the hero, or a Tome once ranks cost more than it
+		var keep := 1500 if run.feathers == 0 and run.lives <= 2 else 0
+		var picks := ["train_" + String(h.data["primary"]), "train_dmg", "train_armor", "train_haste", "train_vigor", "train_regen"]
+		var guard2 := 0
+		while guard2 < 60:
+			guard2 += 1
+			var best := ""
+			var best_p := 500
+			for u in picks:
+				if run.can_upgrade(u) == "" and run.upgrade_price(u) < best_p:
+					best = u
+					best_p = run.upgrade_price(u)
+			if run.gold - best_p < keep:
+				break
+			if best != "":
+				run.buy_upgrade(best)
+			elif run.can_buy("tome_of_might") == "":
+				run.buy("tome_of_might")
+			else:
+				break
 
 
 # ---------------------------------------------------------------- fight

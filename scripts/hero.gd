@@ -18,6 +18,7 @@ var str_v := 0.0
 var agi_v := 0.0
 var int_v := 0.0
 var bonus := {"str": 0.0, "agi": 0.0, "int": 0.0}   # tomes / auto stat points
+var train := {}          # Training Grounds ranks: {upgrade id: rank}
 var items: Array = []     # [{id, charges, choice, cd}]
 var item_stats := {}
 var attack_speed := 1.0
@@ -77,12 +78,16 @@ func recalc(fill := false) -> void:
 		if it["id"] == "sage_circlet":
 			var ch: String = it.get("choice", "int")
 			item_stats[ch] = item_stats.get(ch, 0.0) + 6.0
+	for id in train:
+		var ud: Dictionary = DB.UPGRADES.get(id, {})
+		for k in ud.get("stats", {}):
+			item_stats[k] = item_stats.get(k, 0.0) + float(ud["stats"][k]) * int(train[id])
 	var lv := float(level - 1)
 	str_v = data["str"] + data["str_g"] * lv + bonus["str"] + item_stats.get("str", 0.0)
 	agi_v = data["agi"] + data["agi_g"] * lv + bonus["agi"] + item_stats.get("agi", 0.0)
 	int_v = data["int"] + data["int_g"] * lv + bonus["int"] + item_stats.get("int", 0.0)
 	max_hp = 160.0 + str_v * 21.0 + item_stats.get("hp", 0.0)
-	hp_regen = 0.6 + str_v * 0.06
+	hp_regen = 0.6 + str_v * 0.06 + item_stats.get("hp_regen", 0.0)
 	max_mana = 80.0 + int_v * 12.0 + item_stats.get("mana", 0.0)
 	mana_regen = 0.7 + int_v * 0.045 + item_stats.get("mana_regen", 0.0)
 	armor = data["armor"] + agi_v * 0.14 + item_stats.get("armor", 0.0)
