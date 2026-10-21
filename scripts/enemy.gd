@@ -322,13 +322,15 @@ func _ai_ranged(dt: float) -> void:
 		atk_wind -= dt
 		turn_toward(t.pos - pos, dt)
 		if atk_wind <= 0.0 and t.alive:
-			var bolt := {"slow": 0.3, "slow_t": 1.6, "hex": DB.HEX_TIME, "dtype": "magic", "life": 2.0, "color": Color(0.7, 0.4, 1.0)}
-			run.fire_projectile("hex_bolt", pos + Vector3(0, 1.3, 0), t, Vector3.ZERO, 11.0, atk_dmg, 1, self, display_name, bolt)
+			# slow, lazily homing bolts: sidestep them or put a pillar or barrels between you and the caster
+			var bolt := {"slow": 0.3, "slow_t": 1.6, "hex": DB.HEX_TIME, "dtype": "magic", "life": DB.HEX_BOLT_LIFE,
+				"turn": DB.HEX_BOLT_TURN, "color": Color(0.7, 0.4, 1.0)}
+			run.fire_projectile("hex_bolt", pos + Vector3(0, 1.3, 0), t, Vector3.ZERO, DB.HEX_BOLT_SPEED, atk_dmg, 1, self, display_name, bolt)
 			if captain:
 				# the Matriarch throws a fan: two unguided side bolts
 				var d0 := run._flat(t.pos - pos).normalized()
 				for ang in [-0.35, 0.35]:
-					run.fire_projectile("hex_bolt", pos + Vector3(0, 1.3, 0), null, d0.rotated(Vector3.UP, ang), 11.0, atk_dmg * 0.7, 1, self, display_name, bolt)
+					run.fire_projectile("hex_bolt", pos + Vector3(0, 1.3, 0), null, d0.rotated(Vector3.UP, ang), DB.HEX_BOLT_SPEED, atk_dmg * 0.7, 1, self, display_name, bolt)
 		return
 	if d > atk_range - 0.5:
 		var dir := run.steer_dir(self, t.pos)
@@ -345,13 +347,15 @@ func _ai_ranged(dt: float) -> void:
 		set_state("run")
 		if atk_cd <= 0.0:
 			atk_cd = atk_time
-			atk_wind = 0.35
+			atk_wind = DB.HEX_WINDUP
+			flash(Color(0.7, 0.4, 1.0))
 			set_state("cast")
 	else:
 		turn_toward(t.pos - pos, dt)
 		if atk_cd <= 0.0:
 			atk_cd = atk_time
-			atk_wind = 0.35
+			atk_wind = DB.HEX_WINDUP
+			flash(Color(0.7, 0.4, 1.0))
 			set_state("cast")
 		else:
 			set_state("idle")

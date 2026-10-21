@@ -438,6 +438,12 @@ const ENRAGE_SPEED := 1.2
 ## Hexcaster bolts hex the hero: healing received is reduced while hexed.
 const HEX_TIME := 4.0
 const HEX_HEAL_MULT := 0.5
+## Hex bolts are dodgeable: slow, they only turn a little after the hero (rad/s), and pillars and barrels stop them.
+## The caster glows and holds its cast for HEX_WINDUP seconds before it lets go.
+const HEX_BOLT_SPEED := 7.0
+const HEX_BOLT_TURN := 0.35
+const HEX_BOLT_LIFE := 2.6
+const HEX_WINDUP := 0.5
 
 const BOSS_WAVES := {5: "pit_brute", 10: "matron", 15: "hollow_choir", 20: "warden"}
 const BOSS_TITLES := {5: "Pit Brute", 10: "Twin Matrons", 15: "The Hollow Choir", 20: "The Warden of the Pit"}
@@ -455,7 +461,7 @@ const WAVES := {
 	2: {"name": "Shield Wall", "captain": "shieldbearer", "rule": "", "mods": {"shieldbearer": 2},
 		"desc": "Shieldbearers block hits from the front. Flank them."},
 	3: {"name": "The Hexwood", "captain": "hexcaster", "rule": "", "mods": {"hexcaster": 2},
-		"desc": "Hexcasters from range. Their bolts halve your healing."},
+		"desc": "Hexcasters from range. Their bolts halve your healing: sidestep them or hide behind a pillar."},
 	4: {"name": "Bloodthirsty", "captain": "gnawer", "rule": "bloodthirsty", "mods": {"gnawer": 4},
 		"desc": "Every hit they land heals them. Don't trade blows bare-handed."},
 	5: {"name": "The Pit Brute", "captain": "", "rule": "", "mods": {}, "desc": "Boss. Glowing ground means a slam or a charge."},

@@ -22,7 +22,7 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
 - The Pit fights back:
   - From wave 4, elite enemies spawn with an affix: Frenzied (fast), Volatile (explodes on death, step out of the glow) or Warding (shields nearby foes, kill it first).
   - A wave that drags on enrages the survivors: they hit harder and move faster.
-  - Hexcaster bolts halve your healing for a few seconds (your HP bar turns purple).
+  - Hexcaster bolts halve your healing for a few seconds (your HP bar turns purple). The bolts are slow and only curve a little: the caster glows purple as it winds up, then sidestep, or put a pillar or barrels between you and it.
   - Shieldbearers stun with a telegraphed shield bash every third swing, and Gnawers hit harder in packs.
   - Shieldbearers block shots from the front, but they turn slowly (and slow down to turn), so a ranged hero can circle round and shoot them in the back.
   - A wounded Pit Brute charges twice in a row, and a wounded Hollow Choir fires denser rings.
@@ -54,7 +54,7 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
 - Music: three original medieval-style tunes, composed and synthesized in code by `tools/compose_music.py` (no samples or third-party recordings, so nothing to license). A tavern tune (lute, recorder, harp, drone; D Dorian) plays on the title screen and in camp, a battle tune (shawm, lute, tabor drum; E Dorian) during waves, and a boss tune (war drums, low voices, bell; D Phrygian) on boss waves. Tunes crossfade, duck while paused, and have their own Music toggle on the title and pause screens.
 
 ## Install (Android)
-Download `builds/emberpit-0.5.9-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.5.10-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.
