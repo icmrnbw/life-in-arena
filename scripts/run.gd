@@ -925,7 +925,15 @@ func _tick_projectiles(dt: float) -> void:
 		if tgt != null:
 			var to: Vector3 = _flat(tgt.pos - p["pos"])
 			if to.length() > 0.01:
-				p["dir"] = to.normalized()
+				var turn: float = p["opts"].get("turn", -1.0)
+				if turn < 0.0:
+					p["dir"] = to.normalized()
+				elif to.dot(p["dir"]) <= 0.0:
+					# lazy homing (foe bolts): once it has flown past, it stops chasing
+					p["target"] = null
+				else:
+					var ang: float = p["dir"].signed_angle_to(to.normalized(), Vector3.UP)
+					p["dir"] = p["dir"].rotated(Vector3.UP, clampf(ang, -turn * dt, turn * dt))
 		var step: Vector3 = p["dir"] * p["speed"] * dt
 		p["pos"] += step
 		var pp: Vector3 = p["pos"]
@@ -945,6 +953,10 @@ func _tick_projectiles(dt: float) -> void:
 		if not done and pp.z < 30.0 and arena.blocks_shot(pp):
 			done = true
 			fx("hit", {"pos": pp})
+		# barrel stacks are cover from foe shots (the hero's own shots still fly over them)
+		if not done and p["team"] == 1 and barrels and pp.z < 30.0 and barrels.barrel_near(pp, 0.05) != null:
+			done = true
+			fx("hit", {"pos": pp, "color": p["opts"].get("color", Color(1, 1, 1))})
 		if not done and p["life"] <= 0.0:
 			done = true
 		if not done and Vector2(pp.x, pp.z).length() > DB.ARENA_R + 1.0 and pp.z < 30.0:
@@ -990,7 +1002,7 @@ func _proj_hit(p: Dictionary, u: Unit) -> void:
 		u.hex_t = maxf(u.hex_t, float(opts["hex"]))
 		u.flash(Color(0.7, 0.35, 1.0))
 		if u == hero:
-			hint_once("hex", "Hexed! Hexcaster bolts halve your healing for a few seconds.")
+			hint_once("hex", "Hexed! Hexcaster bolts halve your healing. They are slow: sidestep them or hide behind pillars and barrels.")
 	if opts.get("spit_mark", false):
 		u.spit_mark_t = 4.0
 	if opts.has("aoe"):

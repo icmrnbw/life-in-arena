@@ -166,6 +166,7 @@ func _main() -> void:
 	await test_respawn_model()
 	await test_save_resume()
 	await test_sanguine_bleed_kills_choir()
+	await test_hex_bolts_dodgeable()
 	await test_soak_monitor()
 	await test_every_hero()
 	_end_section()
@@ -430,6 +431,50 @@ func test_sanguine_bleed_kills_choir() -> void:
 		kit.tick(0.05)
 		check(not choir.alive, "the bleed killed the Choir")
 		check(kit.bleeds.is_empty(), "no bleeds left on dead foes", str(kit.bleeds.size()))
+	await free_run(r)
+
+
+# ------------------------------------------------------------------ hex bolts always hit (wave 17 unplayable)
+## Fires one hex bolt from `from` at the hero, standing at `at` (moving by `vel` m/s), and reports whether it hit.
+func _hex_shot(r: Run, from: Vector3, at: Vector3, vel := Vector3.ZERO) -> bool:
+	var h := r.hero
+	h.pos = at
+	h.hp = h.max_hp
+	r.projs.clear()
+	var e := r.spawn_enemy("hexcaster", from)
+	var opts := {"slow": 0.3, "slow_t": 1.6, "hex": DB.HEX_TIME, "dtype": "magic", "life": DB.HEX_BOLT_LIFE,
+		"turn": DB.HEX_BOLT_TURN, "color": Color(0.7, 0.4, 1.0)}
+	r.fire_projectile("hex_bolt", from + Vector3(0, 1.3, 0), h, Vector3.ZERO, DB.HEX_BOLT_SPEED, 20.0, 1, e, "Hexcaster", opts)
+	for i in 120:
+		h.pos += vel / 30.0
+		r._tick_projectiles(1.0 / 30.0)
+		if r.projs.is_empty():
+			break
+	r.kill(e, null)
+	return h.hp < h.max_hp
+
+
+func test_hex_bolts_dodgeable() -> void:
+	section("hex bolts can be dodged: sidestep, pillar or barrel cover")
+	var r := make_run("ashwarden", 3)
+	await get_tree().process_frame
+	start_wave(r)
+	r.spawn_queue.clear()
+	kill_all(r)
+	check(_hex_shot(r, Vector3(0, 0, -16), Vector3(0, 0, -7)), "a hero standing still is hit")
+	check(not _hex_shot(r, Vector3(0, 0, -16), Vector3(0, 0, -7), Vector3(5, 0, 0)), "a hero running sideways dodges it")
+	# pillar (-9, -6): caster east of it, hero tucked in west of it
+	check(not _hex_shot(r, Vector3(-1, 0, -6), Vector3(-11.4, 0, -6)), "a pillar between stops it")
+	var br: Barrel = null
+	for b in r.barrels.all:
+		if b.alive and not b.keg and b.pos.z < 0.0 and r.barrels.barrel_at(r.barrels.cell_of(b.pos) + Vector2i(-1, 0)) != null:
+			br = b
+			break
+	check(br != null, "found a barrel with one behind it")
+	if br:
+		# hero dug in two cells deep, caster out in the open on the same row
+		var dir := Vector3(-1, 0, 0)
+		check(not _hex_shot(r, br.pos - dir * 8.0, br.pos + dir * DB.BARREL_GRID), "barrels between stop it")
 	await free_run(r)
 
 
