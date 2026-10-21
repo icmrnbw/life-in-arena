@@ -10,7 +10,7 @@ const MOODS := {
 	"clear": {},
 	"rain": {"ambient": Color("6878a8"), "ambient_e": 0.55, "sun_e": 0.7, "sun": Color(0.8, 0.85, 1.0), "fog": Color("2a3048"), "fog_d": 0.008, "sat": 0.92},
 	"storm": {"ambient": Color("5a6694"), "ambient_e": 0.48, "sun_e": 0.45, "sun": Color(0.7, 0.78, 1.0), "fog": Color("1e2440"), "fog_d": 0.011, "sat": 0.85},
-	"fog": {"ambient": Color("8890a8"), "ambient_e": 0.7, "sun_e": 0.8, "sun": Color(0.92, 0.92, 0.95), "fog": Color("8a909e"), "fog_d": 0.017, "sat": 0.82},
+	"fog": {"ambient": Color("8890a8"), "ambient_e": 0.68, "sun_e": 0.85, "sun": Color(0.92, 0.92, 0.95), "fog": Color("7a8090"), "fog_d": 0.0065, "sat": 0.9},
 	"gale": {"ambient": Color("8a8070"), "ambient_e": 0.62, "fog": Color("5a4c36"), "fog_d": 0.006, "sat": 1.0},
 	"emberfall": {"ambient": Color("b07050"), "ambient_e": 0.62, "sun": Color(1.0, 0.62, 0.38), "sun_e": 1.1, "fog": Color("4a1e10"), "fog_d": 0.006, "sat": 1.18},
 	"bloodmoon": {"ambient": Color("8a5a66"), "ambient_e": 0.58, "sun": Color(1.0, 0.5, 0.45), "sun_e": 1.0, "fog": Color("3a0c16"), "fog_d": 0.006,
@@ -25,10 +25,12 @@ var wind := Vector3.ZERO
 var flash := 0.0
 var rain: CPUParticles3D
 var splash: CPUParticles3D
-var mist: CPUParticles3D
+var mist: CPUParticles3D          # low wisps drifting over the sand (Fog)
+var clouds: CPUParticles3D        # thin cloud banks sliding past higher up (Fog)
 var dust: CPUParticles3D
 var embers: CPUParticles3D
 var _bolts: Array = []            # [{node, t}]
+var _idle_t := {}                 # particle system -> seconds since it stopped emitting
 
 
 func setup(run_node: Node) -> void:
@@ -50,12 +52,22 @@ func setup(run_node: Node) -> void:
 	splash.spread = 30.0
 	splash.initial_velocity_min = 0.6; splash.initial_velocity_max = 1.4
 	splash.gravity = Vector3(0, -6, 0)
-	mist = _parts(30, "mix", Color(0.86, 0.88, 0.94, 0.1), 5.0, 9.0, 9.0)
-	mist.emission_box_extents = Vector3(20, 0.4, 15)
-	mist.direction = Vector3(1, 0, 0)
-	mist.spread = 180.0
-	mist.initial_velocity_min = 0.2; mist.initial_velocity_max = 0.6
-	mist.preprocess = 9.0
+	# Fog is light and patchy, not a wall: many faint stretched wisps low down plus a few big cloud banks
+	# sliding through the upper air, all drifting the same way so the clear gaps between them move.
+	mist = _parts(70, "mix", Color(0.88, 0.9, 0.95, 0.12), 2.4, 4.6, 11.0)
+	(mist.mesh as QuadMesh).size = Vector2(2.4, 0.8)
+	mist.emission_box_extents = Vector3(22, 0.5, 17)
+	mist.spread = 25.0
+	mist.flatness = 1.0
+	mist.initial_velocity_min = 0.5; mist.initial_velocity_max = 1.1
+	mist.preprocess = 11.0
+	clouds = _parts(14, "mix", Color(0.92, 0.93, 0.97, 0.07), 7.0, 11.0, 16.0)
+	(clouds.mesh as QuadMesh).size = Vector2(1.8, 0.9)
+	clouds.emission_box_extents = Vector3(24, 1.2, 18)
+	clouds.spread = 15.0
+	clouds.flatness = 1.0
+	clouds.initial_velocity_min = 1.0; clouds.initial_velocity_max = 1.6
+	clouds.preprocess = 16.0
 	dust = _parts(160, "mix", Color(0.86, 0.74, 0.52, 0.32), 0.1, 0.32, 1.6)
 	dust.emission_box_extents = Vector3(20, 1.2, 15)
 	dust.spread = 12.0
@@ -76,6 +88,7 @@ func _streaks(amount: int, c: Color, sz: Vector2) -> CPUParticles3D:
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.disable_fog = true
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.vertex_color_use_as_albedo = true
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
@@ -92,6 +105,9 @@ func _streaks(amount: int, c: Color, sz: Vector2) -> CPUParticles3D:
 	p.gravity = Vector3.ZERO
 	p.color = c
 	p.emitting = false
+	# Hidden until it first emits: a never-run CPUParticles3D's instance buffer is left uninitialised, and some
+	# mobile GPUs (Ernest's phone, 0.5.7) draw that garbage as big bright random-coloured blobs around the camera.
+	p.visible = false
 	p.visibility_aabb = AABB(Vector3(-30, -20, -30), Vector3(60, 40, 60))
 	add_child(p)
 	return p
@@ -114,6 +130,9 @@ func _parts(amount: int, mat: String, c: Color, smin: float, smax: float, life: 
 	g.colors = PackedColorArray([Color(c, 0.0), c, c, Color(c, 0.0)])
 	p.color_ramp = g
 	p.emitting = false
+	# Hidden until it first emits: a never-run CPUParticles3D's instance buffer is left uninitialised, and some
+	# mobile GPUs (Ernest's phone, 0.5.7) draw that garbage as big bright random-coloured blobs around the camera.
+	p.visible = false
 	p.visibility_aabb = AABB(Vector3(-30, -20, -30), Vector3(60, 40, 60))
 	add_child(p)
 	return p
@@ -126,18 +145,31 @@ func set_weather(id: String, w: Vector3) -> void:
 	rain.emitting = wet
 	splash.emitting = wet
 	rain.amount = 620 if cur == "storm" else 480
-	mist.emitting = cur == "fog"
+	var foggy := cur == "fog"
+	if foggy and not mist.emitting:
+		# Fog has no gameplay wind; pick a drift of its own
+		var a := randf() * TAU
+		var drift := Vector3(cos(a), 0, sin(a))
+		mist.direction = drift
+		clouds.direction = drift
+	mist.emitting = foggy
+	clouds.emitting = foggy
 	dust.emitting = cur == "gale"
 	if cur == "gale":
 		dust.direction = (w + Vector3(0, 0.05, 0)).normalized()
 		dust.gravity = w * 2.0
 	embers.emitting = cur == "emberfall"
+	for p in [rain, splash, mist, clouds, dust, embers]:
+		if p.emitting:
+			p.visible = true
+			_idle_t[p] = 0.0
 
 
 func follow(p: Vector3) -> void:
 	rain.global_position = p + Vector3(0, 14.5, 1.5)
 	splash.global_position = Vector3(p.x, 0.05, p.z + 1.5)
-	mist.global_position = Vector3(p.x, 0.8, p.z + 1.0)
+	mist.global_position = Vector3(p.x, 0.7, p.z + 1.0) - mist.direction * 6.0
+	clouds.global_position = Vector3(p.x, 5.5, p.z + 1.0) - clouds.direction * 8.0
 	dust.global_position = Vector3(p.x, 1.2, p.z + 1.0) - wind * 12.0
 	embers.global_position = p + Vector3(0, 12.0, 1.5)
 
@@ -166,6 +198,7 @@ func lightning(p: Vector3) -> void:
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.disable_fog = true
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	m.albedo_color = Color(1.4, 1.7, 2.6, 1.0)
@@ -177,6 +210,15 @@ func lightning(p: Vector3) -> void:
 
 
 func _process(dt: float) -> void:
+	# hide systems that stopped emitting once their last particles have faded
+	for p in _idle_t.keys():
+		var ps := p as CPUParticles3D
+		if ps.emitting:
+			continue
+		_idle_t[p] += dt
+		if _idle_t[p] > ps.lifetime:
+			ps.visible = false
+			_idle_t.erase(p)
 	if not _bolts.is_empty():
 		var keep := []
 		for b in _bolts:

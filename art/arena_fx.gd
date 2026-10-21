@@ -21,6 +21,7 @@ func setup(_run_node: Node) -> void:
 	_crack_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_crack_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_crack_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	_crack_mat.disable_fog = true
 	_crack_mat.vertex_color_use_as_albedo = true
 	_crack_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	crack_mi.material_override = _crack_mat
@@ -40,6 +41,7 @@ func setup(_run_node: Node) -> void:
 	debris = CPUParticles3D.new()
 	debris.name = "RimDebris"
 	debris.emitting = false
+	debris.visible = false   # see WeatherFx: never-run particle buffers draw garbage on some mobile GPUs
 	debris.one_shot = true
 	debris.explosiveness = 0.85
 	debris.amount = 90
@@ -75,6 +77,7 @@ func crack(inner: float, outer: float, dur: float) -> void:
 	debris.emission_ring_inner_radius = inner
 	debris.amount = 40
 	debris.emitting = false
+	debris.visible = true
 	debris.restart()   # pebbles shaking loose
 
 
@@ -87,6 +90,7 @@ func collapse(inner: float, _outer: float) -> void:
 	debris.emission_ring_radius = _outer
 	debris.emission_ring_inner_radius = inner
 	debris.amount = 120
+	debris.visible = true
 	debris.restart()
 
 

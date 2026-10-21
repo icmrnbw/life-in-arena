@@ -642,6 +642,7 @@ static func skill_info(h: Hero, on_close: Callable) -> Control:
 	var keys := ["Q", "W", "E", "R"]
 	for slot in 4:
 		list.add_child(_skill_row(h, slot, keys[slot]))
+	UIK.pass_touch(list)   # swipe anywhere on the rows to scroll, not just the bar
 	# fit the card to the screen (phones are ~720 px tall at base size)
 	root.resized.connect(func():
 		var s := root.size

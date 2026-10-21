@@ -151,3 +151,11 @@ static func icon_button(text: String, icon_id: String, variation := "", min_size
 	b.set_meta("icon", ic)
 	b.set_meta("box", hb)
 	return b
+
+
+## Let a swipe that starts on scroll content reach its ScrollContainer: non-button Controls stop the touch by default.
+static func pass_touch(n: Node) -> void:
+	if n is Control and not n is BaseButton and n.mouse_filter == Control.MOUSE_FILTER_STOP:
+		n.mouse_filter = Control.MOUSE_FILTER_PASS
+	for c in n.get_children():
+		pass_touch(c)

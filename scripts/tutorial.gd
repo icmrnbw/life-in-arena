@@ -1,5 +1,5 @@
 extends Node
-## Training: a guided first run with the Ashwarden. A coach card at the top of the screen gives one instruction at a
+## Training: a guided first run with the Ashwarden. A coach card on the left of the screen gives one instruction at a
 ## time and waits until the player has done it (walk to a marker, learn a skill, cast, shop, fight, dig into a barrel stack,
 ## dodge a captain's slam). The Run's own wave timer is off while this drives it, and the hero can't fall (cfg no_death).
 
@@ -32,6 +32,7 @@ const STEPS := [
 		"text": "Between waves you return to camp to shop and heal at the fountain. Survive 20 waves; a boss comes every 5th wave. If you fall, you retry the wave, and you have 3 lives. Good luck!", "button": "Finish"},
 ]
 const MOVE_SPOT := Vector3(4.5, 0, 36.0)
+const CARD_W := 440.0
 
 var run: Run
 var step := -1
@@ -64,14 +65,9 @@ func step_id() -> String:
 func _build_panel() -> void:
 	panel = UIK.panel("FramePanel")
 	panel.name = "Coach"
-	panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	panel.anchor_left = 0.5
-	panel.anchor_right = 0.5
-	panel.anchor_top = 0.0
-	panel.offset_left = -330
-	panel.offset_right = 330
-	panel.offset_top = 64
-	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	# docked on the left under the portrait, clear of the hero (the camera keeps it near the screen's centre)
+	panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	panel.custom_minimum_size = Vector2(CARD_W, 0)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
@@ -81,34 +77,63 @@ func _build_panel() -> void:
 	head.add_theme_constant_override("separation", 10)
 	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(head)
-	title_label = Menus._outlined(UIK.label("", "TitleLabel", 28, UIK.col("gold", Color.GOLD)), 6)
+	title_label = Menus._outlined(UIK.label("", "TitleLabel", 24, UIK.col("gold", Color.GOLD)), 6)
 	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title_label)
 	step_label = UIK.label("", "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62)))
 	step_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	head.add_child(step_label)
-	text_label = UIK.label("", "", 19, UIK.col("text", Color(0.95, 0.92, 0.85)))
+	text_label = UIK.label("", "", 17, UIK.col("text", Color(0.95, 0.92, 0.85)))
 	text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text_label.custom_minimum_size = Vector2(600, 0)
+	text_label.custom_minimum_size = Vector2(CARD_W - 30, 0)
 	v.add_child(text_label)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_END
 	row.add_theme_constant_override("separation", 12)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(row)
-	skip_btn = UIK.button("Skip training", "", Vector2(190, 56))
+	skip_btn = UIK.button("Skip training", "", Vector2(170, 50))
 	skip_btn.name = "SkipTraining"
-	skip_btn.add_theme_font_size_override("font_size", 18)
+	skip_btn.add_theme_font_size_override("font_size", 17)
 	skip_btn.pressed.connect(finish)
 	row.add_child(skip_btn)
-	action_btn = UIK.button("Next", "PrimaryButton", Vector2(170, 56))
+	action_btn = UIK.button("Next", "PrimaryButton", Vector2(150, 50))
 	action_btn.name = "CoachAction"
 	action_btn.pressed.connect(_on_action)
 	row.add_child(action_btn)
 	run.hud.root.add_child(panel)
+	_place_panel()
 	if run.hud.controls and "blockers" in run.hud.controls:
 		run.hud.controls.blockers.append(skip_btn)
 		run.hud.controls.blockers.append(action_btn)
+
+
+## Keep the card under the HUD's top-left block, and fade it out of the way if the hero ever walks behind it.
+func _place_panel() -> void:
+	if panel == null or not is_instance_valid(panel):
+		return
+	var tl: Control = run.hud.top_left
+	var x := 16.0
+	var y := 120.0
+	if tl and is_instance_valid(tl):
+		x = tl.position.x
+		y = tl.position.y + tl.size.y + 14.0
+	panel.position = Vector2(x, y)
+	panel.size = Vector2(CARD_W, 0)
+	var a := 1.0
+	var h := run.hero
+	if run.camera and h and not run.camera.is_position_behind(h.pos):
+		var feet := run.camera.unproject_position(h.pos)
+		var head := run.camera.unproject_position(h.pos + Vector3(0, 2.2, 0))
+		var hero_rect := Rect2(head - Vector2(60, 10), Vector2(120, feet.y - head.y + 20))
+		if panel.get_global_rect().intersects(hero_rect):
+			a = 0.3
+	panel.self_modulate.a = lerpf(panel.self_modulate.a, a, 0.2)
+	(panel.get_child(0) as Control).modulate.a = panel.self_modulate.a
+
+
+func _process(_dt: float) -> void:
+	_place_panel()
 
 
 func _go(i: int) -> void:
