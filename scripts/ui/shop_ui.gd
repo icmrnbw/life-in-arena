@@ -10,6 +10,7 @@ var selected_up := ""   # a Training upgrade (DB.UPGRADES id) instead of an item
 var selected_slot := -1
 var gold_label: Label
 var grid: GridContainer
+var grid_scroll: ScrollContainer
 var rec_row: HBoxContainer
 var inv_row: HBoxContainer
 var tab_buttons := {}
@@ -17,6 +18,7 @@ var d_icon: TextureRect
 var d_name: Label
 var d_desc: Label
 var d_recipe: Label
+var d_scroll: ScrollContainer
 var d_price: Label
 var buy_btn: Button
 var buy_alt_btn: Button
@@ -42,7 +44,9 @@ func setup(r: Run, h: Node) -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
 	var frame := UIK.panel("FramePanel")
-	frame.custom_minimum_size = Vector2(1150, 640)
+	# fill the screen (minus a margin) so the grid and the item text get every pixel a phone has
+	var vis := get_viewport().get_visible_rect().size
+	frame.custom_minimum_size = Vector2(clampf(vis.x - 48.0, 1150.0, 1500.0), maxf(640.0, vis.y - 36.0))
 	center.add_child(frame)
 	var outer := VBoxContainer.new()
 	outer.add_theme_constant_override("separation", 8)
@@ -86,7 +90,6 @@ func setup(r: Run, h: Node) -> void:
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	outer.add_child(body)
 	var left := VBoxContainer.new()
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.add_theme_constant_override("separation", 8)
 	body.add_child(left)
 	var tabs := HBoxContainer.new()
@@ -109,9 +112,11 @@ func setup(r: Run, h: Node) -> void:
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
 	scroll.add_child(grid)
+	grid_scroll = scroll
 
 	var det := UIK.panel("DarkPanel")
 	det.custom_minimum_size = Vector2(380, 0)
+	det.size_flags_horizontal = Control.SIZE_EXPAND_FILL   # extra width on wide phones goes to the item text
 	body.add_child(det)
 	var dv := VBoxContainer.new()
 	dv.add_theme_constant_override("separation", 8)
@@ -119,35 +124,45 @@ func setup(r: Run, h: Node) -> void:
 	var dh := HBoxContainer.new()
 	dh.add_theme_constant_override("separation", 10)
 	dv.add_child(dh)
-	d_icon = UIK.icon_rect("gold", 72)
+	d_icon = UIK.icon_rect("gold", 60)
 	dh.add_child(d_icon)
 	d_name = UIK.label("Select an item", "", 24, Color(1, 0.93, 0.8))
 	d_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	d_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	dh.add_child(d_name)
+	# long descriptions scroll inside the panel instead of stretching the shop past the screen
+	d_scroll = ScrollContainer.new()
+	d_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	d_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	dv.add_child(d_scroll)
+	var dt := VBoxContainer.new()
+	dt.add_theme_constant_override("separation", 8)
+	dt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	d_scroll.add_child(dt)
 	d_desc = UIK.label("", "", 20)
 	d_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	d_desc.custom_minimum_size = Vector2(350, 0)
-	dv.add_child(d_desc)
+	d_desc.custom_minimum_size = Vector2(340, 0)
+	dt.add_child(d_desc)
 	d_recipe = UIK.label("", "SmallLabel", 19, UIK.col("dim", Color(0.75, 0.7, 0.62)))
 	d_recipe.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	d_recipe.custom_minimum_size = Vector2(350, 0)
-	dv.add_child(d_recipe)
-	var fill := Control.new()
-	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	dv.add_child(fill)
-	d_price = UIK.label("", "", 24, UIK.col("gold", Color.GOLD))
-	dv.add_child(d_price)
+	d_recipe.custom_minimum_size = Vector2(340, 0)
+	dt.add_child(d_recipe)
+	UIK.pass_touch(d_scroll)
+	# price shares the button row: every line of height goes to the item text on a phone
 	var brow := HBoxContainer.new()
 	brow.add_theme_constant_override("separation", 8)
 	dv.add_child(brow)
-	buy_btn = UIK.button("Buy", "PrimaryButton", Vector2(170, 72))
+	d_price = UIK.label("", "", 24, UIK.col("gold", Color.GOLD))
+	d_price.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	brow.add_child(d_price)
+	buy_btn = UIK.button("Buy", "PrimaryButton", Vector2(150, 66))
 	buy_btn.pressed.connect(func(): _buy(""))
 	brow.add_child(buy_btn)
-	buy_alt_btn = UIK.button("Buy (+Agi)", "PrimaryButton", Vector2(170, 72))
+	buy_alt_btn = UIK.button("Buy (+Agi)", "PrimaryButton", Vector2(150, 66))
 	buy_alt_btn.pressed.connect(func(): _buy("agi"))
+	buy_alt_btn.add_theme_font_size_override("font_size", 22)
 	brow.add_child(buy_alt_btn)
-	sell_btn = UIK.button("Sell", "", Vector2(170, 72))
+	sell_btn = UIK.button("Sell", "", Vector2(170, 66))
 	sell_btn.pressed.connect(_sell)
 	brow.add_child(sell_btn)
 
@@ -158,6 +173,8 @@ func setup(r: Run, h: Node) -> void:
 	outer.add_child(inv_row)
 	var t0 := Game.arg("tab", "basic")   # test hook: --scene=shop --tab=upgrades
 	_set_tab(t0 if tab_buttons.has(t0) else "basic")
+	if DB.ITEMS.has(Game.arg("item", "")):   # test hook: --item=splinter_quiver
+		selected = Game.arg("item", "")
 	_refresh()
 
 
@@ -170,6 +187,7 @@ func _set_tab(t: String) -> void:
 	if t == "upgrades":
 		for id in DB.UPGRADE_ORDER:
 			grid.add_child(_upgrade_button(id))
+		_pass_grid_touch()
 		_refresh()
 		return
 	for id in DB.ITEM_ORDER:
@@ -177,7 +195,15 @@ func _set_tab(t: String) -> void:
 		if d["kind"] != t:
 			continue
 		grid.add_child(_item_button(id, Vector2(174, 96), true))
+	_pass_grid_touch()
 	_refresh()
+
+
+## Tiles let touches through so a swipe that starts on one scrolls the grid, not just the scrollbar.
+func _pass_grid_touch() -> void:
+	UIK.pass_touch(grid_scroll)
+	for b in grid.get_children():
+		b.mouse_filter = Control.MOUSE_FILTER_PASS
 
 
 ## Item tile: fixed-size icon on the left (never shrinks), name + price on the right.
@@ -291,6 +317,7 @@ func _upgrade_button(id: String) -> Button:
 
 
 func _select_upgrade(id: String) -> void:
+	d_scroll.scroll_vertical = 0
 	selected_up = id
 	selected = ""
 	selected_slot = -1
@@ -299,6 +326,7 @@ func _select_upgrade(id: String) -> void:
 
 
 func _select(id: String) -> void:
+	d_scroll.scroll_vertical = 0
 	selected = id
 	selected_up = ""
 	selected_slot = -1
@@ -307,6 +335,7 @@ func _select(id: String) -> void:
 
 
 func _select_slot(i: int) -> void:
+	d_scroll.scroll_vertical = 0
 	selected_slot = i
 	selected_up = ""
 	selected = run.hero.items[i]["id"] if i < run.hero.items.size() else ""
