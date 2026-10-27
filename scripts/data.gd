@@ -3,7 +3,8 @@ extends RefCounted
 ## All static game content: heroes, skills, items, enemies, waves, economy curves.
 ## Numbers are starting balance (see plan sections 3-5).
 
-const HERO_ORDER := ["ashwarden", "riftdancer", "hivemother", "sanguine", "snarewright", "twinhide", "gravekeeper", "stoneshaper", "gunsmith", "sunspeaker"]
+const HERO_ORDER := ["ashwarden", "riftdancer", "hivemother", "sanguine", "snarewright", "twinhide", "gravekeeper", "stoneshaper", "gunsmith", "sunspeaker",
+	"duelist", "vanguard", "nightblade", "skyspear", "frostweaver", "stormcaller", "alchemist", "chronomancer"]
 
 ## Adding a hero: an entry here + its skills below + scripts/kits/<id>_kit.gd + a rig, a portrait and 4 skill icons in art/.
 ## "tag" is the one-word playstyle shown on hero select (each hero has its own), "difficulty" 1-3 stars.
@@ -12,7 +13,7 @@ const HERO_ORDER := ["ashwarden", "riftdancer", "hivemother", "sanguine", "snare
 
 const HEROES := {
 	"ashwarden": {
-		"name": "Ashwarden", "title": "The Architect", "role": "Zone control", "tag": "Zones", "difficulty": 1,
+		"name": "Ashwarden", "title": "The Architect", "role": "Zone control", "tag": "Zones", "difficulty": 1, "dmg_type": "magic",
 		"bot": {"crowd": 7},
 		"playstyle": "Builds the battlefield: plant totems, raise walls, then pull the enemy pack into the fire.",
 		"primary": "str", "str": 24.0, "agi": 12.0, "int": 16.0, "str_g": 2.8, "agi_g": 1.3, "int_g": 1.7,
@@ -22,7 +23,7 @@ const HEROES := {
 		"build": ["iron_knuckles", "vigor_charm", "hide_vest", "bulwark_plate", "focus_pendant", "runners_boots", "wayfarer_treads", "stout_belt", "wardens_aegis", "swift_gloves", "iron_knuckles", "emberbrand", "vigor_charm", "iron_knuckles", "bloodthirst_fang", "sage_circlet", "focus_pendant", "hivecore_sigil"],
 	},
 	"riftdancer": {
-		"name": "Riftdancer", "title": "The Momentum Fighter", "role": "Combo / mobility", "tag": "Momentum", "difficulty": 3,
+		"name": "Riftdancer", "title": "The Momentum Fighter", "role": "Combo / mobility", "tag": "Momentum", "difficulty": 3, "dmg_type": "mixed",
 		"bot": {"crowd": 4, "orbit": 0.8},
 		"playstyle": "Never stop moving: dash through foes, mark them, then shatter every mark at once.",
 		"primary": "agi", "str": 19.0, "agi": 24.0, "int": 14.0, "str_g": 2.0, "agi_g": 3.0, "int_g": 1.5,
@@ -32,7 +33,7 @@ const HEROES := {
 		"build": ["iron_knuckles", "vigor_charm", "bloodthirst_fang", "brawlers_wraps", "iron_knuckles", "cleaving_axe", "runners_boots", "focus_pendant", "wayfarer_treads", "hide_vest", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "sage_circlet", "focus_pendant", "hivecore_sigil"],
 	},
 	"hivemother": {
-		"name": "Hivemother", "title": "The Commander", "role": "Swarm management", "tag": "Summons", "difficulty": 2,
+		"name": "Hivemother", "title": "The Commander", "role": "Swarm management", "tag": "Summons", "difficulty": 2, "dmg_type": "phys",
 		"bot": {"ranged": true, "keep": 7.0, "retreat": 0.45, "orbit": 0.35, "camp_cast": [0]},
 		"playstyle": "Fights through her brood: hatch broodlings, send them in, spend them as living bombs.",
 		"primary": "int", "str": 19.0, "agi": 13.0, "int": 24.0, "str_g": 2.1, "agi_g": 1.3, "int_g": 3.0,
@@ -42,7 +43,7 @@ const HEROES := {
 		"build": ["focus_pendant", "vigor_charm", "sage_circlet", "hivecore_sigil", "hide_vest", "bulwark_plate", "runners_boots", "focus_pendant", "wayfarer_treads", "stout_belt", "wardens_aegis", "iron_knuckles", "vigor_charm", "bloodthirst_fang"],
 	},
 	"sanguine": {
-		"name": "Sanguine", "title": "The Blood Pact", "role": "Risk / sustain", "tag": "Blood", "difficulty": 2, "no_mana": true,
+		"name": "Sanguine", "title": "The Blood Pact", "role": "Risk / sustain", "tag": "Blood", "difficulty": 2, "dmg_type": "phys", "no_mana": true,
 		"playstyle": "Pays for every skill with his own blood and drinks it back with every hit. The lower his HP, the harder he hits.",
 		"primary": "str", "str": 25.0, "agi": 14.0, "int": 12.0, "str_g": 3.0, "agi_g": 1.4, "int_g": 1.1,
 		"dmg": 22.0, "range": 2.2, "atk_time": 1.3, "speed": 5.2, "armor": 2.0, "ranged": false,
@@ -52,7 +53,7 @@ const HEROES := {
 		"bot": {"crowd": 5, "retreat": 0.22, "orbit": 0.3},
 	},
 	"snarewright": {
-		"name": "Snarewright", "title": "The Trapper", "role": "Traps / planning", "tag": "Traps", "difficulty": 2,
+		"name": "Snarewright", "title": "The Trapper", "role": "Traps / planning", "tag": "Traps", "difficulty": 2, "dmg_type": "phys",
 		"playstyle": "Wins before the fight starts: lay traps, timed charges and tripwires where the pack will walk, then pick off the snared.",
 		"primary": "agi", "str": 21.0, "agi": 23.0, "int": 16.0, "str_g": 2.2, "agi_g": 2.8, "int_g": 1.7,
 		"dmg": 17.0, "range": 8.0, "atk_time": 1.35, "speed": 5.4, "armor": 3.0, "ranged": true,
@@ -62,7 +63,7 @@ const HEROES := {
 		"bot": {"ranged": true, "keep": 7.0, "retreat": 0.5, "orbit": 0.4},
 	},
 	"twinhide": {
-		"name": "Twinhide", "title": "The Two-Souled", "role": "Shapeshifter", "tag": "Forms", "difficulty": 3,
+		"name": "Twinhide", "title": "The Two-Souled", "role": "Shapeshifter", "tag": "Forms", "difficulty": 3, "dmg_type": "mixed",
 		"playstyle": "Two heroes in one: a spirit caster at range and a beast up close, each with its own Q and W. Shift right after a skill to get its twin ready at once.",
 		"primary": "agi", "str": 20.0, "agi": 20.0, "int": 20.0, "str_g": 2.3, "agi_g": 2.3, "int_g": 2.2,
 		"dmg": 16.0, "range": 8.0, "atk_time": 1.45, "speed": 5.2, "armor": 2.0, "ranged": true,
@@ -73,7 +74,7 @@ const HEROES := {
 		"bot": {"ranged": true, "keep": 7.0, "retreat": 0.4, "orbit": 0.4},
 	},
 	"gravekeeper": {
-		"name": "Gravekeeper", "title": "The Undertaker", "role": "Corpse summoner", "tag": "Corpses", "difficulty": 2,
+		"name": "Gravekeeper", "title": "The Undertaker", "role": "Corpse summoner", "tag": "Corpses", "difficulty": 2, "dmg_type": "magic",
 		"playstyle": "Every enemy that falls leaves a grave. Raise skeletons from them, blow them up, or open every grave at once.",
 		"primary": "int", "str": 18.0, "agi": 12.0, "int": 25.0, "str_g": 2.0, "agi_g": 1.2, "int_g": 3.0,
 		"dmg": 15.0, "range": 8.5, "atk_time": 1.6, "speed": 5.0, "armor": 2.0, "ranged": true,
@@ -83,7 +84,7 @@ const HEROES := {
 		"bot": {"ranged": true, "keep": 7.5, "retreat": 0.45, "orbit": 0.35},
 	},
 	"stoneshaper": {
-		"name": "Stoneshaper", "title": "The Mountain's Hand", "role": "Terrain / control", "tag": "Impact", "difficulty": 2,
+		"name": "Stoneshaper", "title": "The Mountain's Hand", "role": "Terrain / control", "tag": "Impact", "difficulty": 2, "dmg_type": "phys",
 		"playstyle": "Uses the arena as a weapon: shove foes into pillars, walls and each other. A body that hits something takes heavy damage and is stunned. Skin of stone: takes 20% less damage.",
 		"primary": "str", "str": 26.0, "agi": 12.0, "int": 15.0, "str_g": 3.1, "agi_g": 1.3, "int_g": 1.6,
 		"dmg": 28.0, "range": 2.3, "atk_time": 1.4, "speed": 4.8, "armor": 4.0, "ranged": false,
@@ -93,7 +94,7 @@ const HEROES := {
 		"bot": {"crowd": 6, "orbit": 0.2},
 	},
 	"gunsmith": {
-		"name": "Gunsmith", "title": "The Deadshot", "role": "Long range", "tag": "Ammo", "difficulty": 2,
+		"name": "Gunsmith", "title": "The Deadshot", "role": "Long range", "tag": "Ammo", "difficulty": 2, "dmg_type": "phys",
 		"playstyle": "Longest reach in the Pit, but eight shots to a magazine. Reload on an empty chamber for incendiary rounds, and keep the pack at mortar range.",
 		"primary": "agi", "str": 21.0, "agi": 25.0, "int": 14.0, "str_g": 2.3, "agi_g": 3.1, "int_g": 1.4,
 		"dmg": 20.0, "range": 10.5, "atk_time": 0.9, "speed": 5.2, "armor": 3.0, "ranged": true,
@@ -103,7 +104,7 @@ const HEROES := {
 		"bot": {"ranged": true, "keep": 8.5, "retreat": 0.5, "orbit": 0.45},
 	},
 	"sunspeaker": {
-		"name": "Sunspeaker", "title": "The Channeler", "role": "Stand-and-cast", "tag": "Channel", "difficulty": 3,
+		"name": "Sunspeaker", "title": "The Channeler", "role": "Stand-and-cast", "tag": "Channel", "difficulty": 3, "dmg_type": "magic",
 		"playstyle": "Stand your ground: Radiance builds while you stay still and powers every beam. Moving bleeds it away.",
 		"primary": "int", "str": 21.0, "agi": 11.0, "int": 26.0, "str_g": 2.3, "agi_g": 1.1, "int_g": 3.2,
 		"dmg": 14.0, "range": 8.5, "atk_time": 1.55, "speed": 5.0, "armor": 2.5, "ranged": true,
@@ -112,7 +113,96 @@ const HEROES := {
 		"build": ["focus_pendant", "vigor_charm", "sage_circlet", "hivecore_sigil", "hide_vest", "bulwark_plate", "runners_boots", "focus_pendant", "wayfarer_treads", "stout_belt", "wardens_aegis", "iron_knuckles", "vigor_charm", "bloodthirst_fang"],
 		"bot": {"ranged": true, "keep": 8.0, "retreat": 0.5, "orbit": 0.1},
 	},
+	# --- 0.6 roster: 4 physical, 4 magic ---
+	"duelist": {
+		"name": "Duelist", "title": "The Riposte", "role": "Timing / counters", "tag": "Parry", "difficulty": 3, "dmg_type": "phys",
+		"playstyle": "Raise your blade just before a blow lands: a parry takes no damage, counters hard and refunds the skill. Poise from parries makes every swing faster.",
+		"primary": "agi", "str": 21.0, "agi": 24.0, "int": 14.0, "str_g": 2.3, "agi_g": 3.0, "int_g": 1.4,
+		"dmg": 19.0, "range": 2.2, "atk_time": 1.2, "speed": 5.6, "armor": 3.0, "ranged": false,
+		"skills": ["riposte", "lunge", "feint", "blade_dance"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["iron_knuckles", "vigor_charm", "bloodthirst_fang", "brawlers_wraps", "iron_knuckles", "cleaving_axe", "runners_boots", "hide_vest", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "focus_pendant", "skullcrusher", "sage_circlet", "hivecore_sigil"],
+		"bot": {"crowd": 5, "orbit": 0.4, "retreat": 0.3},
+	},
+	"vanguard": {
+		"name": "Vanguard", "title": "The Unbroken", "role": "Tank / rage", "tag": "Rage", "difficulty": 1, "no_mana": true, "dmg_type": "phys",
+		"playstyle": "No mana: every blow you give or take fills Rage, and Rage pays for your skills. Roar to pull the pack onto you, then turn their hits into a shield.",
+		"primary": "str", "str": 27.0, "agi": 11.0, "int": 13.0, "str_g": 3.2, "agi_g": 1.1, "int_g": 1.2,
+		"dmg": 24.0, "range": 2.3, "atk_time": 1.5, "speed": 4.8, "armor": 5.0, "ranged": false,
+		"skills": ["shield_bash", "war_cry", "iron_will", "juggernaut"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 2, 2, 2, 3, 1, 1, 1, 3],
+		"build": ["iron_knuckles", "vigor_charm", "hide_vest", "bulwark_plate", "runners_boots", "stout_belt", "wayfarer_treads", "wardens_aegis", "cleaving_axe", "vigor_charm", "iron_knuckles", "skullcrusher", "bloodthirst_fang", "berserkers_torc", "stout_belt"],
+		"bot": {"crowd": 9, "retreat": 0.2, "orbit": 0.15},
+	},
+	"nightblade": {
+		"name": "Nightblade", "title": "The Unseen", "role": "Assassin", "tag": "Stealth", "difficulty": 3, "dmg_type": "phys",
+		"playstyle": "Strike from behind: hits on a foe's back deal 60% more. Step through shadows to a foe's back, vanish so the pack swarms an empty spot, and mark a victim for death.",
+		"primary": "agi", "str": 18.0, "agi": 26.0, "int": 14.0, "str_g": 1.8, "agi_g": 3.2, "int_g": 1.4,
+		"dmg": 20.0, "range": 2.0, "atk_time": 1.15, "speed": 5.8, "armor": 2.0, "ranged": false,
+		"skills": ["shadowstep", "fan_of_knives", "vanish", "death_mark"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["iron_knuckles", "swift_gloves", "bloodthirst_fang", "brawlers_wraps", "vigor_charm", "cleaving_axe", "runners_boots", "hide_vest", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "skullcrusher", "focus_pendant", "hivecore_sigil"],
+		"bot": {"crowd": 4, "retreat": 0.35, "orbit": 0.6},
+	},
+	"skyspear": {
+		"name": "Skyspear", "title": "The Spear Thrower", "role": "Throw and recall", "tag": "Recall", "difficulty": 2, "dmg_type": "phys",
+		"playstyle": "Throw your spear and it stays where it lands. Call it back through the pack, or vault to it. Without it you fight with fists: quick but weak.",
+		"primary": "agi", "str": 22.0, "agi": 23.0, "int": 13.0, "str_g": 2.5, "agi_g": 2.8, "int_g": 1.3,
+		"dmg": 22.0, "range": 2.8, "atk_time": 1.3, "speed": 5.3, "armor": 3.0, "ranged": false,
+		"skills": ["hurl_spear", "recall", "vault", "skyfall"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["iron_knuckles", "vigor_charm", "bloodthirst_fang", "brawlers_wraps", "runners_boots", "cleaving_axe", "hide_vest", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "skullcrusher", "focus_pendant", "sage_circlet", "hivecore_sigil"],
+		"bot": {"crowd": 5, "orbit": 0.35},
+	},
+	"frostweaver": {
+		"name": "Frostweaver", "title": "The Winter Witch", "role": "Freeze / setup", "tag": "Freeze", "difficulty": 2, "dmg_type": "magic",
+		"playstyle": "Every hit adds Chill; five Chill freezes a foe solid. Frozen foes are brittle: physical hits deal about 50% more. Shatter them yourself or let a physical ally do it.",
+		"primary": "int", "str": 18.0, "agi": 13.0, "int": 25.0, "str_g": 1.9, "agi_g": 1.3, "int_g": 3.1,
+		"dmg": 14.0, "range": 8.5, "atk_time": 1.5, "speed": 5.0, "armor": 2.0, "ranged": true,
+		"skills": ["ice_shard", "frost_nova", "shatter", "blizzard"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 2, 2, 2, 3, 1, 1, 1, 3],
+		"build": ["focus_pendant", "vigor_charm", "sage_circlet", "hivecore_sigil", "hide_vest", "bulwark_plate", "runners_boots", "focus_pendant", "wayfarer_treads", "stout_belt", "wardens_aegis", "iron_knuckles", "vigor_charm", "bloodthirst_fang"],
+		"bot": {"ranged": true, "keep": 7.5, "retreat": 0.5, "orbit": 0.4},
+	},
+	"stormcaller": {
+		"name": "Stormcaller", "title": "The Thunderhead", "role": "Chain damage", "tag": "Chains", "difficulty": 2, "dmg_type": "magic",
+		"playstyle": "Lightning jumps from foe to foe and grows with every jump, so the bigger the pack the harder it hits. Each jump builds Static; at full Static the next chain overloads.",
+		"primary": "int", "str": 19.0, "agi": 14.0, "int": 24.0, "str_g": 2.0, "agi_g": 1.4, "int_g": 3.0,
+		"dmg": 13.0, "range": 8.0, "atk_time": 1.4, "speed": 5.1, "armor": 2.0, "ranged": true,
+		"skills": ["chain_lightning", "ball_lightning", "storm_step", "thunderstorm"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["focus_pendant", "vigor_charm", "sage_circlet", "hivecore_sigil", "hide_vest", "bulwark_plate", "runners_boots", "focus_pendant", "wayfarer_treads", "stout_belt", "wardens_aegis", "iron_knuckles", "vigor_charm", "bloodthirst_fang"],
+		"bot": {"ranged": true, "keep": 7.5, "retreat": 0.5, "orbit": 0.45},
+	},
+	"alchemist": {
+		"name": "Alchemist", "title": "The Goldbrewer", "role": "Gold / debuffs", "tag": "Gold", "difficulty": 2, "dmg_type": "magic",
+		"playstyle": "Gold is fuel: every kill transmutes extra coin, and your bombs burn gold for more damage. Acid corrodes armor so physical allies hit harder.",
+		"primary": "int", "str": 21.0, "agi": 14.0, "int": 22.0, "str_g": 2.4, "agi_g": 1.4, "int_g": 2.7,
+		"dmg": 15.0, "range": 7.5, "atk_time": 1.5, "speed": 5.0, "armor": 3.0, "ranged": true,
+		"skills": ["acid_flask", "gilded_bomb", "elixir", "golden_touch"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 1, 0, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["focus_pendant", "vigor_charm", "hide_vest", "sage_circlet", "bulwark_plate", "runners_boots", "hivecore_sigil", "wayfarer_treads", "stout_belt", "wardens_aegis", "focus_pendant", "iron_knuckles", "vigor_charm", "bloodthirst_fang"],
+		"bot": {"ranged": true, "keep": 7.0, "retreat": 0.5, "orbit": 0.4},
+	},
+	"chronomancer": {
+		"name": "Chronomancer", "title": "The Hourglass", "role": "Time control", "tag": "Time", "difficulty": 3, "dmg_type": "magic",
+		"playstyle": "Bend time: slow foes, snap back to where you stood 3 s ago with the HP you had then, and stop time itself. Damage dealt to stopped foes lands all at once, 25% harder.",
+		"primary": "int", "str": 18.0, "agi": 15.0, "int": 25.0, "str_g": 1.9, "agi_g": 1.5, "int_g": 3.0,
+		"dmg": 13.0, "range": 8.5, "atk_time": 1.5, "speed": 5.1, "armor": 2.0, "ranged": true,
+		"skills": ["time_bolt", "stasis_field", "rewind", "time_stop"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["focus_pendant", "vigor_charm", "sage_circlet", "hivecore_sigil", "hide_vest", "bulwark_plate", "runners_boots", "focus_pendant", "wayfarer_treads", "stout_belt", "wardens_aegis", "iron_knuckles", "vigor_charm", "bloodthirst_fang"],
+		"bot": {"ranged": true, "keep": 8.0, "retreat": 0.5, "orbit": 0.4},
+	},
 }
+
+## Which damage a hero mostly deals: "phys" (cut by armor; brittle and corroded foes take more) or "magic".
+## Shown on hero select so a team can cover both kinds of foe.
+const DMG_TYPES := {"phys": {"name": "Physical", "color": Color("ff9a5a")}, "magic": {"name": "Magic", "color": Color("8ab8ff")},
+	"mixed": {"name": "Mixed", "color": Color("d8b8ff")}}
+
+static func hero_dmg_type(id: String) -> String:
+	return String(HEROES.get(id, {}).get("dmg_type", "phys"))
 
 ## Skill data. mana/cd arrays are per rank (index 0 = rank 1).
 const SKILLS := {
@@ -253,6 +343,110 @@ const SKILLS := {
 	"dawn_lance": {"name": "Dawn Lance", "max": 3, "mana": [140, 160, 180], "cd": [60.0, 52.0, 45.0],
 		"aim": "direction", "range": 26.0, "width": 3.0,
 		"desc": "Channel for 1.2 s, then fire a lance of dawn across the arena. Spends all Radiance for more damage."},
+	# --- Duelist ---
+	"riposte": {"name": "Riposte", "max": 4, "mana": [25, 25, 25, 25], "cd": [5.0, 4.5, 4.0, 3.5],
+		"aim": "self", "range": 0.0,
+		"desc": "Raise your blade for 0.7 s. Any hit in that window is parried: no damage, a heavy counter on the attacker, the cooldown refunded and +1 Poise (max 5)."},
+	"lunge": {"name": "Lunge", "max": 4, "mana": [40, 45, 50, 55], "cd": [7.0, 6.5, 6.0, 5.5],
+		"aim": "direction", "range": 6.0, "width": 1.5,
+		"desc": "Dash forward, piercing every foe on the way. Exposed foes take a critical hit, and hitting one refunds half the cooldown."},
+	"feint": {"name": "Feint", "max": 4, "mana": [45, 50, 55, 60], "cd": [10.0, 9.0, 8.0, 7.0],
+		"aim": "direction", "range": 3.6, "width": 3.2,
+		"desc": "Feint at the foes in front: for 4 s they are Exposed, dealing 40% less damage and taking 25% more from you."},
+	"blade_dance": {"name": "Blade Dance", "max": 3, "mana": [100, 120, 140], "cd": [55.0, 48.0, 42.0],
+		"aim": "self", "range": 0.0,
+		"desc": "For 5/6/7 s every melee hit on you is parried automatically and each counter strikes twice."},
+	# --- Vanguard (no mana: "rage" is the Rage each cast costs) ---
+	"shield_bash": {"name": "Shield Bash", "max": 4, "mana": [0, 0, 0, 0], "rage": 20, "cd": [6.0, 5.5, 5.0, 4.5],
+		"aim": "direction", "range": 3.4, "width": 3.0,
+		"desc": "Costs 20 Rage. Bash the foes in front: damage that grows with your armor and a 1.2 s stun."},
+	"war_cry": {"name": "War Cry", "max": 4, "mana": [0, 0, 0, 0], "rage": 15, "cd": [12.0, 11.0, 10.0, 9.0],
+		"aim": "self", "range": 0.0, "radius": 5.5,
+		"desc": "Costs 15 Rage. Roar: foes within 5.5 m must attack you for 3 s, and you take 15/20/25/30% less damage for 5 s."},
+	"iron_will": {"name": "Iron Will", "max": 4, "mana": [0, 0, 0, 0], "rage": 10, "cd": [14.0, 13.0, 12.0, 11.0],
+		"aim": "self", "range": 0.0, "radius": 3.5,
+		"desc": "Spend all your Rage (at least 10) for a shield of 4/5/6/7 HP per point for 6 s. When it breaks or fades it bursts, hurting foes around you."},
+	"juggernaut": {"name": "Juggernaut", "max": 3, "mana": [0, 0, 0], "rage": 0, "cd": [60.0, 52.0, 45.0],
+		"aim": "self", "range": 0.0,
+		"desc": "For 8/9/10 s your Rage stays full, your swings cleave everything around you and you take 25% less damage."},
+	# --- Nightblade ---
+	"shadowstep": {"name": "Shadowstep", "max": 4, "mana": [40, 40, 45, 45], "cd": [7.0, 6.0, 5.0, 4.0],
+		"aim": "direction", "range": 8.0, "width": 2.5,
+		"desc": "Step through the shadows to the back of the nearest foe in that direction and stab it there for a critical backstab."},
+	"fan_of_knives": {"name": "Fan of Knives", "max": 4, "mana": [50, 55, 60, 65], "cd": [8.0, 7.5, 7.0, 6.5],
+		"aim": "self", "range": 0.0, "radius": 4.0,
+		"desc": "Throw knives all around you: damage and a 35% slow for 2 s. Foes facing away take the backstab bonus."},
+	"vanish": {"name": "Vanish", "max": 4, "mana": [60, 60, 60, 60], "cd": [16.0, 14.0, 12.0, 10.0],
+		"aim": "self", "range": 0.0,
+		"desc": "Vanish for 2.5/3/3.5/4 s: foes lose you and swarm the spot where you vanished, you move 40% faster, and your next hit is a backstab for triple damage."},
+	"death_mark": {"name": "Death Mark", "max": 3, "mana": [100, 120, 140], "cd": [50.0, 44.0, 38.0],
+		"aim": "self", "range": 12.0,
+		"desc": "Mark the toughest foe nearby (bosses first) for 4 s. When it ends it takes 50% of the damage you dealt it plus a burst, and a normal foe below 25% HP dies."},
+	# --- Skyspear ---
+	"hurl_spear": {"name": "Hurl Spear", "max": 4, "mana": [35, 40, 45, 50], "cd": [5.0, 4.5, 4.0, 3.5],
+		"aim": "direction", "range": 11.0, "width": 1.4,
+		"desc": "Throw your spear: it pierces every foe in a line and stays where it lands. Until you get it back you fight with fists."},
+	"recall": {"name": "Recall", "max": 4, "mana": [20, 20, 25, 25], "cd": [3.0, 2.8, 2.6, 2.4],
+		"aim": "self", "range": 0.0,
+		"desc": "Call your spear back: it flies to you, cutting foes in its path and dragging them along. With the spear in hand, spin it to hit everyone around you."},
+	"vault": {"name": "Vault", "max": 4, "mana": [50, 50, 55, 55], "cd": [10.0, 9.0, 8.0, 7.0],
+		"aim": "point", "range": 9.0, "radius": 2.5,
+		"desc": "Leap to the aimed spot (or straight to your spear if it is out, picking it up) and slam: damage and a 1 s stun where you land."},
+	"skyfall": {"name": "Skyfall", "max": 3, "mana": [110, 130, 150], "cd": [50.0, 44.0, 38.0],
+		"aim": "point", "range": 11.0, "radius": 4.0,
+		"desc": "Hurl 6/8/10 spears that rain down on an area. They stay planted for 8 s, and Recall pulls every one of them back through the pack."},
+	# --- Frostweaver ---
+	"ice_shard": {"name": "Ice Shard", "max": 4, "mana": [45, 50, 55, 60], "cd": [5.0, 4.5, 4.0, 3.5],
+		"aim": "direction", "range": 11.0, "width": 1.4,
+		"desc": "Fire a shard that pierces every foe in a line: damage and 2 Chill."},
+	"frost_nova": {"name": "Frost Nova", "max": 4, "mana": [65, 70, 75, 80], "cd": [11.0, 10.0, 9.0, 8.0],
+		"aim": "self", "range": 0.0, "radius": 4.0,
+		"desc": "Blast cold around you: damage, 2 Chill and a 1 s root on every foe within 4 m."},
+	"shatter": {"name": "Shatter", "max": 4, "mana": [55, 60, 65, 70], "cd": [8.0, 7.5, 7.0, 6.5],
+		"aim": "point", "range": 10.0, "radius": 4.0,
+		"desc": "Shatter the foes in an area: frozen foes take heavy damage and spray 2 Chill onto those around them; the others take 15% more per Chill stack."},
+	"blizzard": {"name": "Blizzard", "max": 3, "mana": [130, 150, 170], "cd": [60.0, 52.0, 45.0],
+		"aim": "point", "range": 12.0, "radius": 4.5,
+		"desc": "Call a blizzard for 6 s: foes inside take damage and gain 1 Chill every second, and are slowed 30%."},
+	# --- Stormcaller ---
+	"chain_lightning": {"name": "Chain Lightning", "max": 4, "mana": [50, 55, 60, 65], "cd": [5.0, 4.5, 4.0, 3.5],
+		"aim": "direction", "range": 9.0, "width": 3.0,
+		"desc": "A bolt that jumps between up to 4/5/6/7 foes, hitting 12% harder with every jump. At full Static it overloads: twice the jumps and +50% damage."},
+	"ball_lightning": {"name": "Ball Lightning", "max": 4, "mana": [65, 70, 75, 80], "cd": [10.0, 9.5, 9.0, 8.5],
+		"aim": "direction", "range": 12.0, "width": 2.5,
+		"desc": "Send a slow ball of lightning that zaps every foe near it as it rolls, then bursts."},
+	"storm_step": {"name": "Storm Step", "max": 4, "mana": [50, 55, 60, 65], "cd": [12.0, 11.0, 10.0, 9.0],
+		"aim": "point", "range": 7.0, "radius": 2.5,
+		"desc": "Become lightning and strike the aimed spot: foes along the path take damage and foes where you land are stunned for 0.8 s."},
+	"thunderstorm": {"name": "Thunderstorm", "max": 3, "mana": [140, 160, 180], "cd": [65.0, 56.0, 48.0],
+		"aim": "self", "range": 11.0,
+		"desc": "For 8 s lightning strikes a foe within 11 m twice a second and chains to 2 more."},
+	# --- Alchemist ---
+	"acid_flask": {"name": "Acid Flask", "max": 4, "mana": [45, 45, 50, 50], "cd": [6.0, 5.5, 5.0, 4.5],
+		"aim": "point", "range": 10.0, "radius": 2.8,
+		"desc": "Shatter a flask of acid for 4 s: foes inside burn and are Corroded, losing 4/5/6/7 armor, so physical hits land harder."},
+	"gilded_bomb": {"name": "Gilded Bomb", "max": 4, "mana": [55, 60, 65, 70], "cd": [8.0, 7.5, 7.0, 6.5],
+		"aim": "point", "range": 11.0, "radius": 3.0,
+		"desc": "Lob a bomb. If you have 25 gold it burns it for +60% damage, and foes it kills drop 3 extra gold."},
+	"elixir": {"name": "Elixir", "max": 4, "mana": [60, 60, 65, 65], "cd": [16.0, 15.0, 14.0, 13.0],
+		"aim": "self", "range": 0.0,
+		"desc": "Drink an elixir: heal 20/25/30/35% of your max HP over 4 s and attack 40% faster for 6 s."},
+	"golden_touch": {"name": "Golden Touch", "max": 3, "mana": [100, 120, 140], "cd": [55.0, 48.0, 42.0],
+		"aim": "point", "range": 10.0, "radius": 4.0,
+		"desc": "Spend 10% of your gold (at least 50 if you have it): foes in the area turn to gold for 3 s, then crumble for damage that grows with the gold spent."},
+	# --- Chronomancer ---
+	"time_bolt": {"name": "Time Bolt", "max": 4, "mana": [35, 40, 45, 50], "cd": [4.5, 4.0, 3.5, 3.0],
+		"aim": "direction", "range": 11.0, "width": 1.2,
+		"desc": "A bolt that slows its target 50% for 2 s. Foes that are already slowed take 30% more."},
+	"stasis_field": {"name": "Stasis Field", "max": 4, "mana": [65, 70, 75, 80], "cd": [13.0, 12.0, 11.0, 10.0],
+		"aim": "point", "range": 10.0, "radius": 3.5,
+		"desc": "Slow time in an area for 5 s: foes inside move 60% slower, attack slower and wither."},
+	"rewind": {"name": "Rewind", "max": 4, "mana": [50, 50, 50, 50], "cd": [18.0, 16.0, 14.0, 12.0],
+		"aim": "self", "range": 0.0,
+		"desc": "Snap back to where you stood 3 s ago, with the HP you had then if it was more. Resets Time Bolt."},
+	"time_stop": {"name": "Time Stop", "max": 3, "mana": [150, 170, 190], "cd": [70.0, 60.0, 50.0],
+		"aim": "self", "range": 10.0,
+		"desc": "Stop time for foes within 10 m for 2.5/3/3.5 s (bosses shrug most of it off). Your damage to them is held and lands all at once, 25% harder."},
 }
 
 ## Items. kind: basic / advanced / consumable. "from" = recipe components.

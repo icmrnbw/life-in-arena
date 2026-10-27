@@ -196,7 +196,8 @@ func setup(rig: Dictionary, k: String) -> void:
 
 const HERO_RING := {"ashwarden": Color(1.0, 0.76, 0.25), "riftdancer": Color(0.25, 0.95, 0.88), "hivemother": Color(0.62, 1.0, 0.25),
 	"sanguine": Color("e0263c"), "snarewright": Color("c8d24a"), "twinhide": Color("c86bff"), "twinhide_beast": Color("c86bff"),
-	"gravekeeper": Color("8affc8"), "stoneshaper": Color("d9a066"), "gunsmith": Color("4fb8ff"), "sunspeaker": Color("ffe680")}
+	"gravekeeper": Color("8affc8"), "stoneshaper": Color("d9a066"), "gunsmith": Color("4fb8ff"), "sunspeaker": Color("ffe680"),
+	"duelist": Color("ffd25a"), "vanguard": Color("ff5a33"), "nightblade": Color("9a6bff"), "skyspear": Color("7fd4ff"), "frostweaver": Color("9ae8ff"), "stormcaller": Color("b0a0ff"), "alchemist": Color("9cff4a"), "chronomancer": Color("f0d890")}
 
 ## Hero ground-ring colour: HERO_RING, else Art.palette[kind] for any non-enemy kind (so a future hero only needs a palette entry).
 static func hero_color(k: String, p: Dictionary) -> Variant:

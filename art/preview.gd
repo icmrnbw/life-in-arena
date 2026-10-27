@@ -5,11 +5,13 @@ extends Node3D
 ##   --view=row --kinds=a,b,c   close-up row of any unit kinds
 
 const HEROES := ["ashwarden", "riftdancer", "hivemother", "sanguine", "snarewright", "twinhide", "twinhide_beast",
-	"gravekeeper", "stoneshaper", "gunsmith", "sunspeaker"]
+	"gravekeeper", "stoneshaper", "gunsmith", "sunspeaker", "duelist", "vanguard", "nightblade", "skyspear", "frostweaver",
+	"stormcaller", "alchemist", "chronomancer"]
 const ENEMIES := ["gnawer", "shieldbearer", "hexcaster", "burrower", "bloater", "ironhulk", "veilwraith"]
 const BOSSES := ["pit_brute", "matron", "hollow_choir", "warden"]
 const SUMMONS := ["broodling", "ember_totem", "afterimage", "choir_add", "skeleton", "snare_trap", "blast_charge", "boulder", "stone_pillar"]
-const PROJ := ["fire_bolt", "spit", "hex_bolt", "boss_orb", "hero_bolt", "bullet", "crossbow_bolt", "spirit_lance", "grave_bolt", "blood_bolt"]
+const PROJ := ["fire_bolt", "spit", "hex_bolt", "boss_orb", "hero_bolt", "bullet", "crossbow_bolt", "spirit_lance", "grave_bolt", "blood_bolt",
+	"dagger", "frost_bolt", "vial", "time_bolt"]
 const FX_ONESHOT := ["hit", "death_burst", "level_up", "heal", "gold", "damage_number", "teleport", "tether_pull", "slip_trail",
 	"shatter", "rift_strike", "brood_hatch", "sacrifice_explosion", "slam", "fountain_heal",
 	"cone", "ring_burst", "blood_burst", "trap_snap", "explosion", "soul_wisp", "form_shift"]

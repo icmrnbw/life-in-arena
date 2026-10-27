@@ -69,6 +69,46 @@ const SKINS := {
 		{"id": "dusk", "name": "Duskspeaker", "rarity": "mythical", "unlock": "free", "hue": -40.0, "val": 0.8, "accent": Color("ff6a3a"), "glow": 1.5},
 		{"id": "solar", "name": "Solar Ascendant", "rarity": "legendary", "unlock": "store", "sat": 1.4, "val": 1.15, "accent": Color("ffe680"), "glow": 2.8},
 	],
+	"duelist": [
+		{"id": "crimson_fencer", "name": "Crimson Fencer", "rarity": "uncommon", "unlock": "free", "hue": 150.0, "accent": Color("ff4a4a")},
+		{"id": "masquerade", "name": "Masquerade", "rarity": "mythical", "unlock": "free", "hue": 60.0, "val": 0.75, "accent": Color("d86bff"), "glow": 1.5},
+		{"id": "gilded_blade", "name": "Gilded Blade", "rarity": "legendary", "unlock": "store", "sat": 1.3, "val": 1.25, "accent": Color("fff0a0"), "glow": 2.4},
+	],
+	"vanguard": [
+		{"id": "verdigris", "name": "Verdigris", "rarity": "uncommon", "unlock": "free", "hue": 140.0, "accent": Color("5affb0")},
+		{"id": "blackiron", "name": "Blackiron", "rarity": "mythical", "unlock": "free", "sat": 0.4, "val": 0.55, "accent": Color("ff3a1a"), "glow": 1.7},
+		{"id": "dragonplate", "name": "Dragonplate", "rarity": "legendary", "unlock": "store", "hue": -20.0, "sat": 1.3, "val": 1.2, "accent": Color("ffb030"), "glow": 2.4},
+	],
+	"nightblade": [
+		{"id": "ashen_veil", "name": "Ashen Veil", "rarity": "uncommon", "unlock": "free", "sat": 0.3, "val": 1.2, "accent": Color("e0e0ff")},
+		{"id": "bloodmoon_blade", "name": "Bloodmoon", "rarity": "mythical", "unlock": "free", "hue": 90.0, "accent": Color("ff2a4a"), "glow": 1.6},
+		{"id": "void_walker", "name": "Void Walker", "rarity": "legendary", "unlock": "store", "hue": -60.0, "val": 0.7, "accent": Color("3ff0dc"), "glow": 2.6},
+	],
+	"skyspear": [
+		{"id": "sunspear", "name": "Sunspear", "rarity": "uncommon", "unlock": "free", "hue": 180.0, "accent": Color("ffb04a")},
+		{"id": "stormspear", "name": "Stormspear", "rarity": "mythical", "unlock": "free", "hue": 60.0, "val": 0.8, "accent": Color("c08aff"), "glow": 1.5},
+		{"id": "valkyrie", "name": "Valkyrie", "rarity": "legendary", "unlock": "store", "sat": 0.5, "val": 1.3, "accent": Color("fff6c0"), "glow": 2.5},
+	],
+	"frostweaver": [
+		{"id": "emberweaver", "name": "Emberweaver", "rarity": "uncommon", "unlock": "free", "hue": 170.0, "accent": Color("ff8a3a")},
+		{"id": "glacier_queen", "name": "Glacier Queen", "rarity": "mythical", "unlock": "free", "sat": 0.4, "val": 1.25, "accent": Color("e8fbff"), "glow": 1.6},
+		{"id": "aurora", "name": "Aurora", "rarity": "legendary", "unlock": "store", "hue": -70.0, "sat": 1.3, "accent": Color("6cff9a"), "glow": 2.6},
+	],
+	"stormcaller": [
+		{"id": "sandstorm", "name": "Sandstorm", "rarity": "uncommon", "unlock": "free", "hue": 170.0, "accent": Color("ffc86a")},
+		{"id": "red_thunder", "name": "Red Thunder", "rarity": "mythical", "unlock": "free", "hue": 110.0, "accent": Color("ff4a4a"), "glow": 1.6},
+		{"id": "tempest_lord", "name": "Tempest Lord", "rarity": "legendary", "unlock": "store", "sat": 0.4, "val": 1.3, "accent": Color("bff4ff"), "glow": 2.6},
+	],
+	"alchemist": [
+		{"id": "plague_doctor", "name": "Plague Doctor", "rarity": "uncommon", "unlock": "free", "sat": 0.35, "val": 0.75, "accent": Color("b0ff6a")},
+		{"id": "quicksilver", "name": "Quicksilver", "rarity": "mythical", "unlock": "free", "hue": 120.0, "accent": Color("8ad8ff"), "glow": 1.5},
+		{"id": "midas", "name": "Midas", "rarity": "legendary", "unlock": "store", "hue": -50.0, "sat": 1.4, "val": 1.25, "accent": Color("ffd24a"), "glow": 2.6},
+	],
+	"chronomancer": [
+		{"id": "dusk_glass", "name": "Dusk Glass", "rarity": "uncommon", "unlock": "free", "hue": 160.0, "accent": Color("ff8a6a")},
+		{"id": "eternity", "name": "Eternity", "rarity": "mythical", "unlock": "free", "hue": -90.0, "val": 0.8, "accent": Color("7af0d0"), "glow": 1.6},
+		{"id": "starfall", "name": "Starfall Seer", "rarity": "legendary", "unlock": "store", "sat": 0.45, "val": 1.3, "accent": Color("c8d8ff"), "glow": 2.7},
+	],
 }
 
 

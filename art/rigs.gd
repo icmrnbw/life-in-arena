@@ -43,7 +43,8 @@ class RB extends "res://art/mesh_kit.gd":
 const DETAIL := {"chanter": 0.8, "drummer": 0.7, "ashwarden": 0.85, "hivemother": 0.62, "gnawer": 0.7, "shieldbearer": 0.5,
 	"hexcaster": 0.85, "burrower": 0.7, "bloater": 0.5, "broodling": 0.5, "ironhulk": 0.5, "veilwraith": 0.7,
 	"sanguine": 0.85, "snarewright": 0.68, "twinhide": 0.68, "twinhide_beast": 0.62, "gravekeeper": 0.75, "stoneshaper": 1.0,
-	"gunsmith": 0.85, "sunspeaker": 0.85, "skeleton": 0.4, "snare_trap": 0.6, "blast_charge": 0.6, "boulder": 0.8, "stone_pillar": 0.8}
+	"gunsmith": 0.85, "sunspeaker": 0.85,
+	"duelist": 0.8, "vanguard": 0.75, "nightblade": 0.8, "skyspear": 0.8, "frostweaver": 0.8, "stormcaller": 0.8, "alchemist": 0.75, "chronomancer": 0.8, "skeleton": 0.4, "snare_trap": 0.6, "blast_charge": 0.6, "boulder": 0.8, "stone_pillar": 0.8}
 
 static func get_rig(kind: String) -> Dictionary:
 	if _cache.has(kind):
@@ -79,6 +80,14 @@ static func get_rig(kind: String) -> Dictionary:
 		"stoneshaper": r = _stoneshaper()
 		"gunsmith": r = _gunsmith()
 		"sunspeaker": r = _sunspeaker()
+		"duelist": r = _duelist()
+		"vanguard": r = _vanguard()
+		"nightblade": r = _nightblade()
+		"skyspear": r = _skyspear()
+		"frostweaver": r = _frostweaver()
+		"stormcaller": r = _stormcaller()
+		"alchemist": r = _alchemist()
+		"chronomancer": r = _chronomancer()
 		"skeleton": r = _skeleton()
 		"snare_trap": r = _snare_trap()
 		"blast_charge": r = _blast_charge()
@@ -1978,4 +1987,381 @@ static func _generic() -> Dictionary:
 		k.box(Vector3(0.05, 0.02, 0.02), Vector3(s * 0.05, 1.5, -0.18), glow, Vector3.ZERO, 3.0)
 	var p := _base_params()
 	p.merge({"radius": 0.45, "height": 1.7, "glow": glow, "attack": "slash2"}, true)
+	return k.finish(p)
+
+# =================================================================== 0.6 ROSTER
+## Shared humanoid base for the 0.6 heroes: bones + legs, hips, torso, head and arms in the given colours.
+## c keys: leg, boot, belt, torso, sleeve, hand, skin; sw = shoulder half-width, bulk = torso scale.
+static func _humanoid(k: RB, c: Dictionary, sw := 0.29, bulk := 1.0, hip_h := 0.93) -> void:
+	var ch := hip_h + 0.28
+	k.bone("root", "", Vector3.ZERO)
+	k.bone("hips", "root", Vector3(0, hip_h, 0))
+	k.bone("chest", "hips", Vector3(0, ch, 0))
+	k.bone("head", "chest", Vector3(0, ch + 0.34, -0.02))
+	k.bone("arm_l", "chest", Vector3(-sw, ch + 0.18, 0))
+	k.bone("arm_r", "chest", Vector3(sw, ch + 0.18, 0))
+	k.bone("weapon_l", "arm_l", Vector3(-sw - 0.06, hip_h - 0.07, -0.05))
+	k.bone("weapon_r", "arm_r", Vector3(sw + 0.06, hip_h - 0.07, -0.05))
+	k.bone("leg_l", "hips", Vector3(-0.13, hip_h - 0.02, 0))
+	k.bone("leg_r", "hips", Vector3(0.13, hip_h - 0.02, 0))
+	k.bone("cape", "chest", Vector3(0, ch + 0.2, 0.2))
+	for s in [-1.0, 1.0]:
+		k.on("leg_l" if s < 0 else "leg_r")
+		k.limb(Vector3(s * 0.13, hip_h - 0.02, 0), Vector3(s * 0.14, 0.5, -0.01), 0.09 * bulk, c["leg"])
+		k.cyl(0.1 * bulk, 0.115 * bulk, 0.44, Vector3(s * 0.145, 0.26, 0), c["boot"])
+		k.box(Vector3(0.15, 0.1, 0.32) * Vector3(bulk, 1, 1), Vector3(s * 0.145, 0.05, -0.06), c["boot"].darkened(0.3))
+	k.on("hips")
+	k.cyl(0.22 * bulk, 0.24 * bulk, 0.18, Vector3(0, hip_h, 0), c["leg"])
+	k.cyl(0.245 * bulk, 0.245 * bulk, 0.06, Vector3(0, hip_h - 0.04, 0), c["belt"])
+	k.on("chest")
+	k.ball(1.0, Vector3(0, ch, 0), c["torso"], Vector3(0.27, 0.3, 0.2) * bulk, Vector3.ZERO, -1, 12, 7)
+	k.on("head")
+	k.ball(1.0, Vector3(0, ch + 0.42, -0.02), c["skin"], Vector3(0.14, 0.16, 0.14))
+	for s in [-1.0, 1.0]:
+		k.on("arm_l" if s < 0 else "arm_r")
+		k.ball(1.0, Vector3(s * sw, ch + 0.18, 0), c["sleeve"], Vector3(0.11, 0.1, 0.11) * bulk)
+		k.tube(Vector3(s * sw, ch + 0.15, 0), Vector3(s * (sw + 0.05), hip_h + 0.04, -0.04), 0.07 * bulk, 0.085 * bulk, c["sleeve"], -1, 7)
+		k.ball(0.065 * bulk, Vector3(s * (sw + 0.06), hip_h - 0.06, -0.05), c["hand"])
+
+
+static func _eyes(k: RB, y: float, z: float, col: Color, emis := -1.0, gap := 0.05) -> void:
+	for s in [-1.0, 1.0]:
+		k.box(Vector3(0.035, 0.022, 0.02), Vector3(s * gap, y, z), col, Vector3.ZERO, emis)
+
+
+## Duelist: fencer in a blue doublet with a feathered hat, cape over one shoulder, rapier with a gold basket hilt.
+static func _duelist() -> Dictionary:
+	var k := RB.new()
+	var blue := Color("2c3a60"); var blue_d := Color("1a2240"); var cream := Color("f0e6d0"); var gold := Color("e8b84a"); var steel := Color("c8d0dc")
+	var red := Color("b0302a"); var skin := Color("e0b088"); var hair := Color("2a1a12"); var boot := Color("3a2418"); var feather := Color("fff0a0")
+	_humanoid(k, {"leg": cream.darkened(0.15), "boot": boot, "belt": gold.darkened(0.3), "torso": blue, "sleeve": blue, "hand": Color("e8dcc0"), "skin": skin}, 0.28)
+	k.on("hips")
+	for s in [-1.0, 1.0]:
+		k.box(Vector3(0.2, 0.42, 0.03), Vector3(s * 0.12, 0.72, -0.18), blue_d, Vector3(10, 0, s * 8))
+	k.on("chest")
+	k.box(Vector3(0.16, 0.36, 0.04), Vector3(0, 1.22, -0.18), cream)
+	for i in 4:
+		k.ball(0.018, Vector3(0, 1.34 - i * 0.07, -0.205), gold, Vector3.ONE, Vector3.ZERO, -1, 6, 4)
+	k.box(Vector3(0.05, 0.5, 0.03), Vector3(0, 1.2, -0.2), gold, Vector3(0, 0, 32))
+	k.torus(0.07, 0.16, Vector3(0, 1.46, -0.02), cream, Vector3(8, 0, 0), -1, 10, 4)
+	k.on("cape")
+	k.box(Vector3(0.32, 0.8, 0.03), Vector3(-0.1, 0.98, 0.22), red, Vector3(-8, 0, 6))
+	k.box(Vector3(0.3, 0.06, 0.035), Vector3(-0.1, 0.6, 0.27), gold, Vector3(-8, 0, 6))
+	k.on("head")
+	k.hemi(1.0, Vector3(0, 1.67, 0.0), hair, Vector3(0.15, 0.12, 0.16), Vector3(-10, 0, 0))
+	k.box(Vector3(0.1, 0.03, 0.03), Vector3(0, 1.575, -0.145), hair)
+	_eyes(k, 1.645, -0.14, Color("1a100a"))
+	k.cyl(0.3, 0.3, 0.03, Vector3(0, 1.74, -0.01), blue_d, Vector3(-6, 0, 8), -1, 14)
+	k.cyl(0.13, 0.15, 0.12, Vector3(0, 1.8, -0.01), blue, Vector3(-6, 0, 8), -1, 10)
+	k.torus(0.13, 0.155, Vector3(0, 1.76, -0.01), gold, Vector3(-6, 0, 8), -1, 10, 4)
+	k.spike(Vector3(0.12, 1.8, 0.02), Vector3(0.36, 2.02, 0.18), 0.05, feather, 1.2, 5)
+	k.on("weapon_r")
+	var o := Vector3(0.34, 0.86, -0.05)
+	k.torus(0.05, 0.09, o + Vector3(0, 0, -0.04), gold, Vector3(90, 0, 0), -1, 10, 4)
+	k.box(Vector3(0.03, 0.03, 0.16), o + Vector3(0, 0, 0.06), Color("4a3020"))
+	k.box(Vector3(0.16, 0.025, 0.025), o + Vector3(0, 0, -0.06), gold)
+	k.box(Vector3(0.018, 0.03, 0.95), o + Vector3(0, 0, -0.56), steel, Vector3.ZERO, 0.4)
+	k.spike(o + Vector3(0, 0, -1.03), o + Vector3(0, 0, -1.12), 0.015, steel, 0.4, 4)
+	k.on("weapon_l")
+	k.box(Vector3(0.02, 0.03, 0.34), Vector3(-0.34, 0.86, -0.22), steel, Vector3.ZERO, 0.4)
+	k.box(Vector3(0.1, 0.025, 0.025), Vector3(-0.34, 0.86, -0.05), gold)
+	var p := _base_params()
+	p.merge({"radius": 0.45, "height": 1.85, "glow": Color("ffd25a"), "rim": Color(1.0, 0.9, 0.6),
+		"attack": "thrust", "run_freq": 11.5, "stride": 0.85, "arm_swing": 0.35, "lean": 0.25, "atk_dur": 0.4,
+		"enemy": false, "w_idle_r": Vector3(0.4, -0.3, 0)}, true)
+	return k.finish(p)
+
+
+## Vanguard: hulking knight in iron plate with a horned great helm, a tower shield and a heavy mace.
+static func _vanguard() -> Dictionary:
+	var k := RB.new()
+	var iron := Color("7a7e88"); var iron_d := Color("4a4e58"); var dark := Color("26282e"); var rust := Color("8a2e1e"); var gold := Color("c89848")
+	var ember := Color("ff5a33"); var horn := Color("e8dcc0"); var leather := Color("4a3020")
+	_humanoid(k, {"leg": iron_d, "boot": iron, "belt": leather, "torso": iron, "sleeve": iron, "hand": dark, "skin": iron_d}, 0.36, 1.2, 0.95)
+	for s in [-1.0, 1.0]:
+		k.on("leg_l" if s < 0 else "leg_r")
+		k.ball(1.0, Vector3(s * 0.15, 0.52, -0.1), iron, Vector3(0.12, 0.11, 0.1))
+	k.on("hips")
+	k.box(Vector3(0.3, 0.42, 0.04), Vector3(0, 0.72, -0.24), rust, Vector3(8, 0, 0))
+	for s in [-1.0, 1.0]:
+		k.box(Vector3(0.22, 0.3, 0.06), Vector3(s * 0.24, 0.78, -0.14), iron_d, Vector3(10, s * -25, s * 10))
+	k.on("chest")
+	k.ball(1.0, Vector3(0, 1.26, -0.04), iron, Vector3(0.38, 0.32, 0.28))
+	k.box(Vector3(0.3, 0.06, 0.05), Vector3(0, 1.34, -0.3), gold)
+	k.box(Vector3(0.06, 0.3, 0.05), Vector3(0, 1.22, -0.31), gold)
+	k.box(Vector3(0.16, 0.08, 0.05), Vector3(0, 1.08, -0.3), ember, Vector3.ZERO, 1.6)
+	for s in [-1.0, 1.0]:
+		k.ball(1.0, Vector3(s * 0.4, 1.45, 0), iron, Vector3(0.2, 0.15, 0.2))
+		k.torus(0.15, 0.2, Vector3(s * 0.4, 1.42, 0), gold, Vector3(0, 0, s * 20), -1, 10, 4)
+	k.on("cape")
+	k.box(Vector3(0.6, 1.0, 0.03), Vector3(0, 0.95, 0.3), rust, Vector3(-6, 0, 0))
+	k.on("head")
+	k.cyl(0.17, 0.16, 0.3, Vector3(0, 1.66, -0.02), iron, Vector3.ZERO, -1, 10)
+	k.hemi(0.17, Vector3(0, 1.81, -0.02), iron)
+	k.box(Vector3(0.2, 0.03, 0.03), Vector3(0, 1.67, -0.18), ember, Vector3.ZERO, 2.6)
+	k.box(Vector3(0.03, 0.12, 0.03), Vector3(0, 1.6, -0.18), dark)
+	k.box(Vector3(0.05, 0.2, 0.26), Vector3(0, 1.92, 0), rust)
+	for s in [-1.0, 1.0]:
+		k.tube(Vector3(s * 0.15, 1.78, 0), Vector3(s * 0.32, 1.9, -0.02), 0.045, 0.035, horn, -1, 6)
+		k.spike(Vector3(s * 0.32, 1.9, -0.02), Vector3(s * 0.36, 2.08, -0.08), 0.035, horn, -1, 5)
+	k.on("weapon_l")
+	var sl := Vector3(-0.46, 0.95, -0.12)
+	k.box(Vector3(0.08, 0.92, 0.6), sl + Vector3(-0.04, 0.12, 0), iron_d)
+	k.box(Vector3(0.09, 0.8, 0.48), sl + Vector3(-0.05, 0.12, 0), rust)
+	k.box(Vector3(0.1, 0.62, 0.08), sl + Vector3(-0.06, 0.12, 0), gold)
+	k.box(Vector3(0.1, 0.08, 0.36), sl + Vector3(-0.06, 0.26, 0), gold)
+	k.on("weapon_r")
+	var o := Vector3(0.44, 0.88, -0.05)
+	k.cyl(0.03, 0.035, 0.7, o + Vector3(0, 0, -0.25), leather, Vector3(90, 0, 0), -1, 6)
+	k.cyl(0.1, 0.1, 0.22, o + Vector3(0, 0, -0.62), iron, Vector3(90, 0, 0), -1, 8)
+	for i in 6:
+		var a := TAU * i / 6.0
+		k.box(Vector3(0.05, 0.1, 0.2), o + Vector3(cos(a) * 0.11, sin(a) * 0.11, -0.62), iron_d, Vector3(0, 0, rad_to_deg(a)))
+	var p := _base_params()
+	p.merge({"radius": 0.62, "height": 2.0, "glow": Color("ff5a33"), "rim": Color(1.0, 0.7, 0.55),
+		"attack": "overhead", "run_freq": 8.0, "stride": 0.55, "arm_swing": 0.3, "lean": 0.12, "atk_dur": 0.6, "enemy": false}, true)
+	return k.finish(p)
+
+
+## Nightblade: hooded assassin in violet-black leathers with a face wrap and two curved daggers.
+static func _nightblade() -> Dictionary:
+	var k := RB.new()
+	var cloth := Color("2a1c40"); var cloth_d := Color("16102a"); var leather := Color("3a2a3a"); var violet := Color("9a6bff"); var steel := Color("c8c8dc")
+	var skin := Color("c8a088"); var strap := Color("4a3a50")
+	_humanoid(k, {"leg": cloth_d, "boot": leather, "belt": strap, "torso": cloth, "sleeve": cloth, "hand": leather, "skin": skin}, 0.27, 0.95)
+	k.on("hips")
+	for s in [-1.0, 1.0]:
+		k.box(Vector3(0.16, 0.5, 0.03), Vector3(s * 0.12, 0.66, -0.17), cloth, Vector3(8, 0, s * 6))
+		k.box(Vector3(0.05, 0.16, 0.05), Vector3(s * 0.24, 0.84, -0.06), steel, Vector3(0, 0, s * 20))
+	k.on("chest")
+	k.box(Vector3(0.06, 0.5, 0.04), Vector3(0, 1.2, -0.19), strap, Vector3(0, 0, -30))
+	for i in 3:
+		k.box(Vector3(0.03, 0.08, 0.03), Vector3(-0.08 + i * 0.07, 1.12 + i * 0.07, -0.22), steel, Vector3(0, 0, -30))
+	k.on("cape")
+	k.box(Vector3(0.44, 0.9, 0.03), Vector3(0, 0.98, 0.22), cloth_d, Vector3(-8, 0, 0))
+	for i in 3:
+		k.spike(Vector3(-0.16 + i * 0.16, 0.56, 0.28), Vector3(-0.16 + i * 0.16, 0.42, 0.3), 0.07, cloth_d, -1, 4)
+	k.on("head")
+	k.ball(1.0, Vector3(0, 1.64, 0.01), cloth, Vector3(0.18, 0.19, 0.18))
+	k.spike(Vector3(0, 1.74, 0.1), Vector3(0, 1.66, 0.32), 0.09, cloth, -1, 5)
+	k.box(Vector3(0.2, 0.09, 0.05), Vector3(0, 1.57, -0.13), cloth_d)
+	k.box(Vector3(0.14, 0.05, 0.03), Vector3(0, 1.64, -0.16), skin)
+	_eyes(k, 1.645, -0.172, violet, 2.6, 0.042)
+	for s in [-1.0, 1.0]:
+		k.on("weapon_l" if s < 0 else "weapon_r")
+		var o := Vector3(s * 0.33, 0.86, -0.05)
+		k.box(Vector3(0.035, 0.035, 0.13), o + Vector3(0, 0, 0.04), leather)
+		k.box(Vector3(0.1, 0.02, 0.02), o + Vector3(0, 0, -0.03), violet, Vector3.ZERO, 1.6)
+		k.extrude(PackedVector2Array([Vector2(0, 0), Vector2(0.05, -0.18), Vector2(0.02, -0.42), Vector2(-0.02, -0.2), Vector2(-0.03, 0)]), 0.02,
+			o + Vector3(0, 0, -0.04), steel, Vector3(-90, 0, 0), Vector3.ONE, 0.4)
+	var p := _base_params()
+	p.merge({"radius": 0.45, "height": 1.8, "glow": Color("9a6bff"), "rim": Color(0.75, 0.6, 1.0),
+		"attack": "slash2", "run_freq": 12.5, "stride": 0.95, "arm_swing": 0.3, "lean": 0.35, "atk_dur": 0.38,
+		"enemy": false, "run_arms": Vector3(-0.5, 0, 0), "w_idle_r": Vector3(0.5, -0.5, 0), "w_idle_l": Vector3(0.5, 0.5, 0)}, true)
+	return k.finish(p)
+
+
+## Skyspear: winged-helm spear thrower in bronze scale and a sky-blue skirt, with a long bronze-headed spear.
+static func _skyspear() -> Dictionary:
+	var k := RB.new()
+	var bronze := Color("c88a48"); var bronze_d := Color("8a5a2a"); var sky := Color("4a8ac8"); var sky_d := Color("2a5a8a"); var white := Color("eef4ff")
+	var skin := Color("d8a47c"); var hair := Color("e8c068"); var wood := Color("8a5a32"); var steel := Color("d0d8e4"); var leather := Color("6a4228")
+	_humanoid(k, {"leg": skin, "boot": leather, "belt": bronze_d, "torso": bronze, "sleeve": skin, "hand": leather, "skin": skin}, 0.28)
+	k.on("hips")
+	k.cyl(0.25, 0.34, 0.38, Vector3(0, 0.74, 0), sky, Vector3.ZERO, -1, 12)
+	for i in 6:
+		var a := TAU * i / 6.0
+		k.box(Vector3(0.1, 0.34, 0.02), Vector3(sin(a) * 0.3, 0.74, -cos(a) * 0.3), sky_d, Vector3(10, -rad_to_deg(a), 0))
+	k.on("chest")
+	for i in 4:
+		k.torus(0.2, 0.28, Vector3(0, 1.08 + i * 0.08, -0.01), bronze_d if i % 2 == 0 else bronze, Vector3.ZERO, -1, 12, 4, Vector3(1, 1, 0.75))
+	for s in [-1.0, 1.0]:
+		k.ball(1.0, Vector3(s * 0.3, 1.42, 0), bronze, Vector3(0.13, 0.08, 0.13))
+	k.on("cape")
+	k.box(Vector3(0.4, 0.9, 0.03), Vector3(0, 0.95, 0.24), white, Vector3(-8, 0, 0))
+	k.on("head")
+	k.ball(1.0, Vector3(0, 1.62, 0.06), hair, Vector3(0.15, 0.17, 0.15))
+	k.tube(Vector3(0, 1.62, 0.12), Vector3(0, 1.1, 0.24), 0.07, 0.03, hair, -1, 6)
+	k.hemi(1.0, Vector3(0, 1.69, -0.01), bronze, Vector3(0.155, 0.12, 0.16), Vector3(-6, 0, 0))
+	k.box(Vector3(0.03, 0.12, 0.04), Vector3(0, 1.62, -0.15), bronze_d)
+	_eyes(k, 1.64, -0.14, Color("1a100a"))
+	for s in [-1.0, 1.0]:
+		k.extrude(PackedVector2Array([Vector2(0, 0), Vector2(0.22, 0.12), Vector2(0.3, 0.26), Vector2(0.16, 0.16), Vector2(0.18, 0.24), Vector2(0.04, 0.1)]), 0.02,
+			Vector3(s * 0.14, 1.7, 0.02), white, Vector3(0, 90 if s > 0 else -90, 0), Vector3(1, 1, 1), 0.3)
+	k.on("weapon_r")
+	var o := Vector3(0.34, 0.86, -0.05)
+	k.cyl(0.026, 0.026, 2.2, o + Vector3(0, 0.25, 0), wood, Vector3.ZERO, -1, 6)
+	k.torus(0.025, 0.045, o + Vector3(0, 1.3, 0), bronze, Vector3.ZERO, -1, 8, 4)
+	k.spike(o + Vector3(0, 1.36, 0), o + Vector3(0, 1.66, 0), 0.06, steel, 0.5, 4)
+	k.box(Vector3(0.1, 0.03, 0.03), o + Vector3(0, 1.34, 0), sky, Vector3.ZERO, 1.6)
+	k.spike(o + Vector3(0, -0.84, 0), o + Vector3(0, -0.95, 0), 0.03, bronze, -1, 4)
+	var p := _base_params()
+	p.merge({"radius": 0.45, "height": 1.85, "glow": Color("7fd4ff"), "rim": Color(0.7, 0.9, 1.0),
+		"attack": "thrust", "run_freq": 10.5, "stride": 0.85, "arm_swing": 0.35, "lean": 0.22, "atk_dur": 0.45,
+		"enemy": false, "w_idle_r": Vector3(0.1, 0.0, 0)}, true)
+	return k.finish(p)
+
+
+## Frostweaver: pale witch in layered ice-blue robes with an ice-shard crown and a crystal-tipped staff.
+static func _frostweaver() -> Dictionary:
+	var k := RB.new()
+	var robe := Color("3a5a8a"); var robe_l := Color("a8c8e8"); var white := Color("eef8ff"); var ice := Color("9ae8ff"); var silver := Color("c8d8e8")
+	var skin := Color("e8f0f8"); var hair := Color("f4fbff"); var dark := Color("1a2a4a")
+	_humanoid(k, {"leg": robe, "boot": silver, "belt": silver, "torso": robe, "sleeve": robe_l, "hand": skin, "skin": skin}, 0.28)
+	k.on("hips")
+	k.cyl(0.22, 0.42, 0.66, Vector3(0, 0.6, 0), robe, Vector3.ZERO, -1, 12)
+	k.cyl(0.2, 0.36, 0.5, Vector3(0, 0.62, -0.04), robe_l, Vector3.ZERO, -1, 10)
+	k.torus(0.38, 0.44, Vector3(0, 0.3, 0), white, Vector3.ZERO, -1, 12, 4)
+	k.on("chest")
+	k.ball(1.0, Vector3(0, 1.3, -0.12), white, Vector3(0.2, 0.12, 0.08))
+	k.ball(0.05, Vector3(0, 1.3, -0.2), ice, Vector3.ONE, Vector3.ZERO, 2.8, 8, 5)
+	for s in [-1.0, 1.0]:
+		k.spike(Vector3(s * 0.28, 1.42, 0), Vector3(s * 0.4, 1.62, 0.02), 0.06, ice, 1.4, 4)
+	k.on("cape")
+	k.box(Vector3(0.48, 1.12, 0.03), Vector3(0, 0.9, 0.24), robe_l, Vector3(-6, 0, 0))
+	k.on("head")
+	k.ball(1.0, Vector3(0, 1.66, 0.04), hair, Vector3(0.16, 0.17, 0.16))
+	for s in [-1.0, 1.0]:
+		k.box(Vector3(0.06, 0.4, 0.06), Vector3(s * 0.13, 1.44, 0.02), hair, Vector3(0, 0, s * -6))
+	_eyes(k, 1.64, -0.145, Color("3a8aff"), 2.4)
+	for i in 5:
+		var x := -0.12 + i * 0.06
+		var hh := 0.16 if i == 2 else (0.11 if i % 2 == 1 else 0.08)
+		k.spike(Vector3(x, 1.76, -0.05), Vector3(x * 1.2, 1.76 + hh, -0.07), 0.025, ice, 2.0, 4)
+	k.on("weapon_r")
+	var o := Vector3(0.34, 0.86, -0.05)
+	k.cyl(0.025, 0.03, 1.9, o + Vector3(0, 0.18, 0), silver)
+	var sc := o + Vector3(0, 1.22, 0)
+	for i in 3:
+		var a := TAU * i / 3.0
+		k.spike(sc + Vector3(cos(a) * 0.05, -0.08, sin(a) * 0.05), sc + Vector3(cos(a) * 0.1, 0.2, sin(a) * 0.1), 0.04, ice, 2.2, 4)
+	k.ball(0.07, sc, white, Vector3.ONE, Vector3.ZERO, 3.0, 8, 5)
+	k.on("arm_l")
+	k.ball(0.06, Vector3(-0.35, 0.82, -0.1), ice, Vector3.ONE, Vector3.ZERO, 2.6, 6, 4)
+	var p := _base_params()
+	p.merge({"radius": 0.45, "height": 1.85, "glow": Color("9ae8ff"), "rim": Color(0.75, 0.95, 1.0),
+		"attack": "cast", "run_freq": 9.5, "stride": 0.65, "arm_swing": 0.3, "lean": 0.12, "atk_dur": 0.5, "enemy": false}, true)
+	return k.finish(p)
+
+
+## Stormcaller: white-bearded storm sage in indigo robes with a lightning-forked staff and a crackling mantle.
+static func _stormcaller() -> Dictionary:
+	var k := RB.new()
+	var robe := Color("3a3470"); var robe_d := Color("221e48"); var white := Color("e8e4f4"); var bolt := Color("b0a0ff"); var yellow := Color("ffe680")
+	var silver := Color("a8a8c0"); var skin := Color("9a7a62"); var wood := Color("4a3a30")
+	_humanoid(k, {"leg": robe_d, "boot": robe_d.darkened(0.3), "belt": silver, "torso": robe, "sleeve": robe, "hand": skin, "skin": skin}, 0.29)
+	k.on("hips")
+	k.cyl(0.22, 0.4, 0.64, Vector3(0, 0.61, 0), robe, Vector3.ZERO, -1, 12)
+	k.box(Vector3(0.18, 0.62, 0.03), Vector3(0, 0.6, -0.32), robe_d, Vector3(18, 0, 0))
+	for i in 3:
+		k.box(Vector3(0.12, 0.03, 0.035), Vector3(0, 0.78 - i * 0.18, -0.32 + i * 0.05), yellow, Vector3(18, 0, (i % 2) * 40 - 20), 2.2)
+	k.on("chest")
+	for s in [-1.0, 1.0]:
+		k.ball(1.0, Vector3(s * 0.28, 1.4, 0.02), silver, Vector3(0.14, 0.08, 0.14))
+		k.spike(Vector3(s * 0.3, 1.46, 0.02), Vector3(s * 0.44, 1.56, 0.06), 0.035, bolt, 2.2, 4)
+	k.on("cape")
+	k.box(Vector3(0.5, 1.1, 0.03), Vector3(0, 0.9, 0.24), robe_d, Vector3(-6, 0, 0))
+	k.on("head")
+	k.hemi(1.0, Vector3(0, 1.66, 0.01), white, Vector3(0.155, 0.13, 0.16), Vector3(-10, 0, 0))
+	k.spike(Vector3(0, 1.56, -0.1), Vector3(0, 1.22, -0.14), 0.1, white, -1, 6)
+	for s in [-1.0, 1.0]:
+		k.box(Vector3(0.08, 0.025, 0.04), Vector3(s * 0.05, 1.68, -0.13), white, Vector3(0, 0, s * -15))
+	_eyes(k, 1.64, -0.14, Color("c8d8ff"), 2.6)
+	k.on("weapon_r")
+	var o := Vector3(0.35, 0.86, -0.05)
+	k.cyl(0.03, 0.035, 2.0, o + Vector3(0, 0.2, 0), wood)
+	var sc := o + Vector3(0, 1.22, 0)
+	k.tube(sc, sc + Vector3(-0.12, 0.22, 0), 0.03, 0.02, silver, -1, 5)
+	k.tube(sc, sc + Vector3(0.12, 0.26, 0), 0.03, 0.02, silver, -1, 5)
+	k.spike(sc + Vector3(0.12, 0.26, 0), sc + Vector3(0.0, 0.36, 0), 0.025, yellow, 2.4, 4)
+	k.spike(sc + Vector3(-0.12, 0.22, 0), sc + Vector3(-0.02, 0.32, 0), 0.025, yellow, 2.4, 4)
+	k.ball(0.08, sc + Vector3(0, 0.16, 0), bolt, Vector3.ONE, Vector3.ZERO, 3.0, 8, 5)
+	var p := _base_params()
+	p.merge({"radius": 0.45, "height": 1.85, "glow": Color("b0a0ff"), "rim": Color(0.8, 0.75, 1.0),
+		"attack": "cast", "run_freq": 9.5, "stride": 0.65, "arm_swing": 0.3, "lean": 0.12, "atk_dur": 0.5, "enemy": false}, true)
+	return k.finish(p)
+
+
+## Alchemist: goggled brewer in a leather apron with vials on a bandolier, a backpack still and a bubbling flask.
+static func _alchemist() -> Dictionary:
+	var k := RB.new()
+	var leather := Color("6a4a30"); var apron := Color("8a6a44"); var shirt := Color("d8ccb0"); var brass := Color("dcae4e"); var green := Color("9cff4a")
+	var red := Color("ff5a5a"); var skin := Color("d8a47c"); var hat := Color("3a2a1e"); var glass := Color("c8f0e0"); var copper := Color("c87a3a")
+	_humanoid(k, {"leg": leather.darkened(0.3), "boot": hat, "belt": brass.darkened(0.3), "torso": shirt, "sleeve": shirt, "hand": leather, "skin": skin}, 0.29, 1.05)
+	k.on("hips")
+	k.box(Vector3(0.36, 0.56, 0.03), Vector3(0, 0.7, -0.24), apron, Vector3(6, 0, 0))
+	for i in 3:
+		k.cyl(0.03, 0.03, 0.1, Vector3(-0.16 + i * 0.16, 0.84, -0.27), [green, red, brass][i], Vector3.ZERO, 2.0, 6)
+	k.on("chest")
+	k.box(Vector3(0.36, 0.4, 0.04), Vector3(0, 1.2, -0.2), apron)
+	k.box(Vector3(0.07, 0.62, 0.04), Vector3(0, 1.2, -0.23), leather, Vector3(0, 0, 32))
+	for i in 4:
+		k.cyl(0.025, 0.025, 0.09, Vector3(-0.12 + i * 0.075, 1.04 + i * 0.1, -0.25), [green, red, green, brass][i], Vector3(0, 0, 32), 2.2, 6)
+	var bp := Vector3(0, 1.22, 0.26)
+	k.box(Vector3(0.36, 0.42, 0.18), bp, leather)
+	k.ball(1.0, bp + Vector3(0.0, 0.28, 0.02), copper, Vector3(0.14, 0.12, 0.12))
+	k.tube(bp + Vector3(0, 0.38, 0), bp + Vector3(0.1, 0.62, -0.08), 0.025, 0.02, copper, -1, 5)
+	k.ball(0.05, bp + Vector3(0.1, 0.64, -0.08), green, Vector3.ONE, Vector3.ZERO, 2.2, 6, 4)
+	k.on("head")
+	k.cyl(0.18, 0.18, 0.04, Vector3(0, 1.76, -0.01), hat, Vector3(-4, 0, 0), -1, 12)
+	k.cyl(0.13, 0.15, 0.16, Vector3(0, 1.85, -0.01), hat, Vector3(-4, 0, 0), -1, 10)
+	k.torus(0.13, 0.16, Vector3(0, 1.72, -0.01), leather, Vector3(-14, 0, 0), -1, 10, 4)
+	for s in [-1.0, 1.0]:
+		var gc := Vector3(s * 0.065, 1.66, -0.14)
+		k.cyl(0.05, 0.05, 0.05, gc, brass, Vector3(80, 0, 0), -1, 8)
+		k.cyl(0.036, 0.036, 0.02, gc + Vector3(0, 0, -0.025), green, Vector3(80, 0, 0), 2.6, 8)
+	k.box(Vector3(0.1, 0.03, 0.03), Vector3(0, 1.57, -0.135), Color("3a2216"))
+	k.on("weapon_r")
+	var o := Vector3(0.35, 0.86, -0.05)
+	k.ball(1.0, o + Vector3(0, 0.04, -0.06), glass, Vector3(0.09, 0.1, 0.09))
+	k.ball(1.0, o + Vector3(0, 0.0, -0.06), green, Vector3(0.075, 0.06, 0.075), Vector3.ZERO, 2.2)
+	k.cyl(0.03, 0.03, 0.08, o + Vector3(0, 0.15, -0.06), glass)
+	k.cyl(0.035, 0.035, 0.03, o + Vector3(0, 0.2, -0.06), copper)
+	var p := _base_params()
+	p.merge({"radius": 0.47, "height": 1.85, "glow": Color("9cff4a"), "rim": Color(0.75, 1.0, 0.6),
+		"attack": "overhead", "run_freq": 10.0, "stride": 0.75, "arm_swing": 0.4, "lean": 0.18, "atk_dur": 0.5, "enemy": false}, true)
+	return k.finish(p)
+
+
+## Chronomancer: hooded seer in midnight robes with brass clockwork, a floating hourglass and a dial-topped staff.
+static func _chronomancer() -> Dictionary:
+	var k := RB.new()
+	var robe := Color("2a3a6a"); var robe_d := Color("18223f"); var brass := Color("e0b85a"); var brass_d := Color("9a7428"); var amber := Color("f0d890")
+	var blue := Color("7aa8ff"); var skin := Color("d8b090"); var cream := Color("f0e2b0")
+	_humanoid(k, {"leg": robe_d, "boot": robe_d.darkened(0.3), "belt": brass_d, "torso": robe, "sleeve": robe, "hand": skin, "skin": skin}, 0.28)
+	k.on("hips")
+	k.cyl(0.22, 0.4, 0.64, Vector3(0, 0.61, 0), robe, Vector3.ZERO, -1, 12)
+	k.torus(0.37, 0.42, Vector3(0, 0.32, 0), brass, Vector3.ZERO, -1, 12, 4)
+	k.torus(0.3, 0.33, Vector3(0, 0.55, 0), blue, Vector3.ZERO, 1.4, 12, 4)
+	k.on("chest")
+	k.cyl(0.12, 0.12, 0.03, Vector3(0, 1.26, -0.2), cream, Vector3(90, 0, 0), -1, 12)
+	k.torus(0.11, 0.13, Vector3(0, 1.26, -0.21), brass, Vector3(90, 0, 0), -1, 12, 4)
+	k.box(Vector3(0.015, 0.08, 0.01), Vector3(0, 1.29, -0.225), robe_d)
+	k.box(Vector3(0.06, 0.015, 0.01), Vector3(0.025, 1.26, -0.225), robe_d)
+	k.on("cape")
+	k.box(Vector3(0.5, 1.12, 0.03), Vector3(0, 0.9, 0.24), robe_d, Vector3(-6, 0, 0))
+	for i in 3:
+		k.ball(0.03, Vector3(-0.15 + i * 0.15, 0.6 + (i % 2) * 0.2, 0.27), amber, Vector3.ONE, Vector3.ZERO, 2.4, 6, 4)
+	k.on("head")
+	k.ball(1.0, Vector3(0, 1.66, 0.02), robe, Vector3(0.18, 0.19, 0.18))
+	k.spike(Vector3(0, 1.78, 0.08), Vector3(0, 1.98, 0.18), 0.08, robe, -1, 5)
+	k.box(Vector3(0.16, 0.06, 0.03), Vector3(0, 1.74, -0.15), brass)
+	_eyes(k, 1.64, -0.14, amber, 2.6)
+	var hg := Vector3(0, 2.14, 0)
+	k.cone(0.07, 0.1, hg + Vector3(0, 0.05, 0), Color(0.8, 0.9, 1.0), Vector3(180, 0, 0), 1.2, 8)
+	k.cone(0.07, 0.1, hg + Vector3(0, -0.05, 0), Color(0.8, 0.9, 1.0), Vector3.ZERO, 1.2, 8)
+	k.cyl(0.08, 0.08, 0.02, hg + Vector3(0, 0.11, 0), brass, Vector3.ZERO, -1, 8)
+	k.cyl(0.08, 0.08, 0.02, hg + Vector3(0, -0.11, 0), brass, Vector3.ZERO, -1, 8)
+	k.ball(0.035, hg + Vector3(0, -0.06, 0), amber, Vector3.ONE, Vector3.ZERO, 2.6, 6, 4)
+	k.on("weapon_r")
+	var o := Vector3(0.34, 0.86, -0.05)
+	k.cyl(0.028, 0.032, 1.9, o + Vector3(0, 0.18, 0), brass_d)
+	var sc := o + Vector3(0, 1.24, 0)
+	k.torus(0.14, 0.17, sc, brass, Vector3(90, 0, 0), -1, 14, 4)
+	k.cyl(0.14, 0.14, 0.02, sc, cream, Vector3(90, 0, 0), 0.8, 14)
+	k.box(Vector3(0.015, 0.11, 0.02), sc + Vector3(0, 0.04, -0.02), robe_d)
+	k.ball(0.04, sc + Vector3(0, 0, -0.03), blue, Vector3.ONE, Vector3.ZERO, 2.6, 6, 4)
+	var p := _base_params()
+	p.merge({"radius": 0.45, "height": 1.85, "glow": Color("f0d890"), "rim": Color(1.0, 0.92, 0.7),
+		"attack": "cast", "run_freq": 9.5, "stride": 0.65, "arm_swing": 0.3, "lean": 0.12, "atk_dur": 0.5, "enemy": false}, true)
 	return k.finish(p)

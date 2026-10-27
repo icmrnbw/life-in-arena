@@ -308,6 +308,7 @@ func _rebuild_info() -> void:
 	var stat_names := {"str": "Strength", "agi": "Agility", "int": "Intellect"}
 	names.add_child(Menus._fit(UIK.label("%s · %s · %s · %s" % [d.get("tag", ""), d["role"], stat_names[d["primary"]], Menus.difficulty_name(int(d.get("difficulty", 1)))],
 		"SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
+	names.add_child(Menus._dmg_label(hero_id, 16, true))
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 8)
 	_info.add_child(tabs)
@@ -391,6 +392,8 @@ func _fill_skills() -> void:
 			facts.append("Mana " + _range_text(mana))
 		if float(sd.get("hp", 0.0)) > 0.0:
 			facts.append("Costs %d%% HP" % roundi(float(sd["hp"]) * 100.0))
+		if int(sd.get("rage", 0)) > 0:
+			facts.append("Costs %d Rage" % int(sd["rage"]))
 		if (sd.get("cd", []) as Array).size() > 0:
 			facts.append("Cooldown " + _range_text(sd["cd"]) + " s")
 		facts.append("Ranks %d" % int(sd.get("max", 4)))
