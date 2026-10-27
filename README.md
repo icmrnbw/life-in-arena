@@ -27,6 +27,13 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - Shieldbearers block shots from the front, but they turn slowly (and slow down to turn), so a ranged hero can circle round and shoot them in the back.
   - A wounded Pit Brute charges twice in a row, and a wounded Hollow Choir fires denser rings.
   - Buffers hang back behind the pack and must die first: the Ward Chanter (wave 9+) makes nearby foes immune, the War Drummer (wave 7+) doubles their damage.
+- Damage types matter (0.5.13). Every hit is physical, magic or pure. Armor cuts physical damage, magic resist cuts magic, and some foes are weak to one type:
+  - Iron Hulk (wave 6+): heavy plate shrugs off half of physical damage, but magic hits it 50% harder.
+  - Veilwraith (wave 8+): spells mostly pass through it (55% magic resist), weapons cut it apart. Its touch is magic, so armor doesn't stop it.
+  - Shieldbearers, Burrowers and Drummers are armored and a little weak to magic; Hexcasters and Ward Chanters resist magic and are soft to weapons. Bosses lean one way too: the Pit Brute is plated, the Hollow Choir and the Matrons resist magic.
+  - Hits show "Resisted" or "Weak!", the first meeting with each foe explains it, and the camp preview lists which of the next wave's foes are weak to what.
+  - Wave 12 is now Iron Tide: every foe wears extra plate. Waves 8 and 16 bring Veilwraiths.
+  - Five new items to adapt: Sundering Pick and Armorbreaker (physical damage ignores armor), Null Shard and Voidglass Focus (magic ignores magic resist), Spellward Mantle (you take 25% less magic damage).
   - Enemies hit 10% harder than in 0.2.0, and a bit less in the late waves (bosses 10% harder).
 - Barrels in the arena:
   - Three big barrel stacks fill corners of the arena, like in Life in Arena. Smash your way in (tap a barrel, or push into it) to dig a corridor and fight from its end: foes can only follow single file, and one can't swing past the one in front of it. A corridor one barrel wide fits every hero and regular foes; Shieldbearers, Bloaters and big elites have to chew it wider. Seal yourself in and foes break in; bosses crash straight through.
@@ -55,7 +62,7 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
 - Music: three original medieval-style tunes, composed and synthesized in code by `tools/compose_music.py` (no samples or third-party recordings, so nothing to license). A tavern tune (lute, recorder, harp, drone; D Dorian) plays on the title screen and in camp, a battle tune (shawm, lute, tabor drum; E Dorian) during waves, and a boss tune (war drums, low voices, bell; D Phrygian) on boss waves. Tunes crossfade, duck while paused, and have their own Music toggle on the title and pause screens.
 
 ## Install (Android)
-Download `builds/emberpit-0.5.12-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.5.13-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.

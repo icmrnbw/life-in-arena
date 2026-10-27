@@ -514,6 +514,8 @@ func spawn_enemy(kind: String, p: Vector3, w := -1) -> Enemy:
 		drummers.append(e)
 	if DB.AURAS.has(kind):
 		hint_once("aura_" + kind, DB.AURAS[kind]["hint"])
+	if DB.MATCHUPS.get(kind, {}).has("hint"):
+		hint_once("matchup_" + kind, DB.MATCHUPS[kind]["hint"])
 	return e
 
 
@@ -631,6 +633,24 @@ static func armor_factor(a: float) -> float:
 	return 2.0 - pow(0.94, -a)
 
 
+## Share of a `dtype` hit that `t` takes after armor / magic resist. The hero's items cut through a foe's armor
+## ("armor_pen", flat) and magic resist ("mres_pen", a share of it) for every hero-side source, summons included.
+func type_mult(t: Unit, dtype: String, src: Unit) -> float:
+	var pen := src != null and src.team == 0 and t.team == 1 and hero != null
+	match dtype:
+		"phys":
+			var arm := t.armor
+			if pen and arm > 0.0:
+				arm = maxf(0.0, arm - float(hero.item_stats.get("armor_pen", 0.0)))
+			return armor_factor(arm)
+		"magic":
+			var mr := t.mres
+			if pen and mr > 0.0:
+				mr *= 1.0 - clampf(float(hero.item_stats.get("mres_pen", 0.0)), 0.0, 1.0)
+			return 1.0 - clampf(mr, -1.0, 0.9)
+	return 1.0
+
+
 func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opts := {}) -> float:
 	if t == null or not t.alive or amount <= 0.0:
 		return 0.0
@@ -659,14 +679,17 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 			if rng.randf() < 0.5:
 				fx("damage_number", {"pos": t.pos + Vector3(0, 2.0, 0), "text": "Miss", "color": DB.WAVE_RULES["evasive"]["color"]})
 			return 0.0
+	var tm := type_mult(t, dtype, src)
+	if t.team == 1 and not t.is_boss and src != null and src.team == 0:
 		if wave_rule == "spellward" and dtype == "magic" and not opts.get("attack", false):
-			a *= DB.SPELLWARD_MAGIC
-	if dtype == "phys":
-		a *= armor_factor(t.armor)
+			tm = minf(tm, DB.SPELLWARD_MAGIC)
+	a *= tm
 	if t.team == 1 and t is Enemy:
 		a *= (t as Enemy).damage_taken_mult()
 		if a <= 0.0 and src != null and src.team == 0:
 			(t as Enemy).show_immune()
+		elif src != null and src.team == 0 and not t.is_boss and (tm < DB.MATCHUP_RESIST or tm > DB.MATCHUP_WEAK):
+			(t as Enemy).show_matchup(tm > 1.0)
 	if t == hero:
 		if Game.god:
 			a = 0.0

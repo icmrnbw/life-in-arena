@@ -552,4 +552,7 @@ static func _stat_text(k: String, v: float) -> String:
 		"as": return "+%d%% attack speed" % int(round(v * 100.0))
 		"hp": return "+%d HP" % int(v)
 		"cdr": return "-%d%% cooldowns" % int(round(v * 100.0))
+		"armor_pen": return "Ignore %d armor" % int(v)
+		"mres_pen": return "Ignore %d%% magic resist" % int(round(v * 100.0))
+		"mres": return "-%d%% magic damage taken" % int(round(v * 100.0))
 	return "%s +%s" % [k, v]

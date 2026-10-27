@@ -13,6 +13,7 @@ var hp := 100.0
 var hurt_at := -100.0          # run_time of the last damage taken (world HP bar visibility)
 var max_hp := 100.0
 var armor := 0.0
+var mres := 0.0                # magic resist: share of magic damage ignored (negative = takes extra)
 var base_speed := 4.0
 var alive := true
 var removed := false

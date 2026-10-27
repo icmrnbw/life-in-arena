@@ -22,6 +22,7 @@ var captain := false           # leads the wave: tougher, named, slams every thi
 var bash_r := 1.5
 var aura_fx: Node = null
 var _immune_t := -10.0
+var _matchup_t := -10.0
 var _support_goal := Vector3.ZERO
 var _support_n := 0
 var _support_t := 0.0
@@ -43,7 +44,12 @@ func init_enemy(k: String, w: int, r: Run) -> void:
 	atk_time = data["atk_time"]
 	atk_range = data["range"]
 	base_speed = float(data["speed"]) * (1.0 + 0.008 * (w - 1))
-	armor = float(data["armor"]) + 0.2 * (w - 1)
+	armor = float(data["armor"])
+	if armor > 0.0:
+		armor += 0.2 * (w - 1)   # soft foes (armor below 0) stay soft
+	mres = float(data.get("mres", 0.0))
+	if r.wave_rule == "ironhide" and not is_boss:
+		armor += DB.IRONHIDE_ARMOR
 	radius = data["radius"]
 	xp_val = float(data["xp"]) * DB.xp_mult(w)
 	gold_val = float(data["gold"]) * DB.gold_mult(w)
@@ -132,6 +138,21 @@ func show_immune() -> void:
 	run.immune_shown_t = run.run_time
 	flash(Color(1.0, 0.9, 0.5))
 	run.fx("damage_number", {"pos": pos + Vector3(0, 2.0, 0), "text": "Immune", "color": DB.AURAS["chanter"]["color"]})
+
+
+## Floating "Resisted" / "Weak!" when a hero-side hit lands on this foe's good or bad damage type (rate-limited).
+func show_matchup(weak: bool) -> void:
+	if run.run_time - _matchup_t < 1.4 or run.run_time - run.immune_shown_t < 0.35:
+		return
+	_matchup_t = run.run_time
+	run.immune_shown_t = run.run_time
+	run.fx("damage_number", {"pos": pos + Vector3(0, 2.2, 0), "text": "Weak!" if weak else "Resisted",
+		"color": Color(1.0, 0.62, 0.25) if weak else Color(0.62, 0.7, 0.82)})
+	if not weak:
+		var m: Dictionary = DB.MATCHUPS.get(kind, {})
+		if m.has("weak") and not m.has("hint"):
+			run.hint_once("resist_" + kind, "%s resists that. %s" % [data.get("name", kind),
+				"Use spells (magic damage) on it." if m["weak"] == "magic" else "Use weapons (physical damage) on it."])
 
 
 func on_death() -> void:
@@ -226,7 +247,7 @@ func _ai_melee(dt: float) -> void:
 		if atk_wind <= 0.0 and bashing:
 			_bash_hit()
 		elif atk_wind <= 0.0 and t.alive and edge_dist(t) <= atk_range + 0.8:
-			run.damage(t, atk_dmg * _pack_mult(t), self, display_name, "phys", {"melee": true})
+			run.damage(t, atk_dmg * _pack_mult(t), self, display_name, "magic" if data.get("magic_hits", false) else "phys", {"melee": true})
 		return
 	var d := edge_dist(t)
 	if d > atk_range:

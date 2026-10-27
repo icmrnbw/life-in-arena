@@ -91,6 +91,7 @@ func recalc(fill := false) -> void:
 	max_mana = 80.0 + int_v * 12.0 + item_stats.get("mana", 0.0)
 	mana_regen = 0.7 + int_v * 0.045 + item_stats.get("mana_regen", 0.0)
 	armor = data["armor"] + agi_v * 0.14 + item_stats.get("armor", 0.0)
+	mres = minf(0.6, item_stats.get("mres", 0.0))
 	attack_speed = 1.0 + agi_v * 0.012 + item_stats.get("as", 0.0)
 	atk_dmg = data["dmg"] + primary_value() + item_stats.get("dmg", 0.0)
 	base_speed = data["speed"] * (1.0 + item_stats.get("ms", 0.0))

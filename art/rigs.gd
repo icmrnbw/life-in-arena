@@ -41,7 +41,7 @@ class RB extends "res://art/mesh_kit.gd":
 ## Per-kind segment detail so rigs stay inside the triangle budgets
 ## (hero ~3k, enemy ~1.2k, boss ~6k). Small on-screen enemies lose little from fewer segments.
 const DETAIL := {"chanter": 0.8, "drummer": 0.7, "ashwarden": 0.85, "hivemother": 0.62, "gnawer": 0.7, "shieldbearer": 0.5,
-	"hexcaster": 0.85, "burrower": 0.7, "bloater": 0.5, "broodling": 0.5,
+	"hexcaster": 0.85, "burrower": 0.7, "bloater": 0.5, "broodling": 0.5, "ironhulk": 0.5, "veilwraith": 0.7,
 	"sanguine": 0.85, "snarewright": 0.68, "twinhide": 0.68, "twinhide_beast": 0.62, "gravekeeper": 0.75, "stoneshaper": 1.0,
 	"gunsmith": 0.85, "sunspeaker": 0.85, "skeleton": 0.4, "snare_trap": 0.6, "blast_charge": 0.6, "boulder": 0.8, "stone_pillar": 0.8}
 
@@ -69,6 +69,8 @@ static func get_rig(kind: String) -> Dictionary:
 		"choir_add": r = _choir_add()
 		"chanter": r = _chanter()
 		"drummer": r = _drummer()
+		"ironhulk": r = _ironhulk()
+		"veilwraith": r = _veilwraith()
 		"sanguine": r = _sanguine()
 		"snarewright": r = _snarewright()
 		"twinhide": r = _twinhide()
@@ -922,6 +924,100 @@ static func _chanter() -> Dictionary:
 	var p := _base_params()
 	p.merge({"style": "robe", "radius": 0.5, "height": 1.95, "glow": glow, "rim": Color(1.0, 0.92, 0.6),
 		"attack": "thrust", "run_freq": 6.0, "atk_dur": 0.5}, true)
+	return k.finish(p)
+
+## Iron Hulk: a walking furnace of riveted steel plate with a cold blue visor slit and a two-handed maul.
+## Reads as "armored": weapons glance off it, spells melt it.
+static func _ironhulk() -> Dictionary:
+	var k := RB.new()
+	var steel := Color("6c727c"); var steel_d := Color("3e424c"); var rivet := Color("c8ccd4"); var under := Color("2a2a30")
+	var eye := Color("7ad8ff"); var wood := Color("5a3e28"); var trim := Color("b08a4a")
+	k.bone("root", "", Vector3.ZERO)
+	k.bone("hips", "root", Vector3(0, 0.85, 0))
+	k.bone("chest", "hips", Vector3(0, 1.15, 0))
+	k.bone("head", "chest", Vector3(0, 1.62, -0.04))
+	k.bone("arm_l", "chest", Vector3(-0.5, 1.45, 0))
+	k.bone("arm_r", "chest", Vector3(0.5, 1.45, 0))
+	k.bone("weapon_r", "arm_r", Vector3(0.56, 0.8, -0.1))
+	k.bone("leg_l", "hips", Vector3(-0.2, 0.82, 0))
+	k.bone("leg_r", "hips", Vector3(0.2, 0.82, 0))
+	for s in [-1.0, 1.0]:
+		k.on("leg_l" if s < 0 else "leg_r")
+		k.limb(Vector3(s * 0.2, 0.82, 0), Vector3(s * 0.22, 0.18, 0), 0.14, under, -1, 6)
+		k.cyl(0.16, 0.19, 0.42, Vector3(s * 0.22, 0.34, -0.02), steel, Vector3.ZERO, -1, 7)
+		k.ball(1.0, Vector3(s * 0.22, 0.56, -0.12), steel_d, Vector3(0.14, 0.12, 0.1), Vector3.ZERO, -1, 6, 4)
+		k.box(Vector3(0.28, 0.16, 0.38), Vector3(s * 0.22, 0.08, -0.05), steel_d)
+	k.on("hips")
+	k.cyl(0.36, 0.4, 0.24, Vector3(0, 0.88, 0), steel_d, Vector3.ZERO, -1, 9)
+	for i in 3:
+		k.box(Vector3(0.2, 0.32, 0.05), Vector3(-0.22 + i * 0.22, 0.66, -0.36), steel, Vector3(-8, 0, 0))
+	k.on("chest")
+	k.ball(1.0, Vector3(0, 1.22, 0), steel, Vector3(0.52, 0.46, 0.42), Vector3.ZERO, -1, 10, 6)
+	k.box(Vector3(0.62, 0.1, 0.06), Vector3(0, 1.3, -0.41), trim)
+	k.box(Vector3(0.08, 0.5, 0.06), Vector3(0, 1.12, -0.42), steel_d)
+	for i in 5:
+		k.ball(0.035, Vector3(-0.24 + i * 0.12, 1.36, -0.43), rivet, Vector3.ONE, Vector3.ZERO, -1, 4, 3)
+	k.on("head")
+	k.cyl(0.2, 0.22, 0.36, Vector3(0, 1.72, -0.06), steel, Vector3.ZERO, -1, 8)
+	k.hemi(1.0, Vector3(0, 1.9, -0.06), steel, Vector3(0.2, 0.1, 0.2), Vector3.ZERO, -1, 8, 3)
+	k.box(Vector3(0.3, 0.04, 0.04), Vector3(0, 1.74, -0.27), eye, Vector3.ZERO, 3.0)
+	k.box(Vector3(0.04, 0.16, 0.04), Vector3(0, 1.66, -0.27), eye, Vector3.ZERO, 2.2)
+	k.box(Vector3(0.06, 0.12, 0.34), Vector3(0, 1.98, -0.06), trim)
+	for s in [-1.0, 1.0]:
+		k.on("arm_l" if s < 0 else "arm_r")
+		k.ball(1.0, Vector3(s * 0.56, 1.52, 0), steel, Vector3(0.28, 0.22, 0.28), Vector3.ZERO, -1, 8, 5)
+		k.box(Vector3(0.1, 0.06, 0.3), Vector3(s * 0.62, 1.7, 0), trim)
+		k.limb(Vector3(s * 0.54, 1.42, 0), Vector3(s * 0.56, 0.9, -0.06), 0.13, under, -1, 6)
+		k.cyl(0.14, 0.15, 0.3, Vector3(s * 0.56, 1.0, -0.06), steel_d, Vector3.ZERO, -1, 7)
+		k.box(Vector3(0.22, 0.2, 0.22), Vector3(s * 0.56, 0.8, -0.1), steel)
+	k.on("weapon_r")
+	k.cyl(0.04, 0.045, 1.1, Vector3(0.56, 1.15, -0.1), wood, Vector3.ZERO, -1, 6)
+	k.box(Vector3(0.5, 0.3, 0.3), Vector3(0.56, 1.72, -0.1), steel_d)
+	k.box(Vector3(0.54, 0.06, 0.34), Vector3(0.56, 1.6, -0.1), trim)
+	k.box(Vector3(0.54, 0.06, 0.34), Vector3(0.56, 1.84, -0.1), trim)
+	var p := _base_params()
+	p.merge({"radius": 0.7, "height": 2.05, "glow": eye, "rim": Color(0.75, 0.88, 1.0), "attack": "overhead", "run_freq": 6.0,
+		"stride": 0.45, "arm_swing": 0.2, "lean": 0.06, "w_idle_r": Vector3(0.4, 0, 0), "atk_dur": 0.7}, true)
+	return k.finish(p)
+
+## Veilwraith: a hooded shade that drifts on a torn, translucent veil, with long pale claws and a teal glow.
+## Reads as "spectral": spells pass through it, steel cuts it apart. Its touch is magic, so armor doesn't stop it.
+static func _veilwraith() -> Dictionary:
+	var k := RB.new()
+	var shroud := Color("1e2a30"); var shroud_l := Color("33464c"); var claw := Color("d8e4dc"); var dark := Color("040607")
+	var glow := Color("5cffd2"); var veil := Color("7af0d8")
+	k.bone("root", "", Vector3.ZERO)
+	k.bone("body", "root", Vector3(0, 1.0, 0))
+	k.bone("head", "body", Vector3(0, 1.45, -0.06))
+	k.bone("arm_l", "body", Vector3(-0.26, 1.32, -0.02))
+	k.bone("arm_r", "body", Vector3(0.26, 1.32, -0.02))
+	k.bone("tail", "body", Vector3(0, 0.8, 0.05))
+	k.on("body")
+	k.cyl(0.2, 0.36, 0.7, Vector3(0, 1.08, 0), shroud, Vector3.ZERO, -1, 8)
+	k.ball(1.0, Vector3(0, 1.36, 0), shroud_l, Vector3(0.32, 0.12, 0.26), Vector3.ZERO, -1, 8, 4)
+	k.ball(0.08, Vector3(0, 1.12, -0.3), glow, Vector3.ONE, Vector3.ZERO, 2.6, 6, 4)
+	k.on("tail")
+	k.cyl(0.36, 0.06, 0.75, Vector3(0, 0.42, 0.08), shroud, Vector3(-10, 0, 0), -1, 8)
+	k.cur_layer = 1
+	for i in 5:
+		var a := TAU * i / 5.0
+		k.spike(Vector3(cos(a) * 0.3, 0.85, sin(a) * 0.3 + 0.05), Vector3(cos(a) * 0.55, 0.05, sin(a) * 0.55 + 0.3), 0.16, veil, 1.8, 4)
+	k.cur_layer = 0
+	k.on("head")
+	k.ball(1.0, Vector3(0, 1.56, 0), shroud_l, Vector3(0.22, 0.25, 0.24), Vector3.ZERO, -1, 8, 5)
+	k.spike(Vector3(0, 1.72, 0.06), Vector3(0, 1.9, 0.26), 0.08, shroud_l, -1, 5)
+	k.ball(1.0, Vector3(0, 1.53, -0.14), dark, Vector3(0.16, 0.18, 0.1), Vector3.ZERO, -1, 6, 4)
+	for s in [-1.0, 1.0]:
+		k.ball(0.035, Vector3(s * 0.06, 1.56, -0.22), glow, Vector3(1.4, 0.8, 0.6), Vector3.ZERO, 3.4, 6, 4)
+	for s in [-1.0, 1.0]:
+		k.on("arm_l" if s < 0 else "arm_r")
+		k.tube(Vector3(s * 0.27, 1.32, -0.02), Vector3(s * 0.36, 0.9, -0.2), 0.08, 0.12, shroud, -1, 6)
+		k.limb(Vector3(s * 0.36, 0.9, -0.2), Vector3(s * 0.38, 0.72, -0.3), 0.04, claw, -1, 5)
+		for f in 3:
+			k.spike(Vector3(s * 0.38, 0.72, -0.3), Vector3(s * (0.34 + 0.05 * f), 0.5, -0.42), 0.022, claw, -1, 4)
+	var p := _base_params()
+	p.merge({"style": "float", "radius": 0.5, "height": 1.85, "glow": glow, "rim": Color(0.5, 1.0, 0.9),
+		"attack": "swipe", "atk_dur": 0.45}, true)
 	return k.finish(p)
 
 ## War Drummer: squat horned brute with a war drum on its belly and two bone mallets. Doubles nearby foes' damage.
