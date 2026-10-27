@@ -16,6 +16,14 @@ const UNLOCKS := {
 	"stoneshaper": {"text": "Defeat 1,000 enemies in total", "stat": "kills", "n": 1000},
 	"gunsmith": {"text": "Beat the Twin Matrons (clear wave 10)", "stat": "best_wave", "n": 10},
 	"sunspeaker": {"text": "Beat the Hollow Choir (clear wave 15)", "stat": "best_wave", "n": 15},
+	"duelist": {"text": "Clear wave 6 with any hero", "stat": "best_wave", "n": 6},
+	"vanguard": {"text": "Clear wave 4 with any hero", "stat": "best_wave", "n": 4},
+	"nightblade": {"text": "Defeat 2,000 enemies in total", "stat": "kills", "n": 2000},
+	"skyspear": {"text": "Clear 40 waves in total", "stat": "total_waves", "n": 40},
+	"frostweaver": {"text": "Clear wave 8 with two different heroes", "stat": "heroes_at_8", "n": 2},
+	"stormcaller": {"text": "Beat the Twin Matrons (clear wave 10)", "stat": "best_wave", "n": 10},
+	"alchemist": {"text": "Clear 60 waves in total", "stat": "total_waves", "n": 60},
+	"chronomancer": {"text": "Clear wave 8 with three different heroes", "stat": "heroes_at_8", "n": 3},
 }
 
 const TIER_ORDER := ["normal", "hard", "extreme"]

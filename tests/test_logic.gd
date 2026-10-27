@@ -398,6 +398,8 @@ func test_cooldowns() -> void:
 			if sid == "shatter_mark":
 				for en in rr.enemies:
 					en.mark_t = 5.0
+			if hid == "vanguard":
+				hh.kit.rage = 100.0   # Rage comes from blows, not mana
 			if sid == "queens_carapace":
 				for k2 in 3:
 					hh.mana = hh.max_mana

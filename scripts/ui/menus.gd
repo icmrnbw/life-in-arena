@@ -249,6 +249,15 @@ static func _fit(l: Label) -> Label:
 	return l
 
 
+## "Physical" / "Magic" / "Mixed" in its colour, so a team can see who covers armored and warded foes.
+static func _dmg_label(id: String, size: int, long := false) -> Label:
+	var dt: Dictionary = DB.DMG_TYPES[DB.hero_dmg_type(id)]
+	var txt: String = ("Deals %s damage" % String(dt["name"]).to_lower()) if long else String(dt["name"])
+	var l := _fit(UIK.label(txt, "SmallLabel", size, dt["color"]))
+	l.name = "DmgType"
+	return l
+
+
 static func difficulty_name(n: int) -> String:
 	return ["Easy", "Easy", "Medium", "Hard"][clampi(n, 0, 3)]
 
@@ -275,6 +284,9 @@ static func _hero_tile(id: String, open := true) -> Control:
 	var t := _fit(UIK.label(d.get("tag", "") if open else "Locked", "SmallLabel", 15, UIK.col("gold", Color.GOLD) if open else Color(0.7, 0.66, 0.6)))
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
+	var dt := _dmg_label(id, 13)
+	dt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(dt)
 	# selection ring: a bright frame drawn over the tile
 	var ring := Panel.new()
 	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -324,6 +336,7 @@ static func _hero_detail(id: String, open := true) -> Control:
 	names.add_child(role)
 	var diff := UIK.label("Difficulty: %s" % difficulty_name(int(d.get("difficulty", 1))), "SmallLabel", 17, UIK.col("gold", Color.GOLD))
 	names.add_child(diff)
+	names.add_child(_dmg_label(id, 17, true))
 	if open:
 		names.add_child(_fit(UIK.label("Tap again to start", "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
 	else:

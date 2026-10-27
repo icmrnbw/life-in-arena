@@ -309,7 +309,9 @@ func _move(dt: float) -> void:
 				var flank := 1.0 if shielded else orbit
 				v += Vector3(-dirt.z, 0, dirt.x) * orbit_sign * flank
 			else:
-				if dist > want + 0.3:
+				# close in until it is truly in reach (want is reach - 0.2): a kiting Hexcaster that
+				# stops just past reach used to freeze the bot in place for the rest of the wave
+				if dist > want:
 					v += dirt
 				elif dist < want - 0.8:
 					v -= dirt * 0.5

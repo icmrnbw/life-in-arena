@@ -332,6 +332,17 @@ func projectile(kind: String) -> Node3D:
 			c = Color(0.4, 1.0, 0.72); c2 = Color(0.9, 1.0, 0.95); size = 0.26; trail = Color(0.5, 1.0, 0.78, 0.9); tgrav = Vector3(0, 1.2, 0)
 		"blood_bolt":
 			c = Color(0.9, 0.06, 0.16); c2 = Color(1.0, 0.65, 0.6); size = 0.3; trail = Color(0.85, 0.05, 0.12, 1.0); tgrav = Vector3(0, -3.0, 0)
+		"dagger":
+			c = Color(0.82, 0.86, 0.95); c2 = Color(1.0, 1.0, 1.0); size = 0.14; trail = Color(0.62, 0.42, 1.0, 0.8); mesh_key = "shard"; tamount = 8
+		"frost_bolt":
+			c = Color(0.55, 0.88, 1.0); c2 = Color(0.95, 1.0, 1.0); size = 0.26; trail = Color(0.7, 0.95, 1.0, 1.0); mesh_key = "shard"
+			n.spin = Vector3(0.0, 0.0, 9.0)
+		"vial":
+			c = Color(0.55, 1.0, 0.25); c2 = Color(1.0, 0.95, 0.6); size = 0.24; trail = Color(0.6, 1.0, 0.3, 0.9); tgrav = Vector3(0, -3.0, 0); tamount = 12
+			n.spin = Vector3(6.0, 0.0, 4.0)
+		"time_bolt":
+			c = Color(0.95, 0.8, 0.4); c2 = Color(1.0, 1.0, 0.9); size = 0.26; trail = Color(0.55, 0.75, 1.0, 1.0); mesh_key = "hex"
+			n.spin = Vector3(0.0, 5.0, 0.0)
 		_:
 			pass
 	var core := MeshInstance3D.new()

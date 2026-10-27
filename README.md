@@ -2,7 +2,8 @@
 
 A single-player hero arena survival game for Android, built with Godot 4.6. It's an original game inspired by classic hero arena custom maps.
 
-- 10 heroes with distinct playstyles. Each has 4 skills you rank up.
+- 18 heroes with distinct playstyles. Each has 4 skills you rank up. Each hero deals mostly physical or magic damage (shown on hero select), so a team can cover foes that shrug off one kind.
+  - 0.6 added Duelist (parry timing), Vanguard (Rage instead of mana, taunts), Nightblade (backstabs, Vanish), Skyspear (a thrown spear that stays planted until recalled), Frostweaver (Chill and Freeze; frozen foes are brittle, so physical hits deal ~50% more), Stormcaller (chains that grow per jump), Alchemist (gold as fuel; acid corrodes armor) and Chronomancer (Rewind, Time Stop).
   - Ashwarden builds zones out of totems and walls.
   - Riftdancer runs on momentum and combos.
   - Hivemother commands a brood.
