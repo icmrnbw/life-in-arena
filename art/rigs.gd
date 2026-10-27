@@ -41,7 +41,7 @@ class RB extends "res://art/mesh_kit.gd":
 ## Per-kind segment detail so rigs stay inside the triangle budgets
 ## (hero ~3k, enemy ~1.2k, boss ~6k). Small on-screen enemies lose little from fewer segments.
 const DETAIL := {"chanter": 0.8, "drummer": 0.7, "ashwarden": 0.85, "hivemother": 0.62, "gnawer": 0.7, "shieldbearer": 0.5,
-	"hexcaster": 0.85, "burrower": 0.7, "bloater": 0.5, "broodling": 0.5, "ironclad": 0.5, "veilwraith": 0.7,
+	"hexcaster": 0.85, "burrower": 0.7, "bloater": 0.5, "broodling": 0.5, "ironhulk": 0.5, "veilwraith": 0.7,
 	"sanguine": 0.85, "snarewright": 0.68, "twinhide": 0.68, "twinhide_beast": 0.62, "gravekeeper": 0.75, "stoneshaper": 1.0,
 	"gunsmith": 0.85, "sunspeaker": 0.85, "skeleton": 0.4, "snare_trap": 0.6, "blast_charge": 0.6, "boulder": 0.8, "stone_pillar": 0.8}
 
@@ -69,7 +69,7 @@ static func get_rig(kind: String) -> Dictionary:
 		"choir_add": r = _choir_add()
 		"chanter": r = _chanter()
 		"drummer": r = _drummer()
-		"ironclad": r = _ironclad()
+		"ironhulk": r = _ironhulk()
 		"veilwraith": r = _veilwraith()
 		"sanguine": r = _sanguine()
 		"snarewright": r = _snarewright()
@@ -926,9 +926,9 @@ static func _chanter() -> Dictionary:
 		"attack": "thrust", "run_freq": 6.0, "atk_dur": 0.5}, true)
 	return k.finish(p)
 
-## Ironclad: a walking furnace of riveted steel plate with a cold blue visor slit and a two-handed maul.
+## Iron Hulk: a walking furnace of riveted steel plate with a cold blue visor slit and a two-handed maul.
 ## Reads as "armored": weapons glance off it, spells melt it.
-static func _ironclad() -> Dictionary:
+static func _ironhulk() -> Dictionary:
 	var k := RB.new()
 	var steel := Color("6c727c"); var steel_d := Color("3e424c"); var rivet := Color("c8ccd4"); var under := Color("2a2a30")
 	var eye := Color("7ad8ff"); var wood := Color("5a3e28"); var trim := Color("b08a4a")

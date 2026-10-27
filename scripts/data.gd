@@ -321,7 +321,7 @@ const ITEMS := {
 	"spellward_mantle": {"name": "Spellward Mantle", "kind": "basic", "cost": 300,
 		"stats": {"hp": 150.0, "mres": 0.25}, "desc": "+150 HP. You take 25% less magic damage (bolts, beams, wraiths)"},
 	"armorbreaker": {"name": "Armorbreaker", "kind": "advanced", "cost": 400, "from": ["sundering_pick", "iron_knuckles"],
-		"stats": {"dmg": 22.0, "armor_pen": 14.0}, "desc": "+22 damage. Your physical damage ignores 14 armor: Ironclads stop shrugging it off"},
+		"stats": {"dmg": 22.0, "armor_pen": 14.0}, "desc": "+22 damage. Your physical damage ignores 14 armor: Iron Hulks stop shrugging it off"},
 	"voidglass_focus": {"name": "Voidglass Focus", "kind": "advanced", "cost": 450, "from": ["null_shard", "focus_pendant"],
 		"stats": {"mana": 300.0, "mana_regen": 1.5, "cdr": 0.08, "mres_pen": 0.7},
 		"desc": "+300 mana, -8% cooldowns. Your magic ignores 70% of magic resist: Veilwraiths and Spellwarded foes too"},
@@ -425,7 +425,7 @@ const ENEMIES := {
 	"drummer": {"name": "War Drummer", "hp": 175.0, "dmg": 8.0, "atk_time": 1.5, "range": 1.2, "speed": 3.5, "armor": 4.0, "mres": -0.2, "radius": 0.55, "xp": 30.0, "gold": 14.0, "support": true},
 	"choir_add": {"name": "Choir Voice", "hp": 240.0, "dmg": 13.0, "atk_time": 1.3, "range": 1.2, "speed": 4.0, "armor": 1.0, "mres": 0.0, "radius": 0.5, "xp": 10.0, "gold": 4.0},
 	# Damage-type foes (wave 6+): each one shrugs off one kind of damage and takes extra from the other (see MATCHUPS).
-	"ironclad": {"name": "Ironclad", "hp": 300.0, "dmg": 20.0, "atk_time": 1.7, "range": 1.4, "speed": 2.9, "armor": 16.0, "mres": -0.5, "radius": 0.7, "xp": 30.0, "gold": 13.0},
+	"ironhulk": {"name": "Iron Hulk", "hp": 300.0, "dmg": 20.0, "atk_time": 1.7, "range": 1.4, "speed": 2.9, "armor": 16.0, "mres": -0.5, "radius": 0.7, "xp": 30.0, "gold": 13.0},
 	"veilwraith": {"name": "Veilwraith", "hp": 130.0, "dmg": 12.0, "atk_time": 1.2, "range": 1.3, "speed": 4.6, "armor": -8.0, "mres": 0.55, "radius": 0.5, "xp": 24.0, "gold": 11.0, "magic_hits": true},
 	# Bosses (absolute numbers; only lightly scaled)
 	"pit_brute": {"name": "Pit Brute", "hp": 3400.0, "dmg": 38.0, "atk_time": 1.6, "range": 2.2, "speed": 3.6, "armor": 6.0, "mres": -0.15, "radius": 1.5, "xp": 400.0, "gold": 0.0, "boss": true},
@@ -468,7 +468,7 @@ const DRUM_DMG := 2.0
 const MATCHUP_RESIST := 0.62      # a hit that keeps less than this share after armor / resist shows "Resisted"
 const MATCHUP_WEAK := 1.18        # ... more than this shows "Weak!"
 const MATCHUPS := {
-	"ironclad": {"weak": "magic", "hint": "Ironclad! Plate armor turns weapons aside, but spells melt it. Magic heroes, take this one."},
+	"ironhulk": {"weak": "magic", "hint": "Iron Hulk! Plate armor turns weapons aside, but spells melt it. Magic heroes, take this one."},
 	"veilwraith": {"weak": "phys", "hint": "Veilwraith! Spells mostly pass through it, but steel cuts it apart. Its touch ignores armor."},
 	"shieldbearer": {"weak": "magic"},
 	"hexcaster": {"weak": "phys"},
@@ -530,8 +530,8 @@ const WAVES := {
 	4: {"name": "Bloodthirsty", "captain": "gnawer", "rule": "bloodthirsty", "mods": {"gnawer": 4},
 		"desc": "Every hit they land heals them. Don't trade blows bare-handed."},
 	5: {"name": "The Pit Brute", "captain": "", "rule": "", "mods": {}, "desc": "Boss. Glowing ground means a slam or a charge."},
-	6: {"name": "Ambush", "captain": "burrower", "rule": "", "mods": {"burrower": 2, "ironclad": 1},
-		"desc": "Burrowers burst up beside you, and the first Ironclads march in: spells melt their plate."},
+	6: {"name": "Ambush", "captain": "burrower", "rule": "", "mods": {"burrower": 2, "ironhulk": 1},
+		"desc": "Burrowers burst up beside you, and the first Iron Hulks march in: spells melt their plate."},
 	7: {"name": "Powder Keg", "captain": "bloater", "rule": "explosive", "mods": {"bloater": 1},
 		"desc": "Many elites, and every elite explodes when it dies."},
 	8: {"name": "Phantoms", "captain": "veilwraith", "rule": "evasive", "mods": {"gnawer": 3, "veilwraith": 2},
@@ -541,7 +541,7 @@ const WAVES := {
 	10: {"name": "Twin Matrons", "captain": "", "rule": "", "mods": {}, "desc": "Boss. The Matrons heal each other while close."},
 	11: {"name": "Stunners", "captain": "shieldbearer", "rule": "stunning", "mods": {"shieldbearer": 2},
 		"desc": "Shieldbearers bash every second swing. Armor up."},
-	12: {"name": "Iron Tide", "captain": "ironclad", "rule": "ironhide", "mods": {"ironclad": 2, "drummer": 1},
+	12: {"name": "Iron Tide", "captain": "ironhulk", "rule": "ironhide", "mods": {"ironhulk": 2, "drummer": 1},
 		"desc": "Every foe wears thicker plate and Drummers double their damage. Bring spells or armor-breakers."},
 	13: {"name": "Spellwarded", "captain": "shieldbearer", "rule": "spellward", "mods": {"shieldbearer": 1},
 		"desc": "They shrug off half of all magic damage. Bring weapons, not spells."},
@@ -579,7 +579,7 @@ const FRENZY_SPEED := 1.2
 ## Captains: every regular wave is led by a named, tougher version of its signature enemy.
 const CAPTAIN_NAMES := {"gnawer": "Alpha Gnawer", "shieldbearer": "Shield Sergeant", "hexcaster": "Hex Matriarch",
 	"burrower": "Tunnel King", "bloater": "Plague Belly", "chanter": "High Chanter", "drummer": "Drum Major",
-	"ironclad": "Iron Marshal", "veilwraith": "Veil Mother"}
+	"ironhulk": "Iron Marshal", "veilwraith": "Veil Mother"}
 const CAPTAIN_HP := 650.0         # wave-1 captain HP, scaled by hp_mult
 const CAPTAIN_DMG_MULT := 1.9
 const CAPTAIN_SCALE := 1.5
@@ -720,7 +720,7 @@ static func wave_bursts(w: int) -> Array:
 	if w >= 6:
 		counts["bloater"] = int(1 + (w - 6) / 4.0)
 	if w >= 6:
-		counts["ironclad"] = int(1 + (w - 6) / 5.0)
+		counts["ironhulk"] = int(1 + (w - 6) / 5.0)
 	if w >= 8:
 		counts["veilwraith"] = int(1 + (w - 8) / 3.0)
 	if w >= AURAS["drummer"]["from_wave"]:
@@ -740,7 +740,7 @@ static func wave_bursts(w: int) -> Array:
 		bursts.append({"delay": 0.0 if i == 0 else 7.0 + 1.0 * i, "gate": "", "units": []})
 	# distribute
 	var idx := 0
-	for kind in ["drummer", "chanter", "ironclad", "shieldbearer", "hexcaster", "veilwraith", "burrower", "bloater", "gnawer"]:
+	for kind in ["drummer", "chanter", "ironhulk", "shieldbearer", "hexcaster", "veilwraith", "burrower", "bloater", "gnawer"]:
 		var c: int = counts.get(kind, 0)
 		for j in c:
 			bursts[idx % n_bursts]["units"].append(kind)
@@ -752,7 +752,7 @@ static func wave_bursts(w: int) -> Array:
 
 
 ## Wave-preview line naming the foes of wave w that take extra from one damage type, e.g.
-## "Magic beats Ironclad, Shieldbearer · Physical beats Veilwraith". "" if none.
+## "Magic beats Iron Hulk, Shieldbearer · Physical beats Veilwraith". "" if none.
 static func matchup_line(w: int) -> String:
 	if BOSS_WAVES.has(w):
 		return ""

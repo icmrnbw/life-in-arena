@@ -6,7 +6,7 @@ extends Node3D
 
 const HEROES := ["ashwarden", "riftdancer", "hivemother", "sanguine", "snarewright", "twinhide", "twinhide_beast",
 	"gravekeeper", "stoneshaper", "gunsmith", "sunspeaker"]
-const ENEMIES := ["gnawer", "shieldbearer", "hexcaster", "burrower", "bloater", "ironclad", "veilwraith"]
+const ENEMIES := ["gnawer", "shieldbearer", "hexcaster", "burrower", "bloater", "ironhulk", "veilwraith"]
 const BOSSES := ["pit_brute", "matron", "hollow_choir", "warden"]
 const SUMMONS := ["broodling", "ember_totem", "afterimage", "choir_add", "skeleton", "snare_trap", "blast_charge", "boulder", "stone_pillar"]
 const PROJ := ["fire_bolt", "spit", "hex_bolt", "boss_orb", "hero_bolt", "bullet", "crossbow_bolt", "spirit_lance", "grave_bolt", "blood_bolt"]

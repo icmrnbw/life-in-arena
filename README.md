@@ -28,7 +28,7 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - A wounded Pit Brute charges twice in a row, and a wounded Hollow Choir fires denser rings.
   - Buffers hang back behind the pack and must die first: the Ward Chanter (wave 9+) makes nearby foes immune, the War Drummer (wave 7+) doubles their damage.
 - Damage types matter (0.5.13). Every hit is physical, magic or pure. Armor cuts physical damage, magic resist cuts magic, and some foes are weak to one type:
-  - Ironclad (wave 6+): heavy plate shrugs off half of physical damage, but magic hits it 50% harder.
+  - Iron Hulk (wave 6+): heavy plate shrugs off half of physical damage, but magic hits it 50% harder.
   - Veilwraith (wave 8+): spells mostly pass through it (55% magic resist), weapons cut it apart. Its touch is magic, so armor doesn't stop it.
   - Shieldbearers, Burrowers and Drummers are armored and a little weak to magic; Hexcasters and Ward Chanters resist magic and are soft to weapons. Bosses lean one way too: the Pit Brute is plated, the Hollow Choir and the Matrons resist magic.
   - Hits show "Resisted" or "Weak!", the first meeting with each foe explains it, and the camp preview lists which of the next wave's foes are weak to what.

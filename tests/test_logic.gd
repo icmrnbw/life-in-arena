@@ -145,7 +145,7 @@ func test_damage_types() -> void:
 	r.hero.in_camp = false
 	r.hero.pos = Vector3(0, 0, 0)
 	var h := r.hero
-	var ic := r.spawn_enemy("ironclad", Vector3(4, 0, 0), 8)
+	var ic := r.spawn_enemy("ironhulk", Vector3(4, 0, 0), 8)
 	var vw := r.spawn_enemy("veilwraith", Vector3(-4, 0, 0), 8)
 	var gn := r.spawn_enemy("gnawer", Vector3(0, 0, 6), 8)
 	for u in [ic, vw, gn]:
@@ -157,19 +157,19 @@ func test_damage_types() -> void:
 	var vw_m := r.damage(vw, 100.0, h, "T", "magic")
 	var gn_p := r.damage(gn, 100.0, h, "T", "phys")
 	var gn_m := r.damage(gn, 100.0, h, "T", "magic")
-	check(ic_p < 55.0 and ic_m > 140.0, "Ironclad: weapons glance off, spells melt it", "%f / %f" % [ic_p, ic_m])
+	check(ic_p < 55.0 and ic_m > 140.0, "Iron Hulk: weapons glance off, spells melt it", "%f / %f" % [ic_p, ic_m])
 	check(vw_m < 50.0 and vw_p > 130.0, "Veilwraith: spells pass through, steel cuts it", "%f / %f" % [vw_p, vw_m])
 	check(gn_p > 80.0 and near(gn_m, 100.0), "Gnawer: no strong matchup", "%f / %f" % [gn_p, gn_m])
 	check(near(r.damage(ic, 100.0, h, "T", "pure"), 100.0) and near(r.damage(vw, 100.0, h, "T", "pure"), 100.0), "pure ignores armor and resist")
 	check(vw.armor < 0.0 and near(vw.armor, DB.ENEMIES["veilwraith"]["armor"]), "soft foes don't gain armor with waves", str(vw.armor))
-	check(ic.armor > DB.ENEMIES["ironclad"]["armor"], "armored foes gain armor with waves", str(ic.armor))
+	check(ic.armor > DB.ENEMIES["ironhulk"]["armor"], "armored foes gain armor with waves", str(ic.armor))
 	# items cut through armor / resist
 	h.items.append({"id": "armorbreaker", "charges": 0, "cd": 0.0})
 	h.items.append({"id": "voidglass_focus", "charges": 0, "cd": 0.0})
 	h.recalc(true)
 	var ic_p2 := r.damage(ic, 100.0, h, "T", "phys")
 	var vw_m2 := r.damage(vw, 100.0, h, "T", "magic")
-	check(ic_p2 > ic_p * 1.3, "Armorbreaker cuts through Ironclad plate", "%f -> %f" % [ic_p, ic_p2])
+	check(ic_p2 > ic_p * 1.3, "Armorbreaker cuts through Iron Hulk plate", "%f -> %f" % [ic_p, ic_p2])
 	check(vw_m2 > vw_m * 1.7, "Voidglass Focus cuts through Veilwraith resist", "%f -> %f" % [vw_m, vw_m2])
 	check(near(r.damage(vw, 100.0, h, "T", "phys"), vw_p), "pen never removes a weakness")
 	# the hero's magic resist
@@ -184,14 +184,14 @@ func test_damage_types() -> void:
 	h.hp = h.max_hp
 	check(DB.ENEMIES["veilwraith"].get("magic_hits", false), "Veilwraith hits are magic")
 	# wave data
-	check(DB.matchup_line(12).contains("Ironclad") and DB.matchup_line(8).contains("Veilwraith"), "wave preview names weak foes", DB.matchup_line(12))
+	check(DB.matchup_line(12).contains("Iron Hulk") and DB.matchup_line(8).contains("Veilwraith"), "wave preview names weak foes", DB.matchup_line(12))
 	check(DB.matchup_line(5) == "", "no matchup line on boss waves")
 	var seen := {}
 	for w in range(1, DB.TOTAL_WAVES + 1):
 		for b in DB.wave_bursts(w):
 			for k in b["units"]:
 				seen[k] = true
-	check(seen.has("ironclad") and seen.has("veilwraith"), "new foes appear in waves")
+	check(seen.has("ironhulk") and seen.has("veilwraith"), "new foes appear in waves")
 	r.queue_free()
 	await get_tree().process_frame
 	var ri := make_run("ashwarden", 12)
