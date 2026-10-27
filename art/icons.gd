@@ -150,6 +150,7 @@ static func all_ids() -> Array:
 		"healing_draught", "mana_draught", "tome_of_might", "phoenix_feather",
 		"brawlers_wraps", "fletchers_quiver", "hooded_lantern", "oilskin_cloak", "cleaving_axe", "skullcrusher", "berserkers_torc",
 		"hawkeye_lens", "splinter_quiver", "skirmisher_cloak",
+		"sundering_pick", "null_shard", "spellward_mantle", "armorbreaker", "voidglass_focus",
 		"portrait_ashwarden", "portrait_riftdancer", "portrait_hivemother",
 		"gold", "life", "attack", "armor", "speed", "pause", "info", "shop"] + WAVE2_IDS + TRAIN_IDS
 
@@ -579,6 +580,36 @@ static func _svg_items3(id: String) -> String:
 				+ '<path d="M98 18 L108 18 L104 28 Z" fill="url(#metal)"' + _o(2) + '/>'
 				+ '<path d="M108 46 L116 54 L106 58 Z" fill="url(#metal)"' + _o(2) + '/>'
 				+ '<path d="M92 92 L102 96 L96 86 Z" fill="url(#metal)"' + _o(2) + '/>')
+		"sundering_pick":
+			return _framed("basic", '<path d="M60 40 L68 40 L70 116 L58 116 Z" fill="url(#wood)"' + O + '/>'
+				+ '<path d="M18 46 C40 26 88 26 110 46 L104 52 C86 40 42 40 24 52 Z" fill="url(#metal)"' + O + '/>'
+				+ '<path d="M18 46 L10 58 L24 52 Z M110 46 L118 58 L104 52 Z" fill="#e8eef4"' + _o(2) + '/>'
+				+ '<path d="M70 70 L92 78 L84 86 L98 96" stroke="#ffd27a" stroke-width="3.5" fill="none" stroke-linecap="round"/>')
+		"null_shard":
+			return _framed("basic", '<ellipse cx="64" cy="64" rx="42" ry="44" fill="url(#glowV)" opacity="0.7"/>'
+				+ '<path d="M64 14 L88 58 L64 114 L40 58 Z" fill="#1a1030"' + O + '/>'
+				+ '<path d="M64 14 L88 58 L64 70 Z" fill="url(#viol)" opacity="0.85"/>'
+				+ '<path d="M64 30 L64 98 M50 58 H78" stroke="#f0e0ff" stroke-width="3" opacity="0.8"/>'
+				+ '<circle cx="64" cy="58" r="6" fill="#ffffff"' + _o(2) + '/>')
+		"spellward_mantle":
+			return _framed("basic", '<ellipse cx="64" cy="64" rx="46" ry="44" fill="url(#glowB)" opacity="0.55"/>'
+				+ '<path d="M44 34 Q64 24 84 34 L104 104 Q64 116 24 104 Z" fill="#2c3e6a"' + O + '/>'
+				+ '<path d="M44 34 Q64 46 84 34 L80 26 Q64 16 48 26 Z" fill="#22305a"' + O + '/>'
+				+ '<path d="M64 52 L84 60 C84 82 74 94 64 100 C54 94 44 82 44 60 Z" fill="url(#mana)"' + _o(3) + '/>'
+				+ '<path d="M64 62 V90 M54 72 H74" stroke="#e0f0ff" stroke-width="3.5"/>')
+		"armorbreaker":
+			return _framed("adv", '<path d="M58 44 L70 44 L72 118 L56 118 Z" fill="url(#wood)"' + O + '/>'
+				+ '<path d="M26 22 H102 L96 56 H32 Z" fill="url(#metal)"' + O + '/>'
+				+ '<path d="M26 22 L14 40 L32 56 Z M102 22 L114 40 L96 56 Z" fill="#e8eef4"' + _o(2) + '/>'
+				+ '<path d="M48 30 L56 48 M80 30 L72 48" stroke="url(#gold)" stroke-width="3"/>'
+				+ '<path d="M20 80 L38 72 L34 86 L50 82 M108 80 L90 72 L94 86 L78 82" stroke="#ffd27a" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>')
+		"voidglass_focus":
+			return _framed("adv", '<ellipse cx="64" cy="58" rx="48" ry="46" fill="url(#glowV)" opacity="0.8"/>'
+				+ '<circle cx="64" cy="54" r="30" fill="#140a26"' + O + '/>'
+				+ '<circle cx="64" cy="54" r="30" fill="none" stroke="url(#viol)" stroke-width="5"/>'
+				+ '<path d="M64 28 L72 54 L64 80 L56 54 Z" fill="url(#viol)"' + _o(2) + '/>'
+				+ '<path d="M36 54 H52 M76 54 H92" stroke="#f0e0ff" stroke-width="3" stroke-dasharray="5 4"/>'
+				+ '<path d="M44 92 H84 L78 112 H50 Z" fill="url(#gold)"' + O + '/>')
 		"skirmisher_cloak":
 			return _framed("adv", '<path d="M14 78 C30 70 40 84 56 78 M10 94 C28 86 38 100 54 94" stroke="#a0e0ff" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.8"/>'
 				+ '<path d="M58 24 Q76 18 94 26 L112 104 Q88 114 66 104 L52 70 Z" fill="#4a6a3a"' + O + '/>'

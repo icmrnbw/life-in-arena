@@ -55,6 +55,7 @@ func _main() -> void:
 	test_data()
 	test_armor()
 	await test_damage()
+	await test_damage_types()
 	await test_ranks()
 	await test_cooldowns()
 	await test_shop()
@@ -87,13 +88,13 @@ func test_data() -> void:
 	check(DB.TOTAL_WAVES == 20, "20 waves")
 	check(DB.BOSS_WAVES.keys().size() == 4 and DB.BOSS_WAVES.has(5) and DB.BOSS_WAVES.has(10) and DB.BOSS_WAVES.has(15) and DB.BOSS_WAVES.has(20), "bosses at 5/10/15/20")
 	check(DB.START_LIVES == 3 and DB.START_GOLD == 400, "3 lives, 400 start gold")
-	check(DB.ITEM_ORDER.size() == 28, "28 items", str(DB.ITEM_ORDER.size()))
+	check(DB.ITEM_ORDER.size() == 33, "33 items", str(DB.ITEM_ORDER.size()))
 	var kinds := {"basic": 0, "advanced": 0, "consumable": 0}
 	for id in DB.ITEMS:
 		kinds[DB.ITEMS[id]["kind"]] += 1
 		for f in DB.ITEMS[id].get("from", []):
 			check(DB.ITEMS.has(f), "recipe part exists: %s <- %s" % [id, f])
-	check(kinds["basic"] == 12 and kinds["advanced"] == 12 and kinds["consumable"] == 4, "12 basic / 12 advanced / 4 consumable", str(kinds))
+	check(kinds["basic"] == 15 and kinds["advanced"] == 14 and kinds["consumable"] == 4, "15 basic / 14 advanced / 4 consumable", str(kinds))
 	# plan costs
 	var plan_costs := {"iron_knuckles": 250, "swift_gloves": 250, "hide_vest": 250, "vigor_charm": 300, "focus_pendant": 300,
 		"runners_boots": 300, "stout_belt": 400, "sage_circlet": 400, "emberbrand": 400, "bulwark_plate": 450, "wayfarer_treads": 350,
@@ -135,6 +136,73 @@ func test_armor() -> void:
 	check(Run.armor_factor(50.0) > 0.2, "armor 50 still takes >20%")
 
 
+# ------------------------------------------------------------------ damage types
+func test_damage_types() -> void:
+	section("damage types")
+	var r := make_run("ashwarden", 1)
+	await get_tree().process_frame
+	r.phase = "wave"
+	r.hero.in_camp = false
+	r.hero.pos = Vector3(0, 0, 0)
+	var h := r.hero
+	var ic := r.spawn_enemy("ironclad", Vector3(4, 0, 0), 8)
+	var vw := r.spawn_enemy("veilwraith", Vector3(-4, 0, 0), 8)
+	var gn := r.spawn_enemy("gnawer", Vector3(0, 0, 6), 8)
+	for u in [ic, vw, gn]:
+		u.max_hp = 1e6
+		u.hp = 1e6
+	var ic_p := r.damage(ic, 100.0, h, "T", "phys")
+	var ic_m := r.damage(ic, 100.0, h, "T", "magic")
+	var vw_p := r.damage(vw, 100.0, h, "T", "phys")
+	var vw_m := r.damage(vw, 100.0, h, "T", "magic")
+	var gn_p := r.damage(gn, 100.0, h, "T", "phys")
+	var gn_m := r.damage(gn, 100.0, h, "T", "magic")
+	check(ic_p < 55.0 and ic_m > 140.0, "Ironclad: weapons glance off, spells melt it", "%f / %f" % [ic_p, ic_m])
+	check(vw_m < 50.0 and vw_p > 130.0, "Veilwraith: spells pass through, steel cuts it", "%f / %f" % [vw_p, vw_m])
+	check(gn_p > 80.0 and near(gn_m, 100.0), "Gnawer: no strong matchup", "%f / %f" % [gn_p, gn_m])
+	check(near(r.damage(ic, 100.0, h, "T", "pure"), 100.0) and near(r.damage(vw, 100.0, h, "T", "pure"), 100.0), "pure ignores armor and resist")
+	check(vw.armor < 0.0 and near(vw.armor, DB.ENEMIES["veilwraith"]["armor"]), "soft foes don't gain armor with waves", str(vw.armor))
+	check(ic.armor > DB.ENEMIES["ironclad"]["armor"], "armored foes gain armor with waves", str(ic.armor))
+	# items cut through armor / resist
+	h.items.append({"id": "armorbreaker", "charges": 0, "cd": 0.0})
+	h.items.append({"id": "voidglass_focus", "charges": 0, "cd": 0.0})
+	h.recalc(true)
+	var ic_p2 := r.damage(ic, 100.0, h, "T", "phys")
+	var vw_m2 := r.damage(vw, 100.0, h, "T", "magic")
+	check(ic_p2 > ic_p * 1.3, "Armorbreaker cuts through Ironclad plate", "%f -> %f" % [ic_p, ic_p2])
+	check(vw_m2 > vw_m * 1.7, "Voidglass Focus cuts through Veilwraith resist", "%f -> %f" % [vw_m, vw_m2])
+	check(near(r.damage(vw, 100.0, h, "T", "phys"), vw_p), "pen never removes a weakness")
+	# the hero's magic resist
+	h.items.clear()
+	h.recalc(true)
+	var m0 := r.damage(h, 40.0, vw, "Hit", "magic")
+	h.hp = h.max_hp
+	h.items.append({"id": "spellward_mantle", "charges": 0, "cd": 0.0})
+	h.recalc(true)
+	var m1 := r.damage(h, 40.0, vw, "Hit", "magic")
+	check(near(m1, m0 * 0.75, 0.05), "Spellward Mantle: 25% less magic damage", "%f -> %f" % [m0, m1])
+	h.hp = h.max_hp
+	check(DB.ENEMIES["veilwraith"].get("magic_hits", false), "Veilwraith hits are magic")
+	# wave data
+	check(DB.matchup_line(12).contains("Ironclad") and DB.matchup_line(8).contains("Veilwraith"), "wave preview names weak foes", DB.matchup_line(12))
+	check(DB.matchup_line(5) == "", "no matchup line on boss waves")
+	var seen := {}
+	for w in range(1, DB.TOTAL_WAVES + 1):
+		for b in DB.wave_bursts(w):
+			for k in b["units"]:
+				seen[k] = true
+	check(seen.has("ironclad") and seen.has("veilwraith"), "new foes appear in waves")
+	r.queue_free()
+	await get_tree().process_frame
+	var ri := make_run("ashwarden", 12)
+	await get_tree().process_frame
+	ri.wave_rule = DB.wave_rule(12)
+	var e12 := ri.spawn_enemy("gnawer", Vector3(5, 0, 5), 12)
+	check(ri.wave_rule == "ironhide" and e12.armor >= DB.IRONHIDE_ARMOR, "Iron Tide: foes get thicker plate", "%s %f" % [ri.wave_rule, e12.armor])
+	ri.queue_free()
+	await get_tree().process_frame
+
+
 # ------------------------------------------------------------------ damage
 func test_damage() -> void:
 	section("damage")
@@ -149,7 +217,7 @@ func test_damage() -> void:
 	check(near(dealt, 100.0 * Run.armor_factor(e.armor), 0.01), "phys damage reduced by armor", "%f vs %f" % [dealt, 100.0 * Run.armor_factor(e.armor)])
 	check(near(e.hp, hp0 - dealt), "enemy hp reduced")
 	var dealt2 := r.damage(e, 50.0, r.hero, "Test", "magic")
-	check(near(dealt2, 50.0), "magic damage ignores armor")
+	check(near(dealt2, 50.0 * (1.0 - e.mres)), "magic damage ignores armor (magic resist applies)", str(dealt2))
 	check(near(r.stats["damage_by"].get("Test", 0.0), dealt + dealt2), "damage_by tracks tag")
 	# hero damage
 	var h := r.hero
@@ -750,8 +818,8 @@ func test_difficulty() -> void:
 	var w := r.spawn_enemy("gnawer", Vector3(-8, 0, 0), 8)
 	w.make_elite("warding")
 	r.warders.append(w)
-	var near_e := r.spawn_enemy("hexcaster", Vector3(-8, 0, 2), 8)
-	var far_e := r.spawn_enemy("hexcaster", Vector3(8, 0, 8), 8)
+	var near_e := r.spawn_enemy("bloater", Vector3(-8, 0, 2), 8)
+	var far_e := r.spawn_enemy("bloater", Vector3(8, 0, 8), 8)
 	var d_near := r.damage(near_e, 100.0, h, "Test", "magic")
 	var d_far := r.damage(far_e, 100.0, h, "Test", "magic")
 	var d_self := r.damage(w, 100.0, h, "Test", "magic")
@@ -1205,7 +1273,7 @@ func test_replayability() -> void:
 	glass["hero_dmg"] = 1.35
 	var rg := make_mode_run("ashwarden", glass)
 	await get_tree().process_frame
-	var tgt := rg.spawn_enemy("shieldbearer", Vector3(0, 0, -10))
+	var tgt := rg.spawn_enemy("gnawer", Vector3(0, 0, -10))
 	var dealt := rg.damage(tgt, 50.0, rg.hero, "Test", "magic")
 	check(near(dealt, 67.5, 0.1), "Glass Cannon: hero deals more", str(dealt))
 	free_run(rg)

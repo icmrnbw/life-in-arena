@@ -30,6 +30,7 @@ var preview_name: Label
 var preview_rule: Label
 var preview_desc: Label
 var preview_weather: Label
+var preview_foes: Label
 var weather_label: Label
 var _weather_shown := ""
 var _preview_wave := ""
@@ -294,6 +295,11 @@ func _build_preview() -> void:
 	preview_weather.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	preview_weather.custom_minimum_size = Vector2(372, 0)
 	v.add_child(preview_weather)
+	preview_foes = UIK.label("", "", 17, Color(0.86, 0.9, 1.0))
+	preview_foes.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview_foes.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preview_foes.custom_minimum_size = Vector2(372, 0)
+	v.add_child(preview_foes)
 	preview_box.visible = false
 
 
@@ -323,6 +329,8 @@ func _refresh_preview() -> void:
 	preview_weather.text = "Weather: %s. %s" % [wi["name"], wi["desc"]] if run.weather.id != "clear" else ""
 	preview_weather.add_theme_color_override("font_color", (wi["color"] as Color).lerp(Color.WHITE, 0.25))
 	preview_weather.visible = run.weather.id != "clear"
+	preview_foes.text = DB.matchup_line(run.wave)
+	preview_foes.visible = preview_foes.text != ""
 
 
 func _build_top_right() -> void:
