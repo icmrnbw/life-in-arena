@@ -527,6 +527,43 @@ func test_shop_flow() -> void:
 	shop._sell()
 	await frames(2)
 	check(run.gold == g0 - 125 and run.hero.items.is_empty(), "sell via shop UI refunds 125")
+	# a long description scrolls in its panel; the inventory row stays on screen
+	shop._set_tab("advanced")
+	shop._select("splinter_quiver")
+	await frames(3)
+	var vis_h: float = shop.get_viewport().get_visible_rect().size.y
+	var inv_end: float = shop.inv_row.get_global_rect().end.y
+	check(inv_end <= vis_h + 1.0, "long item text keeps the inventory on screen", "inv bottom %d, screen %d" % [inv_end, vis_h])
+	# swiping the item grid (starting on a tile) scrolls it and doesn't pick the tile
+	var gs: ScrollContainer = shop.grid_scroll
+	var gbar := gs.get_v_scroll_bar()
+	if gbar.max_value - gbar.page > 4.0:
+		var r := gs.get_global_rect()
+		var from := Vector2(r.position.x + r.size.x * 0.3, r.end.y - 30.0)
+		touch(3, from, true)
+		await frames(1)
+		for i in 10:
+			drag(3, from - Vector2(0, 20.0 * (i + 1)), Vector2(0, -20.0))
+			await frames(1)
+		touch(3, from - Vector2(0, 200.0), false)
+		await frames(3)
+		check(gs.scroll_vertical > 0, "swiping the shop grid scrolls it", "scroll=%d" % gs.scroll_vertical)
+		check(shop.selected == "splinter_quiver", "a swipe doesn't select a tile", shop.selected)
+		# a plain tap on a visible tile still selects it
+		var tile: Button = null
+		for b in shop.grid.get_children():
+			if r.encloses(b.get_global_rect()) and b.get_meta("item", "") != "splinter_quiver":
+				tile = b
+				break
+		if tile:
+			var c := tile.get_global_rect().get_center()
+			touch(3, c, true)
+			await frames(1)
+			touch(3, c, false)
+			await frames(2)
+			check(shop.selected == tile.get_meta("item"), "tapping a shop tile selects it", shop.selected)
+	else:
+		print("  advanced grid fits without scrolling")
 	var close := find_button(shop, "Close")
 	check(close != null, "Close button")
 	close.pressed.emit()
