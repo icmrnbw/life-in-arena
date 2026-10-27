@@ -4,6 +4,7 @@ extends HeroKit
 
 const SHADOW := Color(0.62, 0.42, 1.0)
 const STEEL := Color(0.9, 0.9, 1.0)
+const BACK_HEAL := 0.12
 const BACKSTAB := 1.6
 
 var vanish_t := 0.0
@@ -33,7 +34,10 @@ func hit(e: Unit, amount: float, tag: String, opts := {}) -> float:
 		o["crit"] = true
 		o["color"] = SHADOW
 	o.erase("force_back")
+	var back: bool = o.get("crit", false) and o.get("color", null) == SHADOW
 	var dealt := run.damage(e, a, hero, tag, "phys", o)
+	if back and dealt > 0.0:
+		run.heal_unit(hero, dealt * BACK_HEAL, false)   # backstabs feed her
 	if not mark.is_empty() and mark["e"] == e:
 		mark["stored"] += dealt
 	return dealt
@@ -134,6 +138,7 @@ func _vanish(dur: float) -> void:
 	_end_vanish()
 	vanish_t = dur
 	ambush = true
+	run.heal_unit(hero, hero.max_hp * 0.15)
 	run.fx("teleport", {"pos": hero.pos, "color": SHADOW})
 	# an unseen decoy at the spot she vanished from: every foe nearby hunts it instead of her
 	decoy = Unit.new()

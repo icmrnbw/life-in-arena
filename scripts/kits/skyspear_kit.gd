@@ -302,7 +302,8 @@ func bot_wants(slot: int) -> bool:
 	match slot:
 		0:
 			var c := run.best_cluster(hero.pos, 10.0, 1.6)
-			return in_hand() and not c.is_empty() and (int(c["count"]) >= 2 or run.boss_units.size() > 0)
+			# a straggler the bot cannot walk to (barrels, the wall) still gets a spear
+			return in_hand() and not c.is_empty() and (int(c["count"]) >= 2 or run.boss_units.size() > 0 or run.count_enemies(hero.pos, 40.0) <= 2)
 		1:
 			if spear.is_empty() and planted.is_empty():
 				return run.count_enemies(hero.pos, 3.2) >= 3

@@ -4,7 +4,7 @@ extends HeroKit
 
 const ACID := Color(0.6, 1.0, 0.3)
 const GOLD := Color(1.0, 0.8, 0.25)
-const TRANSMUTE := 2
+const TRANSMUTE := 1
 const BOMB_GOLD := 25
 
 var pools: Array = []        # {pos, r, t, tick, fx}
@@ -66,7 +66,7 @@ func cast(slot: int, aim: Dictionary) -> bool:
 		1:
 			var p2 := clamp_point(aim.get("point", hero.pos + hero.facing * 6.0), DB.SKILLS["gilded_bomb"]["range"])
 			var r2: float = DB.SKILLS["gilded_bomb"]["radius"]
-			var dmg := 70.0 + 50.0 * rank(1) + 1.2 * hero.int_v
+			var dmg := 60.0 + 40.0 * rank(1) + 1.0 * hero.int_v
 			var paid := run.gold >= BOMB_GOLD
 			if paid:
 				run.gold -= BOMB_GOLD
@@ -93,7 +93,7 @@ func cast(slot: int, aim: Dictionary) -> bool:
 			var r3: float = DB.SKILLS["golden_touch"]["radius"]
 			var spend := mini(run.gold, maxi(50, int(run.gold * 0.1)))
 			run.gold -= spend
-			var dmg3 := 160.0 + 130.0 * rank(3) + 2.0 * hero.int_v + 1.5 * spend
+			var dmg3 := 160.0 + 130.0 * rank(3) + 2.0 * hero.int_v + 1.0 * spend
 			run.fx("ring_burst", {"pos": p3, "radius": r3, "color": GOLD})
 			if spend > 0:
 				run.fx("damage_number", {"pos": hero.pos + Vector3(0, 2.0, 0), "text": "-%d gold" % spend, "color": GOLD})

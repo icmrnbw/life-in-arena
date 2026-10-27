@@ -124,6 +124,7 @@ func _burst_will() -> void:
 func incoming_damage(a: float, src: Unit) -> float:
 	if a <= 0.0:
 		return a
+	a *= 0.85   # Unbroken: plate takes the edge off every blow
 	if jugg_t > 0.0:
 		a *= 0.75
 	a *= cry_mult()
@@ -135,7 +136,7 @@ func incoming_damage(a: float, src: Unit) -> float:
 func basic_attack(target: Unit, dmg: float, crit: bool) -> bool:
 	if target is Barrel:
 		return false
-	add_rage(7.0)
+	add_rage(10.0)
 	if jugg_t <= 0.0:
 		return false
 	run.fx("cone", {"pos": hero.pos, "dir": hero.facing, "range": 2.8, "angle": 300.0, "color": RAGE})
@@ -174,6 +175,10 @@ func _clear() -> void:
 	if jugg_fx != null:
 		run.fx_stop(jugg_fx)
 		jugg_fx = null
+
+
+func on_wave_start() -> void:
+	rage = maxf(rage, 30.0)
 
 
 func on_wave_end() -> void:

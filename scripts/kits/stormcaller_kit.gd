@@ -99,14 +99,14 @@ func cast(slot: int, aim: Dictionary) -> bool:
 				return false
 			hero.face(t.pos - hero.pos)
 			var jumps: int = 3 + rank(0)
-			var dmg := 45.0 + 30.0 * rank(0) + 0.9 * hero.int_v
+			var dmg := 40.0 + 25.0 * rank(0) + 0.8 * hero.int_v
 			var over := static_v >= 100.0
 			if over:
 				jumps *= 2
 				dmg *= 1.5
 				static_v = 0.0
 				run.toast("Overload!", VIOLET)
-			chain(t, hero.pos + Vector3(0, 1.4, 0), dmg, jumps, 0.12, "Chain Lightning", 0.0 if over else 7.0)
+			chain(t, hero.pos + Vector3(0, 1.4, 0), dmg, jumps, 0.08, "Chain Lightning", 0.0 if over else 7.0)
 			Audio.play("beam")
 			return true
 		1:
@@ -220,7 +220,7 @@ func tick(dt: float) -> void:
 			if not cands.is_empty():
 				var t: Unit = cands[run.rng.randi() % cands.size()]
 				run.fx("hit", {"pos": t.pos + Vector3(0, 0.5, 0), "color": VIOLET})
-				chain(t, t.pos + Vector3(0, 8.0, 0), 60.0 + 45.0 * rank(3) + 1.0 * hero.int_v, 2, 0.0, "Thunderstorm", 2.0)
+				chain(t, t.pos + Vector3(0, 8.0, 0), 45.0 + 35.0 * rank(3) + 0.8 * hero.int_v, 2, 0.0, "Thunderstorm", 2.0)
 		if storm_t <= 0.0 and storm_fx != null:
 			run.fx_stop(storm_fx)
 			storm_fx = null
