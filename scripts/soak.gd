@@ -12,7 +12,7 @@ extends Node
 ## Each issue is also printed as "SOAK ISSUE: ..." so it shows up even if the process dies afterwards.
 
 const WORLD_R := 48.0         # camp sits at z 37, the arena rim at 22
-const STUCK_PHASE_S := {"clear": 12.0, "dead": 12.0, "victory_wait": 12.0}
+const STUCK_PHASE_S := {"clear": 12.0, "dead": 12.0, "victory_wait": 12.0, "duel": Duel.TIME_LIMIT + 10.0, "duel_end": 12.0}
 const PREP_SLACK_S := 20.0
 
 var run: Run

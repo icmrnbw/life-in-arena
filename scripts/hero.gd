@@ -43,6 +43,8 @@ var feathers_bought := 0
 var still_t := 0.0
 var in_camp := true
 var dead := false
+var ai := false           # an AI ally (companion) or the duel rival, played by scripts/bot.gd
+var purse := 0            # an AI hero's own gold for kit_out()
 
 
 func init_hero(id: String) -> void:

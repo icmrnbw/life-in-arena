@@ -422,6 +422,10 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 	var sub_text: String = ("%s survived all 20 waves." if win else "%s fell in the Pit.") % hd["name"]
 	if run.mode == "endless":
 		sub_text = "%s held out until wave %d." % [hd["name"], run.max_wave_reached]
+	elif run.duel.ladder():
+		sub_text = ("%s beat all %d rivals." if win else "%s fell on duel %d of %d.") % ([hd["name"], Duel.LADDER_ROUNDS] if win else [hd["name"], run.wave, Duel.LADDER_ROUNDS])
+	elif not run.companions.is_empty():
+		sub_text += " Allies: %s." % ", ".join(run.companions.map(func(c): return c.data["name"]))
 	var sub := UIK.label(sub_text, "", 22, UIK.col("text", Color(0.95, 0.9, 0.82)))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(sub)
@@ -434,7 +438,8 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 	body.add_child(left)
 	var rows := [
 		["Hero", hd["name"]],
-		["Wave reached", ("%d" % run.max_wave_reached) if run.mode == "endless" else ("%d / %d" % [run.max_wave_reached, DB.TOTAL_WAVES])],
+		["Duels won", "%d / %d" % [run.max_wave_reached, Duel.LADDER_ROUNDS]] if run.duel.ladder() else
+			["Wave reached", ("%d" % run.max_wave_reached) if run.mode == "endless" else ("%d / %d" % [run.max_wave_reached, DB.TOTAL_WAVES])],
 		["Level", str(run.hero.level)],
 		["Kills", str(run.stats["kills"])],
 		["Gold earned", str(run.stats["gold_earned"])],

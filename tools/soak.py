@@ -35,6 +35,8 @@ SCENARIOS = {
     "deaths": (["--wave=8", "--autoplay=passive"], "careless bot: deaths, respawns, wave replays, defeat", 0),
     "arena": (["--wave=9", "--arena=crumble"], "crumbling rim and toppling pillars every wave", 0),
     "daily": (["--mode=daily"], "Daily Run twists", 2),
+    "allies": (["--wave=7", "--allies=3", "--duels"], "3 AI ally heroes and a camp duel (wave 8)", 8),
+    "ladder": (["--mode=duels", "--tier=normal"], "Duel Ladder: rival heroes 1 on 1", 1),
 }
 
 # long boss fights get more time (multiplies --seconds)

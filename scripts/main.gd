@@ -71,10 +71,18 @@ func _ready() -> void:
 					run.max_wave_reached = 7
 					run._end_run("victory" if sc == "victory" else "defeat"))
 		"hud":
-			start_run(hero if hero != "" else "ashwarden", wave if Game.args.has("wave") else 3)
+			start_run(hero if hero != "" else "ashwarden", wave if Game.args.has("wave") else 3, _arg_cfg())
 			get_tree().create_timer(0.5).timeout.connect(func():
 				if run:
 					run.skip_prep())
+		"camp":
+			start_run(hero if hero != "" else "ashwarden", wave if Game.args.has("wave") else 4, _arg_cfg())
+		"duel":
+			# a camp duel under way (--duel=<hero> picks the rival)
+			start_run(hero if hero != "" else "ashwarden", wave if Game.args.has("wave") else 4, _arg_cfg())
+			get_tree().create_timer(0.5).timeout.connect(func():
+				if run:
+					run.duel.accept())
 		_:
 			if hero != "":
 				start_run(hero, maxi(1, wave), _arg_cfg())
@@ -86,12 +94,12 @@ func _ready() -> void:
 
 ## --scene screenshots: wait until the world / menu is actually built and a few frames have rendered.
 func _shot_when_ready(sc: String) -> void:
-	var min_wait := 4.0 if sc == "hud" else 2.0
+	var min_wait := 4.0 if sc in ["hud", "duel"] else 2.0
 	await get_tree().create_timer(min_wait, true, false, true).timeout
 	var t := 0.0
 	while t < 8.0:
 		var ok := true
-		if sc in ["hud", "shop", "pause", "skills", "end", "victory", "training"]:
+		if sc in ["hud", "shop", "pause", "skills", "end", "victory", "training", "camp", "duel"]:
 			ok = run != null and is_instance_valid(run) and run.camera != null
 			if ok and sc == "shop":
 				ok = run.hud != null and run.hud.shop != null
@@ -114,6 +122,11 @@ func _arg_cfg() -> Dictionary:
 	var c := Modes.config(Game.arg("mode", "classic"), Game.arg("tier", "hard"), {"date": Game.arg("date", Modes.today())} if Game.args.has("date") else {})
 	if not Game.args.has("profile"):
 		c["counts"] = false
+	# --allies=N: N AI ally heroes picked for the hero; --ally=<id>,<id>: exactly these
+	if Game.args.has("ally"):
+		c["ally_ids"] = Array(Game.arg("ally", "").split(",", false))
+	elif Game.args.has("allies"):
+		c["allies"] = clampi(int(Game.arg("allies", "1")), 0, 3)
 	return c
 
 

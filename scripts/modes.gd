@@ -39,12 +39,13 @@ const TIERS := {
 		"unlock": "Clear wave 10 on Hard"},
 }
 
-const MODE_ORDER := ["classic", "random", "endless", "daily", "practice", "training"]
+const MODE_ORDER := ["classic", "random", "endless", "daily", "duels", "practice", "training"]
 const MODES := {
 	"classic": {"name": "Classic", "desc": "Pick a hero and survive 20 waves. Bosses on every 5th wave.", "icon": "portrait_ashwarden", "tiers": true},
 	"random": {"name": "Random Hero", "desc": "The Pit picks your hero for you. +150 starting gold.", "icon": "portrait_twinhide", "tiers": true},
 	"endless": {"name": "Endless", "desc": "Past the Warden the waves never stop. How far can you go?", "icon": "portrait_sunspeaker", "tiers": true},
 	"daily": {"name": "Daily Run", "desc": "Today's hero and twist, the same for everyone. Hard tier. Beat your best score.", "icon": "portrait_gunsmith", "tiers": false},
+	"duels": {"name": "Duel Ladder", "desc": "No waves: beat 8 rival heroes one on one, each stronger than the last. Shop between duels. A lost duel costs a life.", "icon": "portrait_duelist", "tiers": true},
 	"practice": {"name": "Practice", "desc": "Any hero, any wave, 99,999 gold, no lives lost. Nothing counts toward records.", "icon": "portrait_stoneshaper", "tiers": true},
 	"training": {"name": "Training", "desc": "Learn the basics step by step: moving, skills, the shop, fighting, barrel stacks.", "icon": "portrait_riftdancer", "tiers": false},
 }

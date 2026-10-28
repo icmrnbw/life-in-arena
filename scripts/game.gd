@@ -244,6 +244,11 @@ func build_report() -> Dictionary:
 		rep["result"] = res
 		rep["wave_reached"] = maxi(run.max_wave_reached, 0)
 		rep["level"] = run.hero.level
+		# where a run that never finished stood (stalls): phase, hero, what is left alive
+		rep["end_state"] = {"phase": run.phase, "wave_time": snappedf(run.wave_time, 0.1), "hero_pos": str(run.hero.pos.snapped(Vector3(0.1, 0.1, 0.1))),
+			"foes": run.enemies.filter(func(e): return e.alive).map(func(e): return "%s@%s" % [e.kind, str(e.pos.snapped(Vector3(0.1, 0.1, 0.1)))]).slice(0, 8),
+			"queued": run.spawn_queue.size(), "allies": run.companions.map(func(c): return "%s lv%d %s" % [c.hero_id, c.level, "down" if c.dead else "up"]),
+			"duels": run.duel.record}
 		rep["gold_earned"] = run.stats["gold_earned"]
 		rep["kills"] = run.stats["kills"]
 		rep["deaths"] = run.stats["deaths"]

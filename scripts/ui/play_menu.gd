@@ -56,39 +56,49 @@ static func create(on_choose: Callable, on_launch: Callable, on_back: Callable, 
 	if not Profile.tier_unlocked(tier):
 		tier = "hard"
 	var start_mode := first_mode if Modes.MODES.has(first_mode) else ("training" if not Profile.d().get("training_done", false) and int(Profile.d()["totals"]["runs"]) == 0 else "classic")
-	var st := {"mode": start_mode, "tier": tier, "wave": 1, "buttons": {}}
+	var st := {"mode": start_mode, "tier": tier, "wave": 1, "allies": clampi(int(Profile.d().get("last_allies", 0)), 0, 3), "buttons": {}}
 	# the refresh lambda lives in st so the tier buttons it builds can call it again
 	st["refresh"] = func():
 		for id in st["buttons"]:
 			var b: Button = st["buttons"][id]
 			b.modulate = Color(1, 1, 1) if id == st["mode"] else Color(0.7, 0.67, 0.63)
 			(b.get_meta("ring") as Control).visible = id == st["mode"]
-		go.text = "Choose Hero" if st["mode"] in ["classic", "endless", "practice"] else "Start"
+		go.text = "Choose Hero" if st["mode"] in ["classic", "endless", "practice", "duels"] else "Start"
 		for c in detail_holder.get_children():
 			c.queue_free()
 		detail_holder.add_child(_mode_detail(st, st["refresh"]))
 	for id in Modes.MODE_ORDER:
 		var b := _mode_button(id)
+		b.mouse_filter = Control.MOUSE_FILTER_PASS   # a swipe on the list scrolls it, a tap still picks
 		list.add_child(b)
 		st["buttons"][id] = b
 		var mid: String = id
 		b.pressed.connect(func():
 			st["mode"] = mid
 			st["refresh"].call())
+	UIK.pass_touch(list)
 	go.pressed.connect(func(): _start(st, on_choose, on_launch))
 	st["refresh"].call()
 	return root
 
 
+## Modes that can bring AI ally heroes along.
+const ALLY_MODES := ["classic", "random", "endless", "practice"]
+
+
 static func _start(st: Dictionary, on_choose: Callable, on_launch: Callable) -> void:
 	var mode: String = st["mode"]
+	var al := {"allies": int(st["allies"])} if mode in ALLY_MODES and int(st["allies"]) > 0 else {}
+	if mode in ALLY_MODES:
+		Profile.d()["last_allies"] = int(st["allies"])
 	match mode:
-		"classic", "endless":
-			on_choose.call(Modes.config(mode, st["tier"]))
+		"classic", "endless", "duels":
+			on_choose.call(Modes.config(mode, st["tier"], al))
 		"practice":
-			on_choose.call(Modes.config(mode, st["tier"], {"start_wave": st["wave"]}))
+			al["start_wave"] = st["wave"]
+			on_choose.call(Modes.config(mode, st["tier"], al))
 		"random":
-			on_launch.call(Modes.random_hero(), 1, Modes.config("random", st["tier"]))
+			on_launch.call(Modes.random_hero(), 1, Modes.config("random", st["tier"], al))
 		"daily":
 			var dd := Modes.daily(Modes.today())
 			on_launch.call(dd["hero"], 1, Modes.config("daily", "hard", {"date": dd["date"]}))
@@ -151,6 +161,8 @@ static func _mode_line(id: String) -> String:
 			return "Free gold, any wave"
 		"training":
 			return "Done" if p.get("training_done", false) else "Start here"
+		"duels":
+			return "%d rival heroes, 1 on 1" % Duel.LADDER_ROUNDS
 	return ""
 
 
@@ -191,6 +203,24 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 		v.add_child(tl)
 		if not Profile.tier_unlocked("extreme"):
 			v.add_child(UIK.label("Extreme unlocks when you clear wave 10 on Hard.", "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62))))
+	if mode in ALLY_MODES:
+		var arow := HBoxContainer.new()
+		arow.add_theme_constant_override("separation", 10)
+		v.add_child(arow)
+		arow.add_child(UIK.label("Allies", "", 20, UIK.col("gold", Color.GOLD)))
+		for n in 4:
+			var ab := UIK.button("None" if n == 0 else str(n), "PrimaryButton" if n == int(st["allies"]) else "", Vector2(96 if n == 0 else 72, 60))
+			ab.name = "Allies_%d" % n
+			var nn := n
+			ab.pressed.connect(func():
+				st["allies"] = nn
+				refresh.call())
+			arow.add_child(ab)
+		var al := UIK.label("AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally." if int(st["allies"]) > 0
+			else "Bring up to 3 AI heroes into the Pit with you.", "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+		al.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		al.custom_minimum_size = Vector2(300, 0)
+		v.add_child(al)
 	match mode:
 		"daily":
 			var dd := Modes.daily(Modes.today())

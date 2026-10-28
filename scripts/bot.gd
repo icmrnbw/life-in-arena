@@ -2,8 +2,12 @@ extends Node
 ## Autoplay bot (--autoplay). Plays through the same inputs a player has: move vector, casts, rank-ups, shop.
 ## --autoplay=passive: a careless player for difficulty calibration: shops the recommended build and taps skills
 ## whenever they're ready, but just walks at the nearest enemy (no dodging, kiting, healing or potions).
+## The same brain plays the AI heroes: role "ally" (a companion: fights, no shop or barrel digging) and "rival"
+## (the duel opponent; it runs inside Run.as_unit(), so `run.enemies` is the player's side).
 
 var run: Run
+var me: Hero
+var role := "player"
 var think_t := 0.0
 var shop_done_wave := -1
 var stuck_t := 0.0
@@ -26,33 +30,69 @@ var pen_kills := 0
 var pen_dry_t := 0.0   # time in pen play since the last kill
 
 
-func setup(r: Run) -> void:
+func setup(r: Run, h: Hero = null, as_role := "player") -> void:
 	run = r
-	passive = Game.autoplay_mode == "passive"
-	use_pens = Game.arg("pens", "1") != "0"
+	me = h if h != null else r.hero
+	role = as_role
+	passive = role == "player" and Game.autoplay_mode == "passive"
+	use_pens = role == "player" and Game.arg("pens", "1") != "0"
 	noshop = int(Game.arg("noshop", "0"))
+	orbit_sign = 1.0 if randf() < 0.5 else -1.0
 
 
 func tick(dt: float) -> void:
-	var h := run.hero
+	var h := me
 	if h.dead or not h.alive:
 		h.move_input = Vector2.ZERO
 		return
 	_rank_up()
 	think_t -= dt
+	match role:
+		"ally":
+			match run.phase:
+				"prep", "duel", "duel_end":
+					_ally_camp()
+				_:
+					if h.in_camp:
+						h.move_input = Vector2.ZERO
+					else:
+						_fight(dt)
+			return
+		"rival":
+			if run.phase == "duel":
+				_fight(dt)
+			else:
+				h.move_input = Vector2.ZERO
+			return
 	match run.phase:
 		"prep":
+			if Game.args.has("duels") and run.duel.can_accept():
+				run.duel.accept()
+				return
 			_prep(dt)
-		"wave", "clear", "victory_wait":
+		"wave", "clear", "victory_wait", "duel":
 			_fight(dt)
 		_:
 			h.move_input = Vector2.ZERO
 
 
+## Every skill point the hero has, spent in its skill order (AI heroes start leveled).
+func rank_all() -> void:
+	_rank_up()
+
+
+## An ally in camp: heal at the fountain, else wait beside the player.
+func _ally_camp() -> void:
+	var h := me
+	var goal: Vector3 = DB.FOUNTAIN_POS if h.hp < h.max_hp * 0.95 or h.mana < h.max_mana * 0.8 else run.hero.pos + (h.pos - run.hero.pos).limit_length(1.0).normalized() * 2.4
+	var to := run._flat(goal - h.pos)
+	h.move_input = Vector2(to.x, to.z).normalized() if to.length() > 1.2 else Vector2.ZERO
+
+
 func _rank_up() -> void:
-	var h := run.hero
+	var h := me
 	var guard := 0
-	while h.skill_points > 0 and h.any_rank_up() and guard < 8:
+	while h.skill_points > 0 and h.any_rank_up() and guard < 20:
 		guard += 1
 		var order: Array = h.data["skill_order"]
 		var counts := [0, 0, 0, 0]
@@ -61,19 +101,26 @@ func _rank_up() -> void:
 			counts[s] += 1
 			if h.ranks[s] < counts[s]:
 				if h.can_rank_up(s):
-					run.rank_up(s)
+					_rank(s)
 					done = true
 				break
 		if not done:
 			for s in [3, 0, 1, 2]:
 				if h.can_rank_up(s):
-					run.rank_up(s)
+					_rank(s)
 					break
+
+
+func _rank(s: int) -> void:
+	if me == run.hero:
+		run.rank_up(s)
+	else:
+		me.rank_up(s)
 
 
 # ---------------------------------------------------------------- prep
 func _prep(_dt: float) -> void:
-	var h := run.hero
+	var h := me
 	if shop_done_wave != run.wave:
 		shop_done_wave = run.wave
 		_shop()
@@ -87,7 +134,7 @@ func _prep(_dt: float) -> void:
 		var camp_cast: Array = h.kit.bot_profile().get("camp_cast", [])
 		for s in camp_cast:
 			if h.ranks[s] > 0 and h.kit.is_ready(s) and h.mana >= h.skill_mana(s) and h.kit.bot_wants(s):
-				run.try_cast(s)
+				run.cast_for(me, s)
 	var need_heal := h.hp < h.max_hp * 0.97 or h.mana < h.max_mana * 0.9
 	if need_heal:
 		var to := run._flat(DB.FOUNTAIN_POS - h.pos)
@@ -99,7 +146,7 @@ func _prep(_dt: float) -> void:
 
 
 func _shop() -> void:
-	var h := run.hero
+	var h := me
 	if run.wave <= noshop:
 		return
 	# make room for the build: sell potions when the bag is nearly full
@@ -172,7 +219,7 @@ func _shop() -> void:
 
 # ---------------------------------------------------------------- fight
 func _fight(dt: float) -> void:
-	var h := run.hero
+	var h := me
 	if think_t <= 0.0:
 		think_t = 0.15
 		if passive:
@@ -184,7 +231,7 @@ func _fight(dt: float) -> void:
 
 
 func _cast() -> void:
-	var h := run.hero
+	var h := me
 	for s in [3, 0, 1, 2]:
 		if h.ranks[s] <= 0:
 			continue
@@ -193,12 +240,12 @@ func _cast() -> void:
 		if not h.kit.free_cast(s) and h.mana < h.skill_mana(s):
 			continue
 		if h.kit.bot_wants(s):
-			if run.try_cast(s):
+			if run.cast_for(me, s):
 				return
 
 
 func _cast_careless() -> void:
-	var h := run.hero
+	var h := me
 	if run.nearest_enemy(h.pos, 9.0) == null:
 		return
 	for s in [0, 1, 2, 3]:
@@ -209,12 +256,12 @@ func _cast_careless() -> void:
 				continue
 			if h.kit.blocked(s):
 				continue
-			if run.try_cast(s):
+			if run.cast_for(me, s):
 				return
 
 
 func _items() -> void:
-	var h := run.hero
+	var h := me
 	for i in h.items.size():
 		var id: String = h.items[i]["id"]
 		if id == "healing_draught" and h.hp < h.max_hp * 0.45 and float(h.items[i].get("cd", 0.0)) <= 0.0:
@@ -223,18 +270,18 @@ func _items() -> void:
 				if b["hp"] > 0.0:
 					active = true
 			if not active:
-				run.use_item(i)
+				run.use_item_for(me, i)
 				return
 		if id == "mana_draught" and h.mana < h.max_mana * 0.25:
-			run.use_item(i)
+			run.use_item_for(me, i)
 			return
 		if id == "wayfarer_treads" and h.hp < h.max_hp * 0.35 and float(h.items[i].get("cd", 0.0)) <= 0.0:
-			run.use_item(i)
+			run.use_item_for(me, i)
 			return
 
 
 func _move(dt: float) -> void:
-	var h := run.hero
+	var h := me
 	if passive:
 		# walks at the nearest enemy and auto-attacks; no skills, no shopping, no dodging
 		var n := run.nearest_enemy(h.pos, 60.0)
@@ -363,7 +410,7 @@ func _move(dt: float) -> void:
 
 ## Tap Chanters and Drummers first when they're close.
 func _focus_buffers() -> void:
-	var h := run.hero
+	var h := me
 	if h.focus != null and h.focus.alive and not (h.focus is Barrel):
 		return
 	var best: Unit = null
@@ -379,7 +426,7 @@ func _focus_buffers() -> void:
 
 
 func _pen_play(dt: float) -> bool:
-	var h := run.hero
+	var h := me
 	var bf := run.barrels
 	if not use_pens or bf == null or run.phase != "wave" or not run.boss_units.is_empty() or run.boss_kind() != "":
 		return false
@@ -443,7 +490,7 @@ func _nearest_kind(k: String) -> Unit:
 	var bd := 1e9
 	for e in run.enemies:
 		if e.alive and not e.untargetable and e.kind == k:
-			var d := run._flat(e.pos - run.hero.pos).length()
+			var d := run._flat(e.pos - me.pos).length()
 			if d < bd:
 				bd = d
 				best = e
@@ -451,7 +498,7 @@ func _nearest_kind(k: String) -> Unit:
 
 
 func _hazard_push() -> Vector3:
-	var h := run.hero
+	var h := me
 	var push := Vector3.ZERO
 	for hz in run.hazards:
 		match hz.get("type", ""):

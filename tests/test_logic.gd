@@ -901,7 +901,7 @@ func test_barrels_buffers() -> void:
 	check(near(r.damage(far_e, 50.0, h, "Test", "magic"), 50.0), "far from the chanter takes damage")
 	check(r.damage(ch, 50.0, h, "Test", "magic") > 0.0, "chanter itself can be hurt")
 	h.pos = Vector3(-6, 0, 1)
-	check(r._pick_hero_target() == ch, "auto-attack skips immune foes")
+	check(r._pick_target_for(r.hero) == ch, "auto-attack skips immune foes")
 	r.kill(ch, h)
 	r._tick_corpses(0.0)
 	check(r.damage(nb, 50.0, h, "Test", "magic") > 0.0, "immunity ends when the chanter dies")
