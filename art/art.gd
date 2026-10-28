@@ -11,6 +11,7 @@ const Icons := preload("res://art/icons.gd")
 const UiTheme := preload("res://art/ui_theme.gd")
 const WeatherFx := preload("res://art/weather_fx.gd")
 const ArenaFx := preload("res://art/arena_fx.gd")
+const Dungeon := preload("res://art/dungeon.gd")
 
 var palette := {
 	"ember": Color("ff7a2f"), "gold": Color("f2c14e"), "hp": Color("d83a3a"), "mana": Color("3a7bd8"),
@@ -86,15 +87,21 @@ func _update_occluders(delta: float) -> void:
 
 # ------------------------------------------------------------------ environment / world
 
-func setup_environment(world_env_parent: Node) -> void:
+func setup_environment(world_env_parent: Node, theme := "ember") -> void:
 	if world_env_parent == null:
 		return
-	World.setup_environment(world_env_parent)
+	World.setup_environment(world_env_parent, theme)
 
 func build_world(parent: Node3D) -> Dictionary:
 	if parent == null:
 		return {"shop": null, "fountain": null}
 	return World.build(parent)
+
+## Delve mode: the depth's dungeon (art/dungeon.gd), built from the Delve node's grid and added under it.
+func build_dungeon(delve: Node3D) -> Node3D:
+	if delve == null:
+		return null
+	return Dungeon.build(delve)
 
 ## Title-screen campsite (ledge, bench, tent, props) with the bonfire at `pos`.
 func menu_camp(parent: Node3D, pos: Vector3) -> Node3D:

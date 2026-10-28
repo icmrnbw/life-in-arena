@@ -71,7 +71,8 @@ func _ready() -> void:
 					run.max_wave_reached = 7
 					run._end_run("victory" if sc == "victory" else "defeat"))
 		"hud":
-			start_run(hero if hero != "" else "ashwarden", wave if Game.args.has("wave") else 3)
+			var hc := _arg_cfg() if Game.args.has("mode") or Game.args.has("map") else {}
+			start_run(hero if hero != "" else "ashwarden", wave if Game.args.has("wave") else 3, hc)
 			get_tree().create_timer(0.5).timeout.connect(func():
 				if run:
 					run.skip_prep())
@@ -108,10 +109,15 @@ func _shot_when_ready(sc: String) -> void:
 	Game.screenshot(sc)
 
 
-## Run settings from the test hooks: --mode=<id> --tier=<id> (--date=YYYY-MM-DD for daily). Bot and test runs
-## don't touch the saved profile unless --profile is passed.
+## Run settings from the test hooks: --mode=<id> --tier=<id> --map=<arena id> (--date=YYYY-MM-DD for daily).
+## Bot and test runs don't touch the saved profile unless --profile is passed.
 func _arg_cfg() -> Dictionary:
-	var c := Modes.config(Game.arg("mode", "classic"), Game.arg("tier", "hard"), {"date": Game.arg("date", Modes.today())} if Game.args.has("date") else {})
+	var extra := {"map": Game.arg("map", "pit")}
+	if Game.args.has("date"):
+		extra["date"] = Game.arg("date", Modes.today())
+	if Game.args.has("seed"):
+		extra["seed"] = int(Game.arg("seed", "0"))
+	var c := Modes.config(Game.arg("mode", "classic"), Game.arg("tier", "hard"), extra)
 	if not Game.args.has("profile"):
 		c["counts"] = false
 	return c

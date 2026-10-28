@@ -35,6 +35,9 @@ SCENARIOS = {
     "deaths": (["--wave=8", "--autoplay=passive"], "careless bot: deaths, respawns, wave replays, defeat", 0),
     "arena": (["--wave=9", "--arena=crumble"], "crumbling rim and toppling pillars every wave", 0),
     "daily": (["--mode=daily"], "Daily Run twists", 2),
+    "hollow": (["--wave=4", "--god", "--map=hollow"], "Rimefang Hollow arena: pillars, gates, Pit Brute", 5),
+    "delve": (["--mode=delve", "--wave=4"], "Delve: dungeon depths 2-3, packs waking, the Pit Brute's lair", 4),
+    "delve_end": (["--mode=delve", "--wave=18", "--god"], "Delve: depths 9-10, Hollow Choir lair and victory", 18),
 }
 
 # long boss fights get more time (multiplies --seconds)
