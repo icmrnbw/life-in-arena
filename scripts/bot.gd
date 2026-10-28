@@ -28,6 +28,8 @@ var pen_quit := false
 var pen_idle_t := 0.0
 var pen_kills := 0
 var pen_dry_t := 0.0   # time in pen play since the last kill
+var dry_t := 0.0       # time in a fight with foes up but no damage landing (smart bot)
+var dealt_last := 0.0
 
 
 func setup(r: Run, h: Hero = null, as_role := "player") -> void:
@@ -391,6 +393,21 @@ func _move(dt: float) -> void:
 	# in a corridor mid-wave: out the way we came, not into the barrels
 	if run.barrels and run.barrels.cover(h.pos) >= 2 and not h.in_camp:
 		v = run._flat(run.barrels.waypoint(h, Vector3(0, 0, 3)) - h.pos).normalized() * 2.0 + v * 0.2
+	# no hits landing for a while (a Hexcaster behind a barrel stack or a pillar): walk the barrel-aware path to the
+	# nearest foe instead of the straight line that keeps bumping into the same cover
+	if role != "rival" and run.barrels and not h.in_camp:
+		var dealt := 0.0
+		for d in run.stats["damage_by"].values():
+			dealt += float(d)
+		if enemies.is_empty() or dealt > dealt_last + 0.5:
+			dry_t = 0.0
+			dealt_last = dealt
+		else:
+			dry_t += dt
+		if dry_t > 5.0:
+			var nf := run.nearest_enemy(h.pos, 60.0)
+			if nf != null and h.edge_dist(nf) > h.atk_range:
+				v = run._flat(run.barrels.waypoint(h, nf.pos) - h.pos).normalized() * 2.0 + _hazard_push() * 2.0
 	# unstick
 	if stuck_left > 0.0:
 		stuck_left -= dt
