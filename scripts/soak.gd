@@ -86,7 +86,7 @@ func _check_flow(dt: float) -> void:
 	else:
 		_phase_t += dt
 	if run.wave != _last_wave:
-		if run.wave != _last_wave + 1:
+		if run.wave != _last_wave + run.wave_step:
 			issue("wave_jump", "wave number jumped", "%d -> %d" % [_last_wave, run.wave])
 		if run.wave > _last_wave and _death_wave == _last_wave:
 			issue("wave_skipped_after_death", "wave skipped after a death", "died on %d, now %d" % [_death_wave, run.wave])
@@ -100,7 +100,7 @@ func _check_flow(dt: float) -> void:
 			issue("long_wave_%d" % run.wave, "wave never ends", "%.0f s, %d queued, %s" % [run.wave_time, run.spawn_queue.size(), _foes_left()])
 		var alive_n := 0
 		for e in run.enemies:
-			if e.alive:
+			if e.alive and not e.dormant:   # Delve: sleeping packs aren't in the fight yet
 				alive_n += 1
 		# damage keeps flowing while the fight progresses; none for a long time means foes nobody can hit or reach
 		var dealt := 0.0
@@ -110,7 +110,8 @@ func _check_flow(dt: float) -> void:
 		_dealt = dealt
 		if _stall_t > STALL_S:
 			issue("stall_%d" % run.wave, "fight stalled: no damage dealt", "%.0f s, %s" % [_stall_t, _foes_left()])
-		_empty_wave_t = _empty_wave_t + dt if alive_n == 0 and run.spawn_queue.is_empty() else 0.0
+		var exploring := run.delve != null and not run.delve.lair_open   # Delve: walking to the next pack or the lair
+		_empty_wave_t = _empty_wave_t + dt if alive_n == 0 and run.spawn_queue.is_empty() and not exploring else 0.0
 		if _empty_wave_t > 5.0:
 			issue("empty_wave_%d" % run.wave, "wave has no foes left but doesn't clear", "%.0f s" % _empty_wave_t)
 
@@ -149,12 +150,19 @@ func _bad_vec(v: Vector3) -> bool:
 	return is_nan(v.x) or is_nan(v.y) or is_nan(v.z) or is_inf(v.x) or is_inf(v.y) or is_inf(v.z)
 
 
+## Off the arena (or, in Delve, off the dungeon's floor; a body may overlap a wall edge by its radius).
+func _outside(p: Vector3) -> bool:
+	if run.delve and run.delve.active and p.z < 30.0:
+		return not run.delve.walkable(run.delve.resolve(null, p)) or run.delve.resolve(null, p).distance_to(p) > 1.5
+	return Vector2(p.x, p.z).length() > WORLD_R
+
+
 func _check_hero(dt: float) -> void:
 	var h := run.hero
 	if _bad_vec(h.pos):
 		issue("hero_nan", "hero position is NaN/inf")
 		return
-	if Vector2(h.pos.x, h.pos.z).length() > WORLD_R:
+	if _outside(h.pos):
 		issue("hero_out", "hero left the world", str(h.pos))
 	if h.pos.y < -0.5:
 		issue("hero_below", "hero below the ground", "y %.2f" % h.pos.y)
@@ -182,7 +190,7 @@ func _check_units() -> void:
 			continue
 		if _bad_vec(e.pos):
 			issue("foe_nan_" + e.kind, "foe position is NaN/inf", e.kind)
-		elif Vector2(e.pos.x, e.pos.z).length() > WORLD_R:
+		elif _outside(e.pos):
 			issue("foe_out_" + e.kind, "foe left the world", "%s at %s" % [e.kind, e.pos])
 		if e.node == null or not is_instance_valid(e.node):
 			issue("foe_no_model_" + e.kind, "live foe without a model", e.kind)

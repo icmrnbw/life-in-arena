@@ -8,6 +8,7 @@ var run: Run
 var root: Control
 var controls: Control
 var world_bars: Control
+var minimap: Control = null   # Delve only (scripts/ui/minimap.gd)
 var shop: Control = null
 
 var hp_bar: ProgressBar
@@ -82,6 +83,13 @@ func setup(r: Run) -> void:
 	_build_top_right()
 	_build_slots()
 	_build_banner_toasts()
+	if run.delve:
+		minimap = load("res://scripts/ui/minimap.gd").new()
+		minimap.name = "Minimap"
+		minimap.setup(run)
+		minimap.size_flags_horizontal = Control.SIZE_SHRINK_END
+		right_col.add_child(minimap)
+		minimap.visible = false
 
 	controls.blockers = [top_right, fight_btn, shop_btn, slots_box, pause_btn, info_btn, prep_box]
 	run.toast_requested.connect(show_toast)
@@ -553,9 +561,9 @@ func _process(_delta: float) -> void:
 	if ph == "prep":
 		wave_label.text = _wave_text()
 		prep_box.visible = true
-		prep_label.text = "Next wave\n%d s" % int(ceil(run.prep_t))
+		prep_label.text = ("Descend\n%d s" if run.delve else "Next wave\n%d s") % int(ceil(run.prep_t))
 		if run.boss_kind() != "":
-			prep_label.text = "BOSS wave\n%d s" % int(ceil(run.prep_t))
+			prep_label.text = ("BOSS depth\n%d s" if run.delve else "BOSS wave\n%d s") % int(ceil(run.prep_t))
 		shop_btn.visible = true
 		_refresh_preview()
 		preview_box.visible = shop == null and run.tutorial == null
@@ -565,8 +573,12 @@ func _process(_delta: float) -> void:
 	else:
 		prep_box.visible = false
 		preview_box.visible = false
-		if ph == "wave" or ph == "clear":
+		if run.delve:
+			wave_label.text = _wave_text() + ("" if run.delve.lair_open else "  ·  find the lair")
+		elif ph == "wave" or ph == "clear":
 			wave_label.text = "%s  ·  %d left" % [_wave_text(), run.enemies.size() + run.spawn_queue.size()]
+	if minimap:
+		minimap.visible = ph == "wave" or ph == "clear"
 	var bh := run.boss_hp()
 	boss_box.visible = run.boss_units.size() > 0 and bh.y > 0.0
 	if boss_box.visible:
@@ -603,6 +615,8 @@ func _process(_delta: float) -> void:
 func _wave_text() -> String:
 	if run.mode == "training":
 		return "Training"
+	if run.delve:
+		return "Depth %d / %d" % [Delve.depth_of(run.wave), Delve.DEPTHS]
 	if run.mode == "endless":
 		return "Wave %d · Endless" % run.wave
 	return "Wave %d / %d" % [run.wave, DB.TOTAL_WAVES]

@@ -239,17 +239,19 @@ func _move(dt: float) -> void:
 		# walks at the nearest enemy and auto-attacks; no skills, no shopping, no dodging
 		var n := run.nearest_enemy(h.pos, 60.0)
 		var goal := n.pos if n else Vector3(0, 0, 4)
+		if run.delve and run.delve.active:
+			goal = run.delve.waypoint(h, n.pos if n else run.delve.bot_goal(h.pos))
 		var to := run._flat(goal - h.pos)
 		var stop := (h.atk_range + n.radius + h.radius - 0.3) if n else 1.0
 		h.move_input = Vector2(to.x, to.z).normalized() if to.length() > stop else Vector2.ZERO
 		return
 	_focus_buffers()
-	if _pen_play(dt):
+	if run.delve == null and _pen_play(dt):
 		return
 	var v := Vector3.ZERO
 	var enemies := []
 	for e in run.enemies:
-		if e.alive and not e.untargetable:
+		if e.alive and not e.untargetable and not e.dormant:
 			enemies.append(e)
 	var hp_frac := h.hp / maxf(1.0, h.max_hp)
 	var prof: Dictionary = h.kit.bot_profile()
@@ -264,6 +266,7 @@ func _move(dt: float) -> void:
 	if orbit_flip_t <= 0.0:
 		orbit_flip_t = randf_range(3.0, 6.0)
 		orbit_sign = -orbit_sign
+	var chase: Unit = null
 	if enemies.size() > 0:
 		# local crowd
 		var near_n := 0
@@ -282,6 +285,7 @@ func _move(dt: float) -> void:
 				tgt = b
 		if tgt == null or (run._flat(tgt.pos - h.pos).length() > 6.0 and near_n >= 3):
 			tgt = run.nearest_enemy(h.pos, 60.0)
+		chase = tgt
 		if tgt != null:
 			var to_t := run._flat(tgt.pos - h.pos)
 			var dist := to_t.length()
@@ -322,11 +326,17 @@ func _move(dt: float) -> void:
 			var hx := _nearest_kind("hexcaster")
 			if hx:
 				v += run._flat(hx.pos - h.pos).normalized() * 0.5
+	elif run.delve and run.delve.active:
+		# Delve: nothing awake, so go and wake the nearest pack (or open the lair)
+		v += run._flat(run.delve.waypoint(h, run.delve.bot_goal(h.pos)) - h.pos).normalized()
 	else:
 		# nothing visible: drift to the middle (burrowers / spawns)
 		var to2 := run._flat(Vector3(0, 0, 3) - h.pos)
 		if to2.length() > 2.0:
 			v += to2.normalized() * 0.6
+	# Delve: a foe round a corner is reached by the path, not straight through the wall
+	if run.delve and run.delve.active and chase != null and not run.delve.los(h.pos, chase.pos):
+		v = run._flat(run.delve.waypoint(h, chase.pos) - h.pos).normalized()
 	# hazards
 	var hz := _hazard_push()
 	if hz.length() > 0.01:
