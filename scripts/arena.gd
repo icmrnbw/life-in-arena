@@ -158,7 +158,7 @@ func topple(i: int, dir: Vector3, by: Unit, stun := false) -> void:
 	run.schedule(DB.TOPPLE_TIME, _land.bind(i, by))
 	if stun and by != null and by.alive:
 		by.stun_t = maxf(by.stun_t, DB.TOPPLE_STUN)
-		run.toast("The pillar falls on %s! Stunned" % (by as Enemy).display_name if by is Enemy else "The pillar falls!", Art.palette.get("gold", Color.GOLD))
+		run.toast(L.f("The pillar falls on %s! Stunned", [(by as Enemy).shown_name()]) if by is Enemy else L.t("The pillar falls!"), Art.palette.get("gold", Color.GOLD))
 	else:
 		run.hint_once("topple", "Pillars topple when a boss hits them. Bait the Brute's charge into one: it stuns him.")
 

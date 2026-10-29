@@ -140,7 +140,7 @@ static func wave_info(w: int) -> Dictionary:
 	if bk != "":
 		return {"name": boss_title(w), "captain": "", "rule": "", "mods": {}, "desc": "Endless boss. Tougher with every lap."}
 	var base: Dictionary = DB.wave_info(((w - 1) % DB.TOTAL_WAVES) + 1).duplicate()
-	base["name"] = String(base.get("name", "")) + " " + _lap_mark(w)
+	base["name"] = L.t(base.get("name", "")) + " " + _lap_mark(w)
 	return base
 
 
@@ -162,7 +162,7 @@ static func boss_title(w: int) -> String:
 		return DB.BOSS_TITLES.get(w, "")
 	var bk := boss_kind(w)
 	var base_w: int = {"pit_brute": 5, "matron": 10, "hollow_choir": 15, "warden": 20}.get(bk, 5)
-	return "%s %s" % [DB.BOSS_TITLES[base_w], _lap_mark(w)]
+	return "%s %s" % [L.t(DB.BOSS_TITLES[base_w]), _lap_mark(w)]
 
 
 static func boss_hp_mult(w: int) -> float:
@@ -190,12 +190,12 @@ static func score(waves_cleared: int, kills: int, bosses: int, deaths: int, tier
 
 static func label(cfg: Dictionary) -> String:
 	var mode: String = cfg.get("mode", "classic")
-	var nm: String = MODES.get(mode, MODES["classic"])["name"]
+	var nm: String = L.t(MODES.get(mode, MODES["classic"])["name"])
 	if mode == "daily":
-		return "Daily Run · " + String(DAILY_MODS.get(cfg.get("mod", ""), {}).get("name", ""))
+		return L.t("Daily Run") + " · " + L.t(DAILY_MODS.get(cfg.get("mod", ""), {}).get("name", ""))
 	var map: String = cfg.get("map", "pit")
 	if map not in ["pit", "delve"]:
-		nm += " · " + Maps.map_name(map)
+		nm += " · " + L.t(Maps.map_name(map))
 	if MODES.get(mode, {}).get("tiers", false):
-		return "%s · %s" % [nm, TIERS[cfg.get("tier", "hard")]["name"]]
+		return "%s · %s" % [nm, L.t(TIERS[cfg.get("tier", "hard")]["name"])]
 	return nm

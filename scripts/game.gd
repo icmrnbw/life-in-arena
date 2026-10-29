@@ -8,7 +8,7 @@ var autoplay_mode := "smart"
 var soak: Node = null      # --soak monitor of the current run (scripts/soak.gd)
 var god := false
 var timescale := 1.0
-var settings := {"auto_shop": true, "shake": true, "sound": true, "music": true, "skins": {}, "skins_owned": []}
+var settings := {"auto_shop": true, "shake": true, "sound": true, "music": true, "skins": {}, "skins_owned": [], "lang": ""}
 var paused_by_shop := false
 var run: Run = null
 var last_result := ""
@@ -90,6 +90,8 @@ func _ready() -> void:
 	OS.add_logger(_logger)
 	_parse_args()
 	_load_settings()
+	# "" = not chosen yet: follow the device. --lang=<code> (tests and screenshots) overrides without saving.
+	L.setup(arg("lang") if args.has("lang") else String(settings.get("lang", "")))
 	_trail_on = args.is_empty() or args.has("trail")
 	_load_prev_trail()
 	if _trail_on:

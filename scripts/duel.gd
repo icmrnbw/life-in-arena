@@ -61,8 +61,8 @@ func on_prep() -> void:
 func _announce() -> void:
 	if run.phase != "prep" or offer.is_empty():
 		return
-	run.toast("A challenger waits: %s. Win the duel for %d gold and +%d to all attributes" % [
-		DB.HEROES[offer["hero"]]["name"], offer["gold"], int(WIN_STATS)], Art.palette.get("gold", Color.GOLD))
+	run.toast(L.f("A challenger waits: %s. Win the duel for %d gold and +%d to all attributes", [
+		DB.HEROES[offer["hero"]]["name"], offer["gold"], int(WIN_STATS)]), Art.palette.get("gold", Color.GOLD))
 	run.schedule(2.4, func():
 		if run.phase == "prep":
 			run.hint_once("duel", "Duels are optional. Tap Duel! in camp to fight the challenger 1 on 1. Losing costs nothing."))
@@ -111,7 +111,7 @@ func accept() -> bool:
 		h.kit.on_wave_start()
 	_spawn_rival()
 	Game.crumb("duel start vs " + String(offer["hero"]))
-	run.banner_requested.emit("Duel!", "%s, level %d" % [DB.HEROES[offer["hero"]]["name"], run.rival.level])
+	run.banner_requested.emit("Duel!", L.f("%s, level %d", [DB.HEROES[offer["hero"]]["name"], run.rival.level]))
 	Audio.play("boss")
 	return true
 
@@ -202,7 +202,7 @@ func finish(player_won: bool) -> void:
 			run.stats["deaths"] += 1
 			if run.mode != "practice":
 				run.lives -= 1
-			run.banner_requested.emit("Defeated", "%d %s left" % [maxi(0, run.lives), "life" if run.lives == 1 else "lives"] if run.lives > 0 else "No lives remain")
+			run.banner_requested.emit("Defeated", L.f("Lives left: %d", [maxi(0, run.lives)]) if run.lives > 0 else "No lives remain")
 		else:
 			run.banner_requested.emit("Duel lost", "No harm done. The wave still waits")
 		Audio.play("defeat")

@@ -41,6 +41,9 @@ func _ready() -> void:
 			show_play(Game.arg("mode", ""))
 		"records":
 			show_records()
+		"languages":
+			show_title()
+			show_languages()
 		"offer":
 			show_title()
 			_offer_training()
@@ -204,8 +207,20 @@ func show_title() -> void:
 	_close_overlay()
 	Game.state["phase"] = "menu"
 	var snap := Profile.load_run()
-	screen = Menus.title_screen(_on_play, show_gallery, continue_run if not snap.is_empty() else Callable(), show_records, snap)
+	screen = Menus.title_screen(_on_play, show_gallery, continue_run if not snap.is_empty() else Callable(), show_records, snap, show_languages)
 	ui.add_child(screen)
+
+
+## Language list over the title screen. Picking one saves it and rebuilds the title in that language.
+func show_languages() -> void:
+	_close_overlay()
+	overlay = Menus.language_picker(func(code: String):
+		Game.settings["lang"] = code
+		Game.save_settings()
+		L.set_lang(code)
+		show_title(),
+	_close_overlay)
+	ui.add_child(overlay)
 
 
 ## Play: the first time, offer Training before the mode list.

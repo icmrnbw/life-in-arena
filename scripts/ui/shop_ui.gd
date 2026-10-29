@@ -63,7 +63,7 @@ func setup(r: Run, h: Node) -> void:
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(sp)
 	auto_chk = CheckButton.new()
-	auto_chk.text = "Open when near"
+	auto_chk.text = L.t("Open when near")
 	auto_chk.focus_mode = Control.FOCUS_NONE
 	auto_chk.button_pressed = Game.settings.get("auto_shop", true)
 	auto_chk.toggled.connect(func(v): Game.settings["auto_shop"] = v; Game.save_settings())
@@ -79,7 +79,7 @@ func setup(r: Run, h: Node) -> void:
 	# recommended row
 	var rec_head := HBoxContainer.new()
 	outer.add_child(rec_head)
-	rec_head.add_child(UIK.label("Recommended for %s:" % DB.HEROES[run.hero_id]["name"], "SmallLabel", 19, UIK.col("dim", Color(0.7, 0.65, 0.6))))
+	rec_head.add_child(UIK.label(L.f("Recommended for %s:", [DB.HEROES[run.hero_id]["name"]]), "SmallLabel", 19, UIK.col("dim", Color(0.7, 0.65, 0.6))))
 	rec_row = HBoxContainer.new()
 	rec_row.add_theme_constant_override("separation", 8)
 	outer.add_child(rec_row)
@@ -214,7 +214,7 @@ func _item_button(id: String, sz: Vector2, show_name: bool, icon_px := 64.0) -> 
 	b.custom_minimum_size = sz
 	b.focus_mode = Control.FOCUS_NONE
 	b.clip_contents = true
-	b.tooltip_text = d["name"]
+	b.tooltip_text = L.t(d["name"])
 	var hb := HBoxContainer.new()
 	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hb.offset_left = 8
@@ -232,14 +232,15 @@ func _item_button(id: String, sz: Vector2, show_name: bool, icon_px := 64.0) -> 
 	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hb.add_child(tv)
 	var longest_word := 0
-	for w in String(d["name"]).split(" "):
+	var shown_name := L.t(d["name"])
+	for w in shown_name.split(" "):
 		longest_word = maxi(longest_word, w.length())
 	var name_px := 18 if show_name else 17
 	if show_name and longest_word >= 10:
 		name_px = 15
 	elif show_name and longest_word >= 8:
 		name_px = 16
-	var nm := UIK.label(d["name"], "", name_px, Color(1, 0.95, 0.88))
+	var nm := UIK.label(shown_name, "", name_px, Color(1, 0.95, 0.88))
 	if show_name:
 		nm.autowrap_mode = TextServer.AUTOWRAP_WORD
 		nm.max_lines_visible = 2
@@ -255,7 +256,7 @@ func _item_button(id: String, sz: Vector2, show_name: bool, icon_px := 64.0) -> 
 		row.add_theme_constant_override("separation", 8)
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(pr)
-		var tag := UIK.label(only.capitalize(), "", 15, ONLY_COL[only])
+		var tag := UIK.label(L.t(only.capitalize()), "", 15, ONLY_COL[only])
 		if not run.hero.item_fits(id):
 			tag.modulate = Color(1, 1, 1, 0.55)
 		row.add_child(tag)
@@ -278,7 +279,7 @@ func _upgrade_button(id: String) -> Button:
 	b.custom_minimum_size = Vector2(174, 96)
 	b.focus_mode = Control.FOCUS_NONE
 	b.clip_contents = true
-	b.tooltip_text = d["name"]
+	b.tooltip_text = L.t(d["name"])
 	var hb := HBoxContainer.new()
 	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hb.offset_left = 8
@@ -295,7 +296,7 @@ func _upgrade_button(id: String) -> Button:
 	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hb.add_child(tv)
-	var nm := UIK.label(d["name"], "", 18, Color(1, 0.95, 0.88))
+	var nm := UIK.label(L.t(d["name"]), "", 18, Color(1, 0.95, 0.88))
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD
 	nm.max_lines_visible = 2
 	nm.custom_minimum_size = Vector2(80, 0)
@@ -425,7 +426,7 @@ func _refresh() -> void:
 			ic2.offset_top = -30
 			ic2.offset_bottom = 30
 			b2.add_child(ic2)
-			b2.tooltip_text = DB.ITEMS[it["id"]]["name"]
+			b2.tooltip_text = L.t(DB.ITEMS[it["id"]]["name"])
 			if int(it.get("charges", 1)) > 1:
 				var cl := UIK.label("x%d" % int(it["charges"]), "", 20)
 				cl.add_theme_constant_override("outline_size", 5)
@@ -444,8 +445,8 @@ func _refresh() -> void:
 	var ranks := 0
 	for k in run.hero.train:
 		ranks += int(run.hero.train[k])
-	extra.text = "  Tomes: +%d %s   Training ranks: %d   Lives: %d" % [int(run.hero.bonus[run.hero.data["primary"]]),
-		run.hero.data["primary"].to_upper(), ranks, run.lives]
+	extra.text = "  " + L.f("Tomes: +%d %s   Training ranks: %d   Lives: %d", [int(run.hero.bonus[run.hero.data["primary"]]),
+		L.t(run.hero.data["primary"].to_upper()), ranks, run.lives])
 	inv_row.add_child(extra)
 	# details
 	buy_alt_btn.visible = false
@@ -453,9 +454,9 @@ func _refresh() -> void:
 		_show_upgrade(selected_up)
 		return
 	if selected == "":
-		d_name.text = "Select an item"
-		d_desc.text = "Tap an item to see what it does. Advanced items combine the parts you own automatically." if tab != "upgrades" \
-			else "Training: permanent stat upgrades, no slot. Buy them again and again; each rank costs a little more."
+		d_name.text = L.t("Select an item")
+		d_desc.text = L.t("Tap an item to see what it does. Advanced items combine the parts you own automatically.") if tab != "upgrades" \
+			else L.t("Training: permanent stat upgrades, no slot. Buy them again and again; each rank costs a little more.")
 		d_recipe.text = ""
 		d_price.text = ""
 		d_icon.texture = UIK.icon("shop")
@@ -464,8 +465,8 @@ func _refresh() -> void:
 		return
 	var d: Dictionary = DB.ITEMS[selected]
 	d_icon.texture = UIK.icon(selected)
-	d_name.text = d["name"]
-	d_desc.text = d["desc"]
+	d_name.text = L.t(d["name"])
+	d_desc.text = L.t(d["desc"])
 	var rec := ""
 	if d.has("from"):
 		var parts := []
@@ -474,32 +475,32 @@ func _refresh() -> void:
 			var have := tmp.find(f)
 			if have >= 0:
 				tmp.remove_at(have)
-			parts.append(("[owned] " if have >= 0 else "") + DB.ITEMS[f]["name"])
-		rec = "Recipe: " + " + ".join(parts) + " + %d gold" % int(d["cost"])
+			parts.append(("[%s] " % L.t("owned") if have >= 0 else "") + L.t(DB.ITEMS[f]["name"]))
+		rec = L.f("Recipe: %s", [" + ".join(parts) + " + " + L.f("%d gold", [int(d["cost"])])])
 	var only2: String = d.get("only", "")
 	if only2 != "":
 		var fits := run.hero.item_fits(selected)
-		rec = ("%s item: the effect only works on %s attacks.%s\n" % [only2.capitalize(), only2,
-			"" if fits else " Your hero gets just the stats."]) + rec
+		rec = L.t("Melee item: the effect only works on melee attacks." if only2 == "melee" else "Ranged item: the effect only works on ranged attacks.") \
+			+ ("" if fits else " " + L.t("Your hero gets just the stats.")) + "\n" + rec
 	d_recipe.text = rec
 	if selected_slot >= 0:
 		var it2: Dictionary = run.hero.items[selected_slot]
 		var refund := int(DB.item_total_cost(it2["id"]) * 0.5) * int(it2.get("charges", 1))
-		d_price.text = "Sell value: %d" % refund
+		d_price.text = L.f("Sell value: %d", [refund])
 		buy_btn.visible = false
 		sell_btn.visible = true
-		sell_btn.text = "Sell +%d" % refund
+		sell_btn.text = L.f("Sell +%d", [refund])
 		return
 	sell_btn.visible = false
 	buy_btn.visible = true
 	var price := run.buy_price(selected)
-	d_price.text = "Price: %d" % price
+	d_price.text = L.f("Price: %d", [price])
 	var why2 := run.can_buy(selected)
 	buy_btn.disabled = why2 != ""
-	buy_btn.text = "Buy" if why2 == "" else why2
+	buy_btn.text = L.t("Buy") if why2 == "" else L.t(why2)
 	buy_btn.add_theme_font_size_override("font_size", 22 if why2 == "" else 15)
 	if selected == "sage_circlet":
-		buy_btn.text = "Buy (+Int)" if why2 == "" else why2
+		buy_btn.text = L.t("Buy (+Int)") if why2 == "" else L.t(why2)
 		buy_alt_btn.visible = why2 == ""
 
 
@@ -510,11 +511,11 @@ func _refresh_upgrade_tile(b: Button) -> void:
 	var why := run.can_upgrade(id)
 	var rk: Label = b.get_meta("rank_label")
 	var pr: Label = b.get_meta("price_label")
-	rk.text = "Lv %d" % rank if not d.has("max") else "Lv %d/%d" % [rank, int(d["max"])]
+	rk.text = L.f("Lv %d", [rank]) if not d.has("max") else L.f("Lv %d/%d", [rank, int(d["max"])])
 	if why.begins_with("Opens"):
-		pr.text = "Wave %d" % int(d["wave"])
+		pr.text = L.f("Wave %d", [int(d["wave"])])
 	elif why == "Fully trained":
-		pr.text = "Max"
+		pr.text = L.t("Max")
 	else:
 		pr.text = str(run.upgrade_price(id))
 	b.modulate = Color(1, 1, 1) if why == "" else Color(0.6, 0.6, 0.6)
@@ -525,34 +526,34 @@ func _show_upgrade(id: String) -> void:
 	var d: Dictionary = DB.UPGRADES[id]
 	var rank := run.upgrade_rank(id)
 	d_icon.texture = UIK.icon(id)
-	d_name.text = "%s (rank %d)" % [d["name"], rank]
-	d_desc.text = d["desc"] + " per rank. Permanent, no slot."
+	d_name.text = L.f("%s (rank %d)", [L.t(d["name"]), rank])
+	d_desc.text = L.f("%s per rank. Permanent, no slot.", [L.t(d["desc"])])
 	var parts := []
 	for k in d["stats"]:
 		parts.append(_stat_text(k, float(d["stats"][k]) * rank))
-	d_recipe.text = ("Trained so far: " + ", ".join(parts)) if rank > 0 else "Not trained yet."
+	d_recipe.text = L.f("Trained so far: %s", [", ".join(parts)]) if rank > 0 else L.t("Not trained yet.")
 	sell_btn.visible = false
 	buy_btn.visible = true
 	var why := run.can_upgrade(id)
-	d_price.text = "" if why.begins_with("Opens") or why == "Fully trained" else "Next rank: %d" % run.upgrade_price(id)
+	d_price.text = "" if why.begins_with("Opens") or why == "Fully trained" else L.f("Next rank: %d", [run.upgrade_price(id)])
 	buy_btn.disabled = why != ""
-	buy_btn.text = "Train" if why == "" else why
+	buy_btn.text = L.t("Train") if why == "" else L.t(why)
 	buy_btn.add_theme_font_size_override("font_size", 22 if why == "" else 15)
 
 
 static func _stat_text(k: String, v: float) -> String:
 	match k:
-		"str": return "+%d Strength" % int(v)
-		"agi": return "+%d Agility" % int(v)
-		"int": return "+%d Intellect" % int(v)
-		"hp_regen": return "+%.1f HP/s" % v
-		"mana_regen": return "+%.2f mana/s" % v
-		"dmg": return "+%d damage" % int(v)
-		"armor": return "+%.1f armor" % v
-		"as": return "+%d%% attack speed" % int(round(v * 100.0))
-		"hp": return "+%d HP" % int(v)
-		"cdr": return "-%d%% cooldowns" % int(round(v * 100.0))
-		"armor_pen": return "Ignore %d armor" % int(v)
-		"mres_pen": return "Ignore %d%% magic resist" % int(round(v * 100.0))
-		"mres": return "-%d%% magic damage taken" % int(round(v * 100.0))
+		"str": return L.f("+%d Strength", [int(v)])
+		"agi": return L.f("+%d Agility", [int(v)])
+		"int": return L.f("+%d Intellect", [int(v)])
+		"hp_regen": return L.f("+%.1f HP/s", [v])
+		"mana_regen": return L.f("+%.2f mana/s", [v])
+		"dmg": return L.f("+%d damage", [int(v)])
+		"armor": return L.f("+%.1f armor", [v])
+		"as": return L.f("+%d%% attack speed", [int(round(v * 100.0))])
+		"hp": return L.f("+%d HP", [int(v)])
+		"cdr": return L.f("-%d%% cooldowns", [int(round(v * 100.0))])
+		"armor_pen": return L.f("Ignore %d armor", [int(v)])
+		"mres_pen": return L.f("Ignore %d%% magic resist", [int(round(v * 100.0))])
+		"mres": return L.f("-%d%% magic damage taken", [int(round(v * 100.0))])
 	return "%s +%s" % [k, v]

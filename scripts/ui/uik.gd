@@ -150,7 +150,27 @@ static func icon_button(text: String, icon_id: String, variation := "", min_size
 	b.set_meta("label", l)
 	b.set_meta("icon", ic)
 	b.set_meta("box", hb)
+	var fit := func(): fit_font(l, b.size.x - 16.0 - icon_px - 8.0)
+	b.resized.connect(fit)
+	l.minimum_size_changed.connect(fit)
 	return b
+
+
+## Translations run longer than English: step the font down (to 80%) until the line fits, and only then fall back to the ellipsis.
+static func fit_font(l: Label, width: float) -> void:
+	var txt := l.atr(l.text) if l.auto_translate_mode != Node.AUTO_TRANSLATE_MODE_DISABLED else l.text
+	if width <= 0.0 or txt == "":
+		return
+	if not l.has_meta("fit_base"):
+		l.set_meta("fit_base", l.get_theme_font_size("font_size"))
+	var base: int = l.get_meta("fit_base")
+	var font := l.get_theme_font("font")
+	var pad := float(l.get_theme_constant("outline_size"))
+	var sz := base
+	while sz > maxi(12, int(base * 0.8)) and font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x + pad > width:
+		sz -= 1
+	if sz != l.get_theme_font_size("font_size"):
+		l.add_theme_font_size_override("font_size", sz)
 
 
 ## Let a swipe that starts on scroll content reach its ScrollContainer: non-button Controls stop the touch by default.

@@ -153,7 +153,7 @@ func _shift() -> void:
 	var from := display_name()
 	_apply(shift_to)
 	var c: Color = info()["color"]
-	run.banner_requested.emit("The weather turns", "%s gives way to %s" % [from, display_name()])
+	run.banner_requested.emit("The weather turns", L.f("{from} gives way to {to}", {"from": L.t(from), "to": L.t(display_name())}))
 	run.schedule(1.8, run.toast.bind(String(info()["desc"]), c))
 	Audio.play("wave")
 

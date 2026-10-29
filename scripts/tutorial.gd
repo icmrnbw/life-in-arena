@@ -140,10 +140,10 @@ func _go(i: int) -> void:
 	step = i
 	done_t = 0.0
 	var s: Dictionary = STEPS[i]
-	title_label.text = s["title"]
-	text_label.text = s["text"]
+	title_label.text = L.t(s["title"])
+	text_label.text = L.t(s["text"])
 	step_label.text = "%d / %d" % [i + 1, STEPS.size()]
-	action_btn.text = s.get("button", "")
+	action_btn.text = L.t(s.get("button", ""))
 	action_btn.visible = s.has("button")
 	skip_btn.visible = s["id"] != "done"
 	_clear_marker()
@@ -194,7 +194,7 @@ func _complete() -> void:
 	done_t = 0.9
 	_clear_marker()
 	Audio.play("rank")
-	title_label.text = "Done!"
+	title_label.text = L.t("Done!")
 	action_btn.visible = false
 
 
@@ -223,7 +223,7 @@ func tick(dt: float) -> void:
 				if run.hud.shop == null:
 					_complete()
 				else:
-					text_label.text = "Nice! Close the shop when you're done (the X, or Back)."
+					text_label.text = L.t("Nice! Close the shop when you're done (the X, or Back).")
 		"fight", "hold", "captain":
 			if not spawned.is_empty() and _alive_spawned() == 0:
 				_complete()

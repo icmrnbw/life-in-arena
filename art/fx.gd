@@ -701,7 +701,7 @@ func _damage_number(o: Dictionary, root: Node) -> FxNode:
 	if crit:
 		txt += "!"
 	if o.has("text"):
-		txt = str(o["text"])
+		txt = L.t(str(o["text"]))
 	var l := _label(n, txt, c, 96 if crit else 64)
 	# constant on-screen size (~44 px tall at 1080p, crits ~66 px) regardless of camera zoom
 	l.fixed_size = true

@@ -18,7 +18,6 @@ var elite := ""                # elite affix id (DB.ELITE_AFFIXES), "" = normal
 var swings := 0
 var bashing := false
 var support := false           # Chanter / Drummer: hangs back behind the pack
-var dormant := false           # Delve: asleep with its pack until the hero comes close (scripts/delve.gd)
 var pack := -1                 # Delve: index of its pack
 var captain := false           # leads the wave: tougher, named, slams every third swing
 var bash_r := 1.5
@@ -100,6 +99,18 @@ func make_elite(affix: String) -> void:
 	radius *= 1.1
 
 
+## display_name in the player's language (display_name itself stays English: it is also the damage tag).
+func shown_name() -> String:
+	var n := L.t(data.get("name", kind))
+	if captain:
+		n = L.t(DB.CAPTAIN_NAMES[kind]) if DB.CAPTAIN_NAMES.has(kind) else L.f("Captain %s", [n])
+	elif elite != "":
+		n = L.f("{affix} {name}", {"affix": L.t(DB.ELITE_AFFIXES[elite]["name"]), "name": n})
+	if display_name.begins_with("Echo of "):
+		n = L.f("Echo of %s", [n])
+	return n
+
+
 ## Turns this enemy into the wave's captain (see DB.CAPTAIN_NAMES).
 func make_captain() -> void:
 	captain = true
@@ -153,8 +164,8 @@ func show_matchup(weak: bool) -> void:
 	if not weak:
 		var m: Dictionary = DB.MATCHUPS.get(kind, {})
 		if m.has("weak") and not m.has("hint"):
-			run.hint_once("resist_" + kind, "%s resists that. %s" % [data.get("name", kind),
-				"Use spells (magic damage) on it." if m["weak"] == "magic" else "Use weapons (physical damage) on it."])
+			run.hint_once("resist_" + kind, L.f("%s resists that.", [L.t(data.get("name", kind))]) + " " +
+				L.t("Use spells (magic damage) on it." if m["weak"] == "magic" else "Use weapons (physical damage) on it."))
 
 
 func on_death() -> void:

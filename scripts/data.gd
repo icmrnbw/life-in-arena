@@ -780,7 +780,7 @@ const CAPTAIN_SCALE := 1.5
 
 
 static func wave_info(w: int) -> Dictionary:
-	return WAVES.get(w, {"name": "Wave %d" % w, "captain": "gnawer", "rule": "", "mods": {}, "desc": ""})
+	return WAVES.get(w, {"name": L.f("Wave %d", [w]), "captain": "gnawer", "rule": "", "mods": {}, "desc": ""})
 
 
 static func wave_rule(w: int) -> String:
@@ -958,14 +958,14 @@ static func matchup_line(w: int) -> String:
 	for b in wave_bursts(w):
 		for k in b["units"]:
 			var m: Dictionary = MATCHUPS.get(k, {})
-			var nm: String = ENEMIES[k]["name"]
+			var nm: String = L.t(ENEMIES[k]["name"])
 			if m.has("weak") and not by[m["weak"]].has(nm):
 				by[m["weak"]].append(nm)
 	var parts := []
 	if not by["magic"].is_empty():
-		parts.append("Magic beats " + ", ".join(by["magic"]))
+		parts.append(L.f("Magic beats %s", [", ".join(by["magic"])]))
 	if not by["phys"].is_empty():
-		parts.append("Physical beats " + ", ".join(by["phys"]))
+		parts.append(L.f("Physical beats %s", [", ".join(by["phys"])]))
 	return "\n".join(parts)
 
 

@@ -246,7 +246,7 @@ func on_teleport(_p: Vector3) -> void:
 
 
 func hud_meter() -> Dictionary:
-	return {"type": "bar", "label": "Static %d" % int(static_v) + ("  OVERLOAD" if static_v >= 100.0 else ""), "value": static_v, "max": 100.0,
+	return {"type": "bar", "label": L.f("Static %d", [int(static_v)]) + ("  " + L.t("OVERLOAD") if static_v >= 100.0 else ""), "value": static_v, "max": 100.0,
 		"color": VIOLET if static_v >= 100.0 else BOLT}
 
 

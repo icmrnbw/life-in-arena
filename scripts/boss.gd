@@ -383,7 +383,7 @@ func _summon_adds(add_kind: String, n: int) -> void:
 		e.xp_val *= 0.5
 		adds.append(e)
 		run.fx("teleport", {"pos": p})
-	run.toast("%s calls for aid!" % display_name, Art.palette.get("danger", Color.RED))
+	run.toast(L.f("%s calls for aid!", [shown_name()]), Art.palette.get("danger", Color.RED))
 
 
 func _start_beam(sweep_deg: float, dur: float, length: float, width: float, tele: float) -> void:

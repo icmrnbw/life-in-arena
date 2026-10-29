@@ -283,7 +283,7 @@ func _rebuild_anim_row() -> void:
 		b.pressed.connect(func(): _play(st))
 		_anim_row.add_child(b)
 	if DB.HEROES[hero_id].has("beast_skills"):
-		var f := UIK.button("Human form" if beast else "Beast form", "", Vector2(150, 56))
+		var f := UIK.button(L.t("Human form") if beast else L.t("Beast form"), "", Vector2(150, 56))
 		f.add_theme_font_size_override("font_size", 20)
 		f.pressed.connect(func():
 			beast = not beast
@@ -304,9 +304,9 @@ func _rebuild_info() -> void:
 	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(names)
 	names.add_child(Menus._fit(Menus._outlined(UIK.label(d["name"], "TitleLabel", 32, UIK.col("ember", Color(1, 0.55, 0.25))), 6)))
-	names.add_child(Menus._fit(UIK.label(d["title"], "", 19, UIK.col("text", Color(0.95, 0.9, 0.82)))))
+	names.add_child(Menus._fit(UIK.label(L.t(d["title"]), "", 19, UIK.col("text", Color(0.95, 0.9, 0.82)))))
 	var stat_names := {"str": "Strength", "agi": "Agility", "int": "Intellect"}
-	names.add_child(Menus._fit(UIK.label("%s · %s · %s · %s" % [d.get("tag", ""), d["role"], stat_names[d["primary"]], Menus.difficulty_name(int(d.get("difficulty", 1)))],
+	names.add_child(Menus._fit(UIK.label("%s · %s · %s · %s" % [L.t(d.get("tag", "")), L.t(d["role"]), L.t(stat_names[d["primary"]]), Menus.difficulty_name(int(d.get("difficulty", 1)))],
 		"SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
 	names.add_child(Menus._dmg_label(hero_id, 16, true))
 	var tabs := HBoxContainer.new()
@@ -371,7 +371,7 @@ func _fill_skills() -> void:
 	var keys := ["Q", "W", "E", "R"]
 	if d.has("beast_skills"):
 		skills = [d["skills"][0], d["skills"][1], d["beast_skills"][0], d["beast_skills"][1], d["skills"][2], d["skills"][3]]
-		keys = ["Q", "W", "Q·beast", "W·beast", "E", "R"]
+		keys = ["Q", "W", "Q·" + L.t("beast"), "W·" + L.t("beast"), "E", "R"]
 	for i in skills.size():
 		var sid: String = skills[i]
 		var sd: Dictionary = DB.SKILLS[sid]
@@ -385,20 +385,23 @@ func _fill_skills() -> void:
 		tv.add_theme_constant_override("separation", 0)
 		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(tv)
-		tv.add_child(UIK.label("%s  %s" % [keys[i], sd["name"]], "", 19, UIK.col("gold", Color.GOLD)))
+		tv.add_child(UIK.label("%s  %s" % [keys[i], L.t(sd["name"])], "", 19, UIK.col("gold", Color.GOLD)))
 		var facts := []
 		var mana: Array = sd.get("mana", [])
 		if not mana.is_empty() and float(mana.max()) > 0.0:
-			facts.append("Mana " + _range_text(mana))
+			facts.append(L.f("Mana %s", [_range_text(mana)]))
 		if float(sd.get("hp", 0.0)) > 0.0:
-			facts.append("Costs %d%% HP" % roundi(float(sd["hp"]) * 100.0))
+			facts.append(L.f("Costs %d%% HP", [roundi(float(sd["hp"]) * 100.0)]))
 		if int(sd.get("rage", 0)) > 0:
-			facts.append("Costs %d Rage" % int(sd["rage"]))
+			facts.append(L.f("Costs %d Rage", [int(sd["rage"])]))
 		if (sd.get("cd", []) as Array).size() > 0:
-			facts.append("Cooldown " + _range_text(sd["cd"]) + " s")
-		facts.append("Ranks %d" % int(sd.get("max", 4)))
-		tv.add_child(UIK.label("   ".join(facts), "SmallLabel", 14, UIK.col("dim", Color(0.75, 0.7, 0.62))))
-		var dl := UIK.label(String(sd["desc"]), "SmallLabel", 16, UIK.col("text", Color(0.9, 0.86, 0.8)))
+			facts.append(L.f("Cooldown %s s", [_range_text(sd["cd"])]))
+		facts.append(L.f("Ranks %d", [int(sd.get("max", 4))]))
+		var fl := UIK.label("   ".join(facts), "SmallLabel", 14, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		fl.custom_minimum_size = Vector2(150, 0)
+		tv.add_child(fl)
+		var dl := UIK.label(L.t(sd["desc"]), "SmallLabel", 16, UIK.col("text", Color(0.9, 0.86, 0.8)))
 		dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		dl.custom_minimum_size = Vector2(150, 0)
 		tv.add_child(dl)
@@ -415,7 +418,7 @@ func _fill_skins() -> void:
 		grid.add_child(_skin_card(s, eq))
 	var cur := Skins.find(hero_id, skin_id)
 	var own := Skins.owned(hero_id, skin_id)
-	var act := UIK.button("Equipped" if skin_id == eq else ("Equip " + String(cur["name"]) if own else "Locked: store coming soon"),
+	var act := UIK.button(L.t("Equipped") if skin_id == eq else (L.f("Equip %s", [L.t(cur["name"])]) if own else L.t("Locked: store coming soon")),
 		"PrimaryButton" if own and skin_id != eq else "", Vector2(0, 68))
 	act.name = "EquipButton"
 	act.add_theme_font_size_override("font_size", 22)
@@ -465,9 +468,9 @@ func _skin_card(s: Dictionary, eq: String) -> Control:
 	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(tv)
-	tv.add_child(Menus._fit(Menus._outlined(UIK.label(s["name"], "", 18, UIK.col("text", Color(0.95, 0.9, 0.82))), 4)))
-	tv.add_child(Menus._fit(UIK.label(Skins.rarity_name(s["rarity"]), "SmallLabel", 15, rc)))
-	var status := "Equipped" if sid == eq else ("Owned" if Skins.owned(hero_id, sid) else "Locked")
+	tv.add_child(Menus._fit(Menus._outlined(UIK.label(L.t(s["name"]), "", 18, UIK.col("text", Color(0.95, 0.9, 0.82))), 4)))
+	tv.add_child(Menus._fit(UIK.label(L.t(Skins.rarity_name(s["rarity"])), "SmallLabel", 15, rc)))
+	var status := L.t("Equipped") if sid == eq else (L.t("Owned") if Skins.owned(hero_id, sid) else L.t("Locked"))
 	tv.add_child(Menus._fit(UIK.label(status, "SmallLabel", 14, UIK.col("gold", Color.GOLD) if sid == eq else UIK.col("dim", Color(0.75, 0.7, 0.62)))))
 	b.pressed.connect(func():
 		Audio.play("click")

@@ -351,36 +351,36 @@ func _refresh_preview() -> void:
 	if not off.is_empty():
 		var rn: String = DB.HEROES[off["hero"]]["name"]
 		var dt: String = DB.HEROES[off["hero"]].get("dmg_type", "mixed")
-		var dts: String = {"phys": "physical", "magic": "magic"}.get(dt, "mixed")
-		preview_duel.text = "Challenger: %s (level %d, %s)" % [rn, int(off["level"]), dts]
+		var dts: String = L.t({"phys": "physical", "magic": "magic"}.get(dt, "mixed"))
+		preview_duel.text = L.f("Challenger: %s (level %d, %s)", [rn, int(off["level"]), dts])
 		if int(off.get("gold", 0)) > 0:
-			preview_duel.text += "\nWin: +%d gold, +%d all stats" % [int(off["gold"]), int(Duel.WIN_STATS)]
+			preview_duel.text += "\n" + L.f("Win: +%d gold, +%d all stats", [int(off["gold"]), int(Duel.WIN_STATS)])
 	if run.duel.ladder():
-		preview_name.text = "Duel %d / %d" % [run.wave, Duel.LADDER_ROUNDS]
+		preview_name.text = L.f("Duel %d / %d", [run.wave, Duel.LADDER_ROUNDS])
 		preview_rule.visible = false
-		preview_desc.text = "Shop, then fight. Your hero reaches level %d for this duel." % int(off.get("level", 1))
+		preview_desc.text = L.f("Shop, then fight. Your hero reaches level %d for this duel.", [int(off.get("level", 1))])
 		preview_weather.visible = false
 		preview_foes.visible = false
 		return
 	var info := run.wave_info()
-	preview_name.text = "Next: " + String(info.get("name", ""))
+	preview_name.text = L.f("Next: %s", [L.t(info.get("name", ""))])
 	var bits := []
 	var rule: String = info.get("rule", "")
 	if rule != "":
-		bits.append(String(DB.WAVE_RULES[rule]["name"]))
+		bits.append(L.t(DB.WAVE_RULES[rule]["name"]))
 		preview_rule.add_theme_color_override("font_color", DB.WAVE_RULES[rule]["color"])
 	else:
 		preview_rule.add_theme_color_override("font_color", Color(1, 0.85, 0.55))
 	var cap: String = info.get("captain", "")
 	if cap != "":
-		bits.append("Captain: " + String(DB.CAPTAIN_NAMES.get(cap, cap)))
+		bits.append(L.f("Captain: %s", [L.t(DB.CAPTAIN_NAMES.get(cap, cap))]))
 	elif run.boss_kind() != "":
-		bits.append("Boss wave")
+		bits.append(L.t("Boss wave"))
 	preview_rule.text = "  ·  ".join(bits)
 	preview_rule.visible = not bits.is_empty()
-	preview_desc.text = String(info.get("desc", ""))
+	preview_desc.text = L.t(info.get("desc", ""))
 	var wi: Dictionary = run.weather.info()
-	preview_weather.text = "Weather: %s. %s" % [wi["name"], wi["desc"]] if run.weather.id != "clear" else ""
+	preview_weather.text = L.f("Weather: %s. %s", [L.t(wi["name"]), L.t(wi["desc"])]) if run.weather.id != "clear" else ""
 	preview_weather.add_theme_color_override("font_color", (wi["color"] as Color).lerp(Color.WHITE, 0.25))
 	preview_weather.visible = run.weather.id != "clear"
 	preview_foes.text = DB.matchup_line(run.wave)
@@ -532,8 +532,8 @@ func _build_banner_toasts() -> void:
 
 
 func show_banner(text: String, sub: String) -> void:
-	banner_label.text = text
-	banner_sub.text = sub
+	banner_label.text = L.t(text)
+	banner_sub.text = L.t(sub)
 	if banner_tween:
 		banner_tween.kill()
 	banner_box.modulate.a = 0.0
@@ -547,6 +547,7 @@ func show_banner(text: String, sub: String) -> void:
 
 
 func show_toast(text: String, color: Color) -> void:
+	text = L.t(text)
 	for c in toast_box.get_children():
 		if c is Label and c.text == text:
 			return
@@ -578,21 +579,21 @@ func _process(_delta: float) -> void:
 	var sp_on := h.skill_points > 0 and h.any_rank_up()
 	sp_badge.visible = sp_on
 	if sp_on:
-		sp_label.text = "+%d skill" % h.skill_points
+		sp_label.text = L.f("+%d skill", [h.skill_points])
 		sp_badge.modulate.a = 0.75 + 0.25 * sin(Time.get_ticks_msec() / 160.0)
 	var m := h.kit.hud_meter()
 	match m.get("type", ""):
 		"flow":
-			meter_label.text = "Flow %d" % int(m["value"])
+			meter_label.text = L.f("Flow %d", [int(m["value"])])
 			meter_bar.value = float(m["value"]) / float(m["max"])
 		"brood":
-			meter_label.text = "Brood %d / %d" % [int(m["count"]), int(m["cap"])]
+			meter_label.text = L.f("Brood %d / %d", [int(m["count"]), int(m["cap"])])
 		"bar":
-			meter_label.text = String(m.get("label", ""))
+			meter_label.text = L.t(m.get("label", ""))
 			meter_bar.value = float(m["value"]) / maxf(0.001, float(m["max"]))
 			meter_bar.self_modulate = m.get("color", Color.WHITE)
 		"count":
-			meter_label.text = String(m.get("label", ""))
+			meter_label.text = L.t(m.get("label", ""))
 	if run.gold != _last_gold:
 		_last_gold = run.gold
 		gold_label.text = str(run.gold)
@@ -601,18 +602,19 @@ func _process(_delta: float) -> void:
 	if run.weather.id != _weather_shown:
 		_weather_shown = run.weather.id
 		var wi: Dictionary = run.weather.info()
-		weather_label.text = String(wi["name"])
+		weather_label.text = L.t(wi["name"])
 		weather_label.add_theme_color_override("font_color", (wi["color"] as Color).lerp(Color.WHITE, 0.2))
 	weather_label.visible = run.weather.id != "clear"
 	if ph == "prep":
 		wave_label.text = _wave_text()
 		prep_box.visible = true
-		prep_label.text = ("Descend\n%d s" if run.delve else "Next wave\n%d s") % int(ceil(run.prep_t))
+		prep_label.text = L.t("Descend" if run.delve else "Next wave")
 		if run.duel.ladder():
-			prep_label.text = "Next duel\n%d s" % int(ceil(run.prep_t))
+			prep_label.text = L.t("Next duel")
 		elif run.boss_kind() != "":
-			prep_label.text = ("BOSS depth\n%d s" if run.delve else "BOSS wave\n%d s") % int(ceil(run.prep_t))
-		fight_btn.text = "Duel!" if run.duel.ladder() else "Fight!"
+			prep_label.text = L.t("BOSS depth" if run.delve else "BOSS wave")
+		prep_label.text += "\n" + L.f("%d s", [int(ceil(run.prep_t))])
+		fight_btn.text = L.t("Duel!") if run.duel.ladder() else L.t("Fight!")
 		duel_btn.visible = run.duel.can_accept() and not run.duel.ladder()
 		shop_btn.visible = true
 		_refresh_preview()
@@ -624,11 +626,11 @@ func _process(_delta: float) -> void:
 		prep_box.visible = false
 		preview_box.visible = false
 		if run.delve:
-			wave_label.text = _wave_text() + ("" if run.delve.lair_open else "  ·  find the lair")
+			wave_label.text = _wave_text() + ("" if run.delve.lair_open else "  ·  " + L.t("find the lair"))
 		elif ph == "wave" or ph == "clear":
-			wave_label.text = "%s  ·  %d left" % [_wave_text(), run.enemies.size() + run.spawn_queue.size()]
+			wave_label.text = "%s  ·  %s" % [_wave_text(), L.f("%d left", [run.enemies.size() + run.spawn_queue.size()])]
 		elif ph == "duel" or ph == "duel_end":
-			wave_label.text = "Duel  ·  %d s" % maxi(0, int(ceil(Duel.TIME_LIMIT - run.duel.t)))
+			wave_label.text = L.t("Duel") + "  ·  " + L.f("%d s", [maxi(0, int(ceil(Duel.TIME_LIMIT - run.duel.t)))])
 	if minimap:
 		minimap.visible = ph == "wave" or ph == "clear"
 	var bh := run.boss_hp()
@@ -636,24 +638,24 @@ func _process(_delta: float) -> void:
 	if run.rival != null and (ph == "duel" or ph == "duel_end"):
 		boss_box.visible = true
 		boss_bar.value = run.rival.hp / maxf(1.0, run.rival.max_hp)
-		boss_label.text = "%s  ·  level %d  %d%%" % [run.rival.data["name"], run.rival.level, int(ceil(100.0 * boss_bar.value))]
+		boss_label.text = "%s  ·  %s  %d%%" % [run.rival.data["name"], L.f("level %d", [run.rival.level]), int(ceil(100.0 * boss_bar.value))]
 	elif boss_box.visible:
 		boss_bar.value = bh.x / bh.y
-		boss_label.text = "%s  %d%%" % [run.boss_title, int(ceil(100.0 * bh.x / bh.y))]
+		boss_label.text = "%s  %d%%" % [L.t(run.boss_title), int(ceil(100.0 * bh.x / bh.y))]
 	elif run.captain != null and run.captain.alive and ph == "wave":
 		boss_box.visible = true
 		boss_bar.value = run.captain.hp / maxf(1.0, run.captain.max_hp)
-		boss_label.text = "%s  %d%%" % [run.captain.display_name, int(ceil(100.0 * boss_bar.value))]
+		boss_label.text = "%s  %d%%" % [L.t(run.captain.display_name), int(ceil(100.0 * boss_bar.value))]
 	for pr in party_rows:
 		var c: Hero = pr["hero"]
 		(pr["bar"] as ProgressBar).value = 0.0 if c.dead else c.hp / maxf(1.0, c.max_hp)
-		(pr["level"] as Label).text = "down" if c.dead else str(c.level)
+		(pr["level"] as Label).text = L.t("down") if c.dead else str(c.level)
 		(pr["row"] as Control).modulate = Color(1, 1, 1, 0.45) if c.dead else Color(1, 1, 1)
 	# inventory (icons are drawn by slot_overlay)
 	for i in 6:
 		var b: Button = slot_nodes[i]
 		if i < h.items.size():
-			b.tooltip_text = DB.ITEMS[h.items[i]["id"]]["name"]
+			b.tooltip_text = L.t(DB.ITEMS[h.items[i]["id"]]["name"])
 			b.modulate = Color(1, 1, 1)
 		else:
 			b.tooltip_text = ""
@@ -675,14 +677,14 @@ func _process(_delta: float) -> void:
 ## "Wave 7 / 20", or "Wave 23 · Endless" past the Warden, or "Training".
 func _wave_text() -> String:
 	if run.mode == "training":
-		return "Training"
+		return L.t("Training")
 	if run.delve:
-		return "Depth %d / %d" % [Delve.depth_of(run.wave), Delve.DEPTHS]
+		return L.f("Depth %d / %d", [Delve.depth_of(run.wave), Delve.DEPTHS])
 	if run.mode == "endless":
-		return "Wave %d · Endless" % run.wave
+		return L.f("Wave %d · Endless", [run.wave])
 	if run.duel.ladder():
-		return "Duel %d / %d" % [run.wave, Duel.LADDER_ROUNDS]
-	return "Wave %d / %d" % [run.wave, DB.TOTAL_WAVES]
+		return L.f("Duel %d / %d", [run.wave, Duel.LADDER_ROUNDS])
+	return L.f("Wave %d / %d", [run.wave, DB.TOTAL_WAVES])
 
 
 func toggle_shop() -> void:

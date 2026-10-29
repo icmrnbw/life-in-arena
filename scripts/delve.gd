@@ -77,8 +77,8 @@ static func info(w: int) -> Dictionary:
 	var d := depth_of(w)
 	var bk := boss_kind(w)
 	var cap: String = DB.wave_info(w).get("captain", "gnawer")
-	var desc := "Find the lair and slay %s. Foes sleep in packs until you come close." % (boss_title(w) if bk != "" else DB.CAPTAIN_NAMES.get(cap, "the captain"))
-	return {"name": "Depth %d · %s" % [d, depth_name(w)], "captain": "" if bk != "" else cap,
+	var desc := L.f("Find the lair and slay %s. Foes sleep in packs until you come close.", [L.t(boss_title(w)) if bk != "" else L.t(DB.CAPTAIN_NAMES.get(cap, "the captain"))])
+	return {"name": L.f("Depth %d", [d]) + " · " + L.t(depth_name(w)), "captain": "" if bk != "" else cap,
 		"rule": "", "mods": {}, "desc": desc}
 
 
@@ -596,7 +596,7 @@ func _open_lair() -> void:
 			guardians.append(e)
 			run.fx("teleport", {"pos": e.pos})
 		run.boss_title = boss_title(wave)
-		run.banner_requested.emit("The lair", "Boss: " + run.boss_title)
+		run.banner_requested.emit("The lair", L.f("Boss: %s", [L.t(run.boss_title)]))
 		run.schedule(2.6, run.toast.bind(DB.BOSS_HINTS.get(home, ""), Art.palette.get("gold", Color.GOLD)))
 		Audio.play("boss")
 		run.shake(0.5)
@@ -608,7 +608,7 @@ func _open_lair() -> void:
 		run.captain = e
 		guardians.append(e)
 		run.fx("teleport", {"pos": e.pos})
-		run.banner_requested.emit("The lair", "%s guards the way down" % e.display_name)
+		run.banner_requested.emit("The lair", L.f("%s guards the way down", [e.shown_name()]))
 		Audio.play("wave")
 	for pk in packs:
 		if pk.get("lair", false):

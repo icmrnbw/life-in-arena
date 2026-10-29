@@ -28,7 +28,7 @@ static func _toggle(text: String, key: String) -> CheckButton:
 
 
 # ---------------------------------------------------------------- title
-static func title_screen(on_play: Callable, on_heroes := Callable(), on_continue := Callable(), on_records := Callable(), snap := {}) -> Control:
+static func title_screen(on_play: Callable, on_heroes := Callable(), on_continue := Callable(), on_records := Callable(), snap := {}, on_language := Callable()) -> Control:
 	var root := _base()
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# darken the right side only: the bonfire scene stays bright on the left
@@ -79,11 +79,11 @@ static func title_screen(on_play: Callable, on_heroes := Callable(), on_continue
 		cc.add_child(cont)
 		v.add_child(cc)
 		var delve: bool = snap.get("cfg", {}).get("mode", "") == "delve"
-		var what := _outlined(UIK.label("%s  ·  %s %d  ·  %s" % [DB.HEROES[String(snap["hero"])]["name"], "depth" if delve else "wave",
-			Delve.depth_of(int(snap.get("wave", 2))) if delve else int(snap.get("wave", 1)), Modes.label(snap.get("cfg", {}))], "SmallLabel", 18, UIK.col("dim", Color(0.75, 0.7, 0.62))), 6)
+		var what := _outlined(UIK.label("%s  ·  %s  ·  %s" % [DB.HEROES[String(snap["hero"])]["name"], L.f("Depth %d", [Delve.depth_of(int(snap.get("wave", 2)))]) if delve
+			else L.f("Wave %d", [int(snap.get("wave", 1))]), Modes.label(snap.get("cfg", {}))], "SmallLabel", 18, UIK.col("dim", Color(0.75, 0.7, 0.62))), 6)
 		what.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(what)
-	var play := UIK.button("Play" if snap.is_empty() else "New Run", "" if not snap.is_empty() else "PrimaryButton", Vector2(360, 104 if snap.is_empty() else 76))
+	var play := UIK.button(L.t("Play") if snap.is_empty() else L.t("New Run"), "" if not snap.is_empty() else "PrimaryButton", Vector2(360, 104 if snap.is_empty() else 76))
 	play.add_theme_font_size_override("font_size", 40 if snap.is_empty() else 30)
 	play.pressed.connect(on_play)
 	play.name = "PlayButton"
@@ -105,6 +105,13 @@ static func title_screen(on_play: Callable, on_heroes := Callable(), on_continue
 		rec.pressed.connect(on_records)
 		rec.name = "RecordsButton"
 		row2.add_child(rec)
+	if on_language.is_valid():
+		var lb := UIK.button(L.lang_name(L.lang), "", Vector2(174, 72))
+		lb.add_theme_font_size_override("font_size", 24)
+		lb.pressed.connect(on_language)
+		lb.name = "LanguageButton"
+		lb.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		row2.add_child(lb)
 	v.add_child(row2)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -138,7 +145,7 @@ static func _crash_notice() -> Control:
 	var copy := UIK.button("Copy report", "", Vector2(200, 64))
 	copy.pressed.connect(func():
 		DisplayServer.clipboard_set(Game.crash_report_text())
-		copy.text = "Copied")
+		copy.text = L.t("Copied"))
 	h.add_child(copy)
 	var dismiss := UIK.button("Dismiss", "", Vector2(160, 64))
 	dismiss.pressed.connect(func():
@@ -148,6 +155,46 @@ static func _crash_notice() -> Control:
 	var c := CenterContainer.new()
 	c.add_child(p)
 	return c
+
+
+## Every language in its own name, the current one highlighted. on_pick(code) applies it.
+static func language_picker(on_pick: Callable, on_close: Callable) -> Control:
+	var root := _base()
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0, 0, 0, 0.6)
+	root.add_child(shade)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(center)
+	var frame := UIK.panel("FramePanel")
+	center.add_child(frame)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	frame.add_child(v)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 14)
+	v.add_child(head)
+	var t := _outlined(UIK.label("Language", "TitleLabel", 36, UIK.col("gold", Color.GOLD)))
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(t)
+	var close := UIK.button("Close", "", Vector2(150, 64))
+	close.pressed.connect(on_close)
+	head.add_child(close)
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	v.add_child(grid)
+	for l in L.LANGS:
+		var code: String = l[0]
+		var b := UIK.button(l[1], "PrimaryButton" if code == L.lang else "", Vector2(250, 64))
+		b.name = "Lang_" + code
+		b.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		b.add_theme_font_size_override("font_size", 22)
+		b.pressed.connect(func(): on_pick.call(code))
+		grid.add_child(b)
+	return root
 
 
 # ---------------------------------------------------------------- hero select
@@ -177,7 +224,7 @@ static func hero_select(on_start: Callable, on_back: Callable, cfg := {}) -> Con
 	head.add_child(back)
 	var title := _outlined(UIK.label("Choose your hero", "TitleLabel", 40, UIK.col("gold", Color.GOLD)))
 	if not cfg.is_empty():
-		title.text = "Choose your hero  ·  " + Modes.label(cfg)
+		title.text = L.t("Choose your hero") + "  ·  " + Modes.label(cfg)
 		title.add_theme_font_size_override("font_size", 32)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -247,20 +294,25 @@ static func _fit(l: Label) -> Label:
 	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	l.clip_text = true
 	l.custom_minimum_size = Vector2(60, 0)
+	l.resized.connect(_shrink.bind(l))
 	return l
+
+
+static func _shrink(l: Label) -> void:
+	UIK.fit_font(l, l.size.x)
 
 
 ## "Physical" / "Magic" / "Mixed" in its colour, so a team can see who covers armored and warded foes.
 static func _dmg_label(id: String, size: int, long := false) -> Label:
 	var dt: Dictionary = DB.DMG_TYPES[DB.hero_dmg_type(id)]
-	var txt: String = ("Deals %s damage" % String(dt["name"]).to_lower()) if long else String(dt["name"])
+	var txt: String = L.t({"phys": "Deals physical damage", "magic": "Deals magic damage", "mixed": "Deals mixed damage"}[DB.hero_dmg_type(id)]) if long else L.t(dt["name"])
 	var l := _fit(UIK.label(txt, "SmallLabel", size, dt["color"]))
 	l.name = "DmgType"
 	return l
 
 
 static func difficulty_name(n: int) -> String:
-	return ["Easy", "Easy", "Medium", "Hard"][clampi(n, 0, 3)]
+	return L.t(["Easy", "Easy", "Medium", "Hard"][clampi(n, 0, 3)])
 
 
 ## Small roster tile: portrait, name, playstyle tag. The whole tile is a button.
@@ -282,7 +334,7 @@ static func _hero_tile(id: String, open := true) -> Control:
 	var n := _fit(_outlined(UIK.label(d["name"], "", 16 if String(d["name"]).length() <= 9 else 14, UIK.col("ember", Color(1, 0.55, 0.25))), 5))
 	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(n)
-	var t := _fit(UIK.label(d.get("tag", "") if open else "Locked", "SmallLabel", 15, UIK.col("gold", Color.GOLD) if open else Color(0.7, 0.66, 0.6)))
+	var t := _fit(UIK.label(L.t(d.get("tag", "")) if open else L.t("Locked"), "SmallLabel", 15, UIK.col("gold", Color.GOLD) if open else Color(0.7, 0.66, 0.6)))
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
 	var dt := _dmg_label(id, 13)
@@ -329,25 +381,25 @@ static func _hero_detail(id: String, open := true) -> Control:
 	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(names)
 	names.add_child(_fit(_outlined(UIK.label(d["name"], "TitleLabel", 32, UIK.col("ember", Color(1, 0.55, 0.25))), 6)))
-	names.add_child(_fit(UIK.label(d["title"], "", 19, UIK.col("text", Color(0.95, 0.9, 0.82)))))
+	names.add_child(_fit(UIK.label(L.t(d["title"]), "", 19, UIK.col("text", Color(0.95, 0.9, 0.82)))))
 	var stat_names := {"str": "Strength", "agi": "Agility", "int": "Intellect"}
-	var role := UIK.label("%s · %s · %s" % [d.get("tag", ""), d["role"], stat_names[d["primary"]]], "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+	var role := UIK.label("%s · %s · %s" % [L.t(d.get("tag", "")), L.t(d["role"]), L.t(stat_names[d["primary"]])], "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))
 	role.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	role.custom_minimum_size = Vector2(120, 0)
 	names.add_child(role)
-	var diff := UIK.label("Difficulty: %s" % difficulty_name(int(d.get("difficulty", 1))), "SmallLabel", 17, UIK.col("gold", Color.GOLD))
+	var diff := UIK.label(L.f("Difficulty: %s", [difficulty_name(int(d.get("difficulty", 1)))]), "SmallLabel", 17, UIK.col("gold", Color.GOLD))
 	names.add_child(diff)
 	names.add_child(_dmg_label(id, 17, true))
 	if open:
 		names.add_child(_fit(UIK.label("Tap again to start", "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
 	else:
 		var pr := Profile.progress(id)
-		var lk := UIK.label("Locked: %s (%d / %d)" % [Modes.UNLOCKS.get(id, {}).get("text", ""), pr[0], pr[1]], "SmallLabel", 17, UIK.col("danger", Color(1, 0.45, 0.4)).lightened(0.2))
+		var lk := UIK.label(L.f("Locked: %s (%d / %d)", [L.t(Modes.UNLOCKS.get(id, {}).get("text", "")), pr[0], pr[1]]), "SmallLabel", 17, UIK.col("danger", Color(1, 0.45, 0.4)).lightened(0.2))
 		lk.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		lk.custom_minimum_size = Vector2(120, 0)
 		lk.name = "LockLabel"
 		names.add_child(lk)
-	var ps := UIK.label(d["playstyle"], "", 17, UIK.col("text", Color(0.95, 0.9, 0.82)))
+	var ps := UIK.label(L.t(d["playstyle"]), "", 17, UIK.col("text", Color(0.95, 0.9, 0.82)))
 	ps.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ps.add_theme_constant_override("line_spacing", -3)
 	ps.custom_minimum_size = Vector2(200, 0)
@@ -356,7 +408,7 @@ static func _hero_detail(id: String, open := true) -> Control:
 	var keys := ["Q", "W", "E", "R"]
 	if d.has("beast_skills"):
 		skills = [d["skills"][0], d["skills"][1], d["beast_skills"][0], d["beast_skills"][1], d["skills"][2], d["skills"][3]]
-		keys = ["Q", "W", "Q·beast", "W·beast", "E", "R"]
+		keys = ["Q", "W", "Q·" + L.t("beast"), "W·" + L.t("beast"), "E", "R"]
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 12)
@@ -376,8 +428,8 @@ static func _hero_detail(id: String, open := true) -> Control:
 		tv.add_theme_constant_override("separation", 0)
 		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(tv)
-		tv.add_child(UIK.label("%s  %s" % [keys[i], sd["name"]], "", 17, UIK.col("gold", Color.GOLD)))
-		var dl := UIK.label(String(sd["desc"]), "SmallLabel", 15 if skills.size() <= 4 else 14, UIK.col("text", Color(0.9, 0.86, 0.8)))
+		tv.add_child(UIK.label("%s  %s" % [keys[i], L.t(sd["name"])], "", 17, UIK.col("gold", Color.GOLD)))
+		var dl := UIK.label(L.t(sd["desc"]), "SmallLabel", 15 if skills.size() <= 4 else 14, UIK.col("text", Color(0.9, 0.86, 0.8)))
 		dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		dl.add_theme_constant_override("line_spacing", -3)
 		dl.custom_minimum_size = Vector2(150, 0)
@@ -407,7 +459,7 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 	var gold := UIK.col("gold", Color(1.0, 0.8, 0.3))
 	if run.result == "training":
 		return _training_end(root, v, on_again, on_title)
-	var t := _outlined(UIK.label("Victory!" if win else "Defeat", "TitleLabel", 76 if win else 64, gold.lightened(0.15) if win else UIK.col("danger", Color(0.9, 0.3, 0.3))), 12)
+	var t := _outlined(UIK.label(L.t("Victory!") if win else L.t("Defeat"), "TitleLabel", 76 if win else 64, gold.lightened(0.15) if win else UIK.col("danger", Color(0.9, 0.3, 0.3))), 12)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if win:
 		t.add_theme_color_override("font_shadow_color", Color(1.0, 0.45, 0.1, 0.7))
@@ -420,16 +472,16 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 		var champ := _outlined(UIK.label("Champion of the Pit", "TitleLabel", 34, UIK.col("ember", Color(1, 0.55, 0.25))), 8)
 		champ.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(champ)
-	var sub_text: String = ("%s survived all 20 waves." if win else "%s fell in the Pit.") % hd["name"]
+	var sub_text: String = L.f("%s survived all 20 waves." if win else "%s fell in the Pit.", [hd["name"]])
 	if run.mode == "endless":
-		sub_text = "%s held out until wave %d." % [hd["name"], run.max_wave_reached]
+		sub_text = L.f("%s held out until wave %d.", [hd["name"], run.max_wave_reached])
 	elif run.duel.ladder():
-		sub_text = ("%s beat all %d rivals." if win else "%s fell on duel %d of %d.") % ([hd["name"], Duel.LADDER_ROUNDS] if win else [hd["name"], run.wave, Duel.LADDER_ROUNDS])
+		sub_text = L.f("%s beat all %d rivals.", [hd["name"], Duel.LADDER_ROUNDS]) if win else L.f("%s fell on duel %d of %d.", [hd["name"], run.wave, Duel.LADDER_ROUNDS])
 	elif run.mode == "delve":
-		sub_text = ("%s cleared all %d depths of the Undercroft." if win else "%s fell on depth %d of the Undercroft.") % [hd["name"],
-			Delve.DEPTHS if win else Delve.depth_of(run.max_wave_reached)]
+		sub_text = L.f("%s cleared all %d depths of the Undercroft." if win else "%s fell on depth %d of the Undercroft.", [hd["name"],
+			Delve.DEPTHS if win else Delve.depth_of(run.max_wave_reached)])
 	elif not run.companions.is_empty():
-		sub_text += " Allies: %s." % ", ".join(run.companions.map(func(c): return c.data["name"]))
+		sub_text += " " + L.f("Allies: %s.", [", ".join(run.companions.map(func(c): return c.data["name"]))])
 	var sub := UIK.label(sub_text, "", 22, UIK.col("text", Color(0.95, 0.9, 0.82)))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(sub)
@@ -453,7 +505,7 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 	]
 	for r in rows:
 		var h := HBoxContainer.new()
-		var a := UIK.label(r[0], "", 21, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+		var a := UIK.label(L.t(r[0]), "", 21, UIK.col("dim", Color(0.75, 0.7, 0.62)))
 		a.custom_minimum_size = Vector2(190, 0)
 		h.add_child(a)
 		h.add_child(UIK.label(r[1], "", 21, UIK.col("text", Color(0.95, 0.9, 0.82))))
@@ -473,7 +525,7 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 		var k: String = keys[i]
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
-		var nl := UIK.label(k, "SmallLabel", 19, UIK.col("text", Color(0.95, 0.9, 0.82)))
+		var nl := UIK.label(L.t(k), "SmallLabel", 19, UIK.col("text", Color(0.95, 0.9, 0.82)))
 		nl.custom_minimum_size = Vector2(170, 0)
 		row.add_child(nl)
 		var b := UIK.bar("XpBar", UIK.col("ember", Color(1, 0.5, 0.2)), Vector2(200, 16))
@@ -535,17 +587,17 @@ static func _run_summary(run: Run) -> Control:
 	var info: Dictionary = run.end_info
 	var line := Modes.label(run.cfg)
 	if run.cfg.get("counts", false):
-		line += "  ·  Score %d" % int(info.get("score", run.score()))
+		line += "  ·  " + L.f("Score %d", [int(info.get("score", run.score()))])
 		if info.get("best", false):
-			line += "  (new best!)"
+			line += "  " + L.t("(new best!)")
 	elif run.mode == "practice":
-		line += "  ·  not recorded"
+		line += "  ·  " + L.t("not recorded")
 	var l := UIK.label(line, "", 21, UIK.col("gold", Color.GOLD))
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.name = "SummaryLabel"
 	v.add_child(l)
 	for u in info.get("unlocks", []):
-		var ul := _outlined(UIK.label("Unlocked: %s!" % u, "", 24, UIK.col("ember", Color(1, 0.55, 0.25))), 6)
+		var ul := _outlined(UIK.label(L.f("Unlocked: %s!", [L.t(u)]), "", 24, UIK.col("ember", Color(1, 0.55, 0.25))), 6)
 		ul.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(ul)
 	return v
@@ -648,7 +700,7 @@ static func skill_info(h: Hero, on_close: Callable) -> Control:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 14)
 	outer.add_child(head)
-	var t := _outlined(UIK.label("%s skills" % DB.HEROES[h.hero_id]["name"], "TitleLabel", 36, UIK.col("gold", Color.GOLD)))
+	var t := _outlined(UIK.label(L.f("%s skills", [DB.HEROES[h.hero_id]["name"]]), "TitleLabel", 36, UIK.col("gold", Color.GOLD)))
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(t)
 	var close := UIK.button("Close", "PrimaryButton", Vector2(150, 72))
@@ -698,19 +750,19 @@ static func _skill_row(h: Hero, slot: int, key: String) -> Control:
 	v.add_theme_constant_override("separation", 4)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hb.add_child(v)
-	var name_line := "%s  ·  %s" % [String(sd["name"]), key + (" (ultimate)" if slot == 3 else "")]
+	var name_line := "%s  ·  %s" % [L.t(sd["name"]), key + (" " + L.t("(ultimate)") if slot == 3 else "")]
 	v.add_child(UIK.label(name_line, "", 26, UIK.col("gold", Color.GOLD)))
-	var bits := ["Rank %d/%d" % [r, h.max_rank(slot)] if r > 0 else "Not learned yet"]
+	var bits := [L.f("Rank %d/%d", [r, h.max_rank(slot)]) if r > 0 else L.t("Not learned yet")]
 	var mana: Array = sd.get("mana", [])
 	if not mana.is_empty():
-		bits.append("%d mana" % int(mana[mini(ri, mana.size() - 1)]))
+		bits.append(L.f("%d mana", [int(mana[mini(ri, mana.size() - 1)])]))
 	var cds: Array = sd.get("cd", [])
 	if not cds.is_empty():
-		bits.append("%ss cooldown" % String.num(float(cds[mini(ri, cds.size() - 1)]), 1).trim_suffix(".0"))
+		bits.append(L.f("%ss cooldown", [String.num(float(cds[mini(ri, cds.size() - 1)]), 1).trim_suffix(".0")]))
 	if h.can_rank_up(slot):
-		bits.append("rank up ready: tap + on its button")
+		bits.append(L.t("rank up ready: tap + on its button"))
 	v.add_child(UIK.label("  ·  ".join(bits), "SmallLabel", 18, UIK.col("dim", Color(0.75, 0.7, 0.62))))
-	var d := UIK.label(String(sd.get("desc", "")), "", 20, UIK.col("text", Color(0.95, 0.92, 0.85)))
+	var d := UIK.label(L.t(sd.get("desc", "")), "", 20, UIK.col("text", Color(0.95, 0.92, 0.85)))
 	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	d.custom_minimum_size = Vector2(600, 0)
 	v.add_child(d)

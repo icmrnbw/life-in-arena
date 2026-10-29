@@ -680,7 +680,7 @@ func _companion_down(c: Hero) -> void:
 	c.focus = null
 	allies.erase(c)
 	as_unit(c, func(): c.kit.on_wave_end())
-	toast("%s has fallen. Back next wave" % c.data["name"], Art.palette.get("danger", Color.RED))
+	toast(L.f("%s has fallen. Back next wave", [c.data["name"]]), Art.palette.get("danger", Color.RED))
 
 
 ## AI heroes "shop" from their build list with their own purse (the gold the team earns; it isn't taken from the player).
@@ -1114,7 +1114,7 @@ func _kill_rest(t: Unit) -> void:
 			var cg := int(round(DB.captain_gold(wave) * gold_scale))
 			add_gold(cg)
 			fx("gold", {"pos": e.pos + Vector3(0, 2.0, 0), "amount": cg})
-			toast("%s slain! +%d gold" % [e.display_name, cg], Art.palette.get("gold", Color.GOLD))
+			toast(L.f("%s slain! +%d gold", [e.shown_name(), cg]), Art.palette.get("gold", Color.GOLD))
 		if e in echoes:
 			_echo_died()
 		if hero.kit:
@@ -1183,7 +1183,7 @@ func _hero_died() -> void:
 	else:
 		phase = "dead"
 		phase_t = 3.0
-		banner_requested.emit("You have fallen", "%d %s left. Respawning in camp..." % [lives, "life" if lives == 1 else "lives"])
+		banner_requested.emit("You have fallen", L.f("Lives left: %d. Respawning in camp...", [lives]))
 
 
 # ---------------------------------------------------------------- projectiles
@@ -2406,14 +2406,14 @@ func start_wave() -> void:
 			spawn_queue.append({"t": 2.0, "kind": bk, "gate": Vector3(6, 0, -14), "tint": true})
 		else:
 			spawn_queue.append({"t": 2.0, "kind": bk, "gate": Vector3(0, 0, -13)})
-		banner_requested.emit("Wave %d" % wave, "Boss: " + boss_title)
+		banner_requested.emit("Wave %d" % wave, L.f("Boss: %s", [L.t(boss_title)]))
 		var hw: int = {"pit_brute": 5, "matron": 10, "hollow_choir": 15, "warden": 20}.get(bk, wave)
 		schedule(2.6, toast.bind(DB.BOSS_HINTS.get(hw, ""), Art.palette.get("gold", Color.GOLD)))
 		Audio.play("boss")
 	else:
-		var sub := String(info.get("name", "Survive!"))
+		var sub := L.t(info.get("name", "Survive!"))
 		if wave_rule != "":
-			sub += "  ·  " + String(DB.WAVE_RULES[wave_rule]["name"])
+			sub += "  ·  " + L.t(DB.WAVE_RULES[wave_rule]["name"])
 		banner_requested.emit("Wave %d" % wave, sub)
 		if wave_rule != "":
 			schedule(2.6, toast.bind(String(info.get("desc", "")), DB.WAVE_RULES[wave_rule]["color"]))
@@ -2454,7 +2454,7 @@ func _tick_wave(dt: float) -> void:
 			e.make_captain()
 			captain = e
 			fx("teleport", {"pos": e.pos})
-			toast("%s leads the wave!" % e.display_name, Art.palette.get("gold", Color.GOLD))
+			toast(L.f("%s leads the wave!", [e.shown_name()]), Art.palette.get("gold", Color.GOLD))
 		else:
 			_roll_elite(e)
 		if e.is_boss:
@@ -2548,12 +2548,12 @@ func _wave_cleared() -> void:
 	if not wave_died:
 		flawless = int(round((wave_gold + bonus) * 0.10))
 	add_gold(bonus + flawless)
-	var sub := "+%d gold" % (bonus + flawless)
+	var sub := L.f("+%d gold", [bonus + flawless])
 	if flawless > 0:
-		sub += "  (flawless +%d)" % flawless
+		sub += "  " + L.f("(flawless +%d)", [flawless])
 	fx("gold", {"pos": hero.pos + Vector3(0, 2, 0), "amount": bonus + flawless})
 	for u in Profile.on_wave_cleared(self, boss_title != ""):
-		schedule(1.2, toast.bind("Unlocked: %s!" % u, Art.palette.get("gold", Color.GOLD)))
+		schedule(1.2, toast.bind(L.f("Unlocked: %s!", [L.t(u)]), Art.palette.get("gold", Color.GOLD)))
 	if wave >= DB.TOTAL_WAVES and not cfg.get("endless", false):
 		banner_requested.emit("Victory!", "The Undercroft is silent" if delve else "The Pit is silent")
 		phase = "victory_wait"

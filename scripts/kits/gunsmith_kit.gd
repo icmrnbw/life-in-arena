@@ -231,7 +231,7 @@ func on_wave_end() -> void:
 func hud_meter() -> Dictionary:
 	if reloading():
 		return {"type": "bar", "label": "Reloading", "value": 1.0 - reload_t / RELOAD_TIME, "max": 1.0, "color": Color(0.6, 0.6, 0.65)}
-	return {"type": "bar", "label": ("Ammo %d / %d" % [ammo, MAG]) + ("  hot" if hot > 0 else ""), "value": float(ammo), "max": float(MAG),
+	return {"type": "bar", "label": L.f("Ammo %d / %d", [ammo, MAG]) + ("  " + L.t("hot") if hot > 0 else ""), "value": float(ammo), "max": float(MAG),
 		"color": FIRE if hot > 0 else BLUE}
 
 

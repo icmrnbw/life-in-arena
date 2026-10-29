@@ -132,8 +132,8 @@ static func _mode_button(id: String) -> Button:
 	tv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hb.add_child(tv)
-	tv.add_child(Menus._outlined(UIK.label(md["name"], "", 24, UIK.col("ember", Color(1, 0.55, 0.25))), 5))
-	tv.add_child(UIK.label(_mode_line(id), "SmallLabel", 15, UIK.col("dim", Color(0.75, 0.7, 0.62))))
+	tv.add_child(Menus._outlined(UIK.label(L.t(md["name"]), "", 24, UIK.col("ember", Color(1, 0.55, 0.25))), 5))
+	tv.add_child(Menus._fit(UIK.label(_mode_line(id), "SmallLabel", 15, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
 	var ring := Panel.new()
 	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -156,22 +156,22 @@ static func _mode_line(id: String) -> String:
 			var best := 0
 			for t in p["tier_best"]:
 				best = maxi(best, int(p["tier_best"][t]))
-			return "Best: wave %d" % best if best > 0 else "20 waves, 4 bosses"
+			return L.f("Best: wave %d", [best]) if best > 0 else L.t("20 waves, 4 bosses")
 		"random":
-			return "Any of %d heroes" % DB.HERO_ORDER.size()
+			return L.f("Any of %d heroes", [DB.HERO_ORDER.size()])
 		"endless":
-			return "Best: wave %d" % int(p["endless_best"]) if int(p["endless_best"]) > 0 else "No wave limit"
+			return L.f("Best: wave %d", [int(p["endless_best"])]) if int(p["endless_best"]) > 0 else L.t("No wave limit")
 		"delve":
-			return "Deepest: depth %d" % int(p.get("delve_best", 0)) if int(p.get("delve_best", 0)) > 0 else "New · explore a dungeon"
+			return L.f("Deepest: depth %d", [int(p.get("delve_best", 0))]) if int(p.get("delve_best", 0)) > 0 else L.t("New · explore a dungeon")
 		"daily":
 			var dd := Modes.daily(Modes.today())
-			return "%s · %s" % [DB.HEROES[dd["hero"]]["name"], Modes.DAILY_MODS[dd["mod"]]["name"]]
+			return "%s · %s" % [DB.HEROES[dd["hero"]]["name"], L.t(Modes.DAILY_MODS[dd["mod"]]["name"])]
 		"practice":
-			return "Free gold, any wave"
+			return L.t("Free gold, any wave")
 		"training":
-			return "Done" if p.get("training_done", false) else "Start here"
+			return L.t("Done") if p.get("training_done", false) else L.t("Start here")
 		"duels":
-			return "%d rival heroes, 1 on 1" % Duel.LADDER_ROUNDS
+			return L.f("%d rival heroes, 1 on 1", [Duel.LADDER_ROUNDS])
 	return ""
 
 
@@ -183,8 +183,8 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
 	card.add_child(v)
-	v.add_child(Menus._outlined(UIK.label(md["name"], "TitleLabel", 36, UIK.col("ember", Color(1, 0.55, 0.25))), 6))
-	var desc := UIK.label(md["desc"], "", 20, UIK.col("text", Color(0.95, 0.9, 0.82)))
+	v.add_child(Menus._outlined(UIK.label(L.t(md["name"]), "TitleLabel", 36, UIK.col("ember", Color(1, 0.55, 0.25))), 6))
+	var desc := UIK.label(L.t(md["desc"]), "", 20, UIK.col("text", Color(0.95, 0.9, 0.82)))
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc.custom_minimum_size = Vector2(300, 0)
 	v.add_child(desc)
@@ -196,7 +196,7 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 		for t in Modes.TIER_ORDER:
 			var td: Dictionary = Modes.TIERS[t]
 			var open := Profile.tier_unlocked(t)
-			var tb := UIK.button(td["name"] if open else td["name"] + " (locked)", "PrimaryButton" if t == st["tier"] else "", Vector2(150, 64))
+			var tb := UIK.button(L.t(td["name"]) if open else L.f("%s (locked)", [L.t(td["name"])]), "PrimaryButton" if t == st["tier"] else "", Vector2(150, 64))
 			tb.name = "Tier_" + t
 			tb.add_theme_color_override("font_color", td["color"] if open else Color(0.55, 0.52, 0.5))
 			tb.disabled = not open
@@ -206,27 +206,27 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 				refresh.call())
 			row.add_child(tb)
 		var td2: Dictionary = Modes.TIERS[st["tier"]]
-		var tl := UIK.label(td2["desc"], "SmallLabel", 18, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+		var tl := UIK.label(L.t(td2["desc"]), "SmallLabel", 18, UIK.col("dim", Color(0.75, 0.7, 0.62)))
 		tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		tl.custom_minimum_size = Vector2(300, 0)
 		v.add_child(tl)
 		if not Profile.tier_unlocked("extreme"):
-			v.add_child(UIK.label("Extreme unlocks when you clear wave 10 on Hard.", "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62))))
+			v.add_child(_wrap(UIK.label("Extreme unlocks when you clear wave 10 on Hard.", "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
 	if mode in ALLY_MODES:
 		var arow := HBoxContainer.new()
 		arow.add_theme_constant_override("separation", 10)
 		v.add_child(arow)
 		arow.add_child(UIK.label("Allies", "", 20, UIK.col("gold", Color.GOLD)))
 		for n in 4:
-			var ab := UIK.button("None" if n == 0 else str(n), "PrimaryButton" if n == int(st["allies"]) else "", Vector2(96 if n == 0 else 72, 60))
+			var ab := UIK.button(L.t("None") if n == 0 else str(n), "PrimaryButton" if n == int(st["allies"]) else "", Vector2(96 if n == 0 else 72, 60))
 			ab.name = "Allies_%d" % n
 			var nn := n
 			ab.pressed.connect(func():
 				st["allies"] = nn
 				refresh.call())
 			arow.add_child(ab)
-		var al := UIK.label("AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally." if int(st["allies"]) > 0
-			else "Bring up to 3 AI heroes into the Pit with you.", "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+		var al := UIK.label(L.t("AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally.") if int(st["allies"]) > 0
+			else L.t("Bring up to 3 AI heroes into the Pit with you."), "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))
 		al.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		al.custom_minimum_size = Vector2(300, 0)
 		v.add_child(al)
@@ -236,14 +236,14 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 		mrow.add_theme_constant_override("separation", 10)
 		v.add_child(mrow)
 		for id in Maps.ORDER:
-			var mb := UIK.button(Maps.map_name(id), "PrimaryButton" if id == st["map"] else "", Vector2(220, 60))
+			var mb := UIK.button(L.t(Maps.map_name(id)), "PrimaryButton" if id == st["map"] else "", Vector2(220, 60))
 			mb.name = "Map_" + id
 			var mid: String = id
 			mb.pressed.connect(func():
 				st["map"] = mid
 				refresh.call())
 			mrow.add_child(mb)
-		var ml2 := UIK.label(String(Maps.MAPS[st["map"]]["desc"]), "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+		var ml2 := UIK.label(L.t(Maps.MAPS[st["map"]]["desc"]), "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))
 		ml2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		ml2.custom_minimum_size = Vector2(300, 0)
 		v.add_child(ml2)
@@ -258,16 +258,16 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 			tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			h.add_child(tv)
 			var mod: Dictionary = Modes.DAILY_MODS[dd["mod"]]
-			tv.add_child(UIK.label("Today: %s" % DB.HEROES[dd["hero"]]["name"], "", 24, UIK.col("gold", Color.GOLD)))
-			tv.add_child(UIK.label("Twist: " + String(mod["name"]), "", 20, UIK.col("ember", Color(1, 0.55, 0.25))))
-			var ml := UIK.label(mod["desc"], "SmallLabel", 18, UIK.col("text", Color(0.95, 0.9, 0.82)))
+			tv.add_child(UIK.label(L.f("Today: %s", [DB.HEROES[dd["hero"]]["name"]]), "", 24, UIK.col("gold", Color.GOLD)))
+			tv.add_child(UIK.label(L.f("Twist: %s", [L.t(mod["name"])]), "", 20, UIK.col("ember", Color(1, 0.55, 0.25))))
+			var ml := UIK.label(L.t(mod["desc"]), "SmallLabel", 18, UIK.col("text", Color(0.95, 0.9, 0.82)))
 			ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			ml.custom_minimum_size = Vector2(240, 0)
 			tv.add_child(ml)
 			var rec := Profile.daily_today()
 			if int(rec["runs"]) > 0:
-				v.add_child(UIK.label("Your best today: wave %d, score %d (%d tries)" % [int(rec["best_wave"]), int(rec["best_score"]), int(rec["runs"])],
-					"SmallLabel", 18, UIK.col("dim", Color(0.75, 0.7, 0.62))))
+				v.add_child(_wrap(UIK.label(L.f("Your best today: wave %d, score %d (%d tries)", [int(rec["best_wave"]), int(rec["best_score"]), int(rec["runs"])]),
+					"SmallLabel", 18, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
 		"practice":
 			var row := HBoxContainer.new()
 			row.add_theme_constant_override("separation", 12)
@@ -288,9 +288,9 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 			row.add_child(minus)
 			row.add_child(wl)
 			row.add_child(plus)
-			v.add_child(UIK.label("Your hero starts at the level and gold of that wave. Every hero is playable here.", "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62))))
+			v.add_child(_wrap(UIK.label("Your hero starts at the level and gold of that wave. Every hero is playable here.", "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
 		"endless":
-			v.add_child(UIK.label("Bosses return every 5th wave, tougher with each lap past wave 20.", "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62))))
+			v.add_child(_wrap(UIK.label("Bosses return every 5th wave, tougher with each lap past wave 20.", "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
 		"delve":
 			var dl := UIK.label("Bosses guard depths 3, 6 and 10. Ember wells heal you once, side rooms hide treasure. The camp and shop wait between depths.",
 				"SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))
@@ -298,8 +298,14 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 			dl.custom_minimum_size = Vector2(300, 0)
 			v.add_child(dl)
 		"training":
-			v.add_child(UIK.label("You play the Ashwarden and can't fall. Takes about three minutes.", "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62))))
+			v.add_child(_wrap(UIK.label("You play the Ashwarden and can't fall. Takes about three minutes.", "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
 	return card
+
+
+static func _wrap(l: Label) -> Label:
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(300, 0)
+	return l
 
 
 ## Modes fought in an arena you can pick (Maps.ORDER).
@@ -396,15 +402,16 @@ static func records(on_back: Callable) -> Control:
 	var rows := [["Runs", str(int(t["runs"]))], ["Victories", str(int(t["wins"]))], ["Waves cleared", str(int(t["waves"]))],
 		["Bosses beaten", str(int(t["bosses"]))], ["Enemies slain", str(int(t["kills"]))], ["Time in the Pit", UIK.fmt_time(float(t["time"]))]]
 	for tr in Modes.TIER_ORDER:
-		rows.append(["Best wave, %s" % Modes.TIERS[tr]["name"], str(int(p["tier_best"].get(tr, 0))) if Profile.tier_unlocked(tr) else "locked"])
+		rows.append([L.f("Best wave, %s", [L.t(Modes.TIERS[tr]["name"])]), str(int(p["tier_best"].get(tr, 0))) if Profile.tier_unlocked(tr) else L.t("locked")])
 	rows.append(["Best wave, Endless", str(int(p["endless_best"]))])
 	rows.append(["Deepest Delve", str(int(p.get("delve_best", 0)))])
 	var dr := Profile.daily_today()
-	rows.append(["Daily Run today", "score %d" % int(dr["best_score"]) if int(dr["runs"]) > 0 else "not played"])
+	rows.append(["Daily Run today", L.f("score %d", [int(dr["best_score"])]) if int(dr["runs"]) > 0 else L.t("not played")])
 	for r in rows:
 		var h := HBoxContainer.new()
-		var a := UIK.label(r[0], "", 19, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+		var a := UIK.label(L.t(r[0]), "", 19, UIK.col("dim", Color(0.75, 0.7, 0.62)))
 		a.custom_minimum_size = Vector2(230, 0)
+		a.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		h.add_child(a)
 		h.add_child(UIK.label(r[1], "", 19, UIK.col("text", Color(0.95, 0.9, 0.82))))
 		lv.add_child(h)
@@ -446,9 +453,9 @@ static func _hero_record_row(id: String) -> Control:
 	tv.add_child(UIK.label(DB.HEROES[id]["name"], "", 21, UIK.col("ember", Color(1, 0.55, 0.25)) if open else Color(0.6, 0.57, 0.53)))
 	if open:
 		var hr: Dictionary = Profile.d()["heroes"].get(id, {})
-		tv.add_child(UIK.label("Runs %d  ·  best wave %d  ·  victories %d" % [int(hr.get("runs", 0)), int(hr.get("best_wave", 0)), int(hr.get("wins", 0))],
+		tv.add_child(UIK.label(L.f("Runs %d  ·  best wave %d  ·  victories %d", [int(hr.get("runs", 0)), int(hr.get("best_wave", 0)), int(hr.get("wins", 0))]),
 			"SmallLabel", 16, UIK.col("text", Color(0.9, 0.86, 0.8))))
 	else:
 		var pr := Profile.progress(id)
-		tv.add_child(UIK.label("Locked: %s  (%d / %d)" % [Modes.UNLOCKS[id]["text"], pr[0], pr[1]], "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62))))
+		tv.add_child(UIK.label(L.f("Locked: %s (%d / %d)", [L.t(Modes.UNLOCKS[id]["text"]), pr[0], pr[1]]), "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62))))
 	return row

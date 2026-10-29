@@ -32,6 +32,11 @@ window/handheld/orientation=4
 
 pointing/emulate_touch_from_mouse=true
 
+[internationalization]
+
+locale/include_text_server_data=true
+rendering/root_node_layout_direction=1
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
