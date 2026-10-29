@@ -814,7 +814,6 @@
  "%d rival heroes, 1 on 1": "%d pahlawan saingan, satu lawan satu",
  "%s (locked)": "%s (terkunci)",
  "20 waves, 4 bosses": "20 gelombang, 4 bos",
- "AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally.": "Pahlawan AI bertarung di sisimu. Yang pertama memberi jenis damage lainnya. Musuh makin tangguh untuk tiap sekutu.",
  "Allies": "Sekutu",
  "Any of %d heroes": "Salah satu dari %d pahlawan",
  "Arena": "Arena",
@@ -923,5 +922,6 @@
  "STR": "KEK",
  "Shop is only open in camp": "Toko hanya buka di kamp",
  "Unknown item": "Item tak dikenal",
- "Unknown upgrade": "Peningkatan tak dikenal"
+ "Unknown upgrade": "Peningkatan tak dikenal",
+ "AI heroes fight beside you. The first deals the other damage type. Each ally gives foes +85% HP and +30% damage.": "Pahlawan AI bertarung di sampingmu. Yang pertama memberi jenis damage lainnya. Tiap sekutu memberi musuh +85% HP dan +30% damage."
 }

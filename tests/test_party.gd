@@ -34,6 +34,11 @@ func make_party_run(hero: String, wave: int, extra: Dictionary) -> Run:
 	return r
 
 
+## What a foe hit is worth before the party bonus (drums, enrage and weather aside, all off here).
+func weather_free(r: Run) -> float:
+	return r.weather.foe_dmg_mult() * (DB.ENRAGE_DMG if r.pit_enraged else 1.0)
+
+
 func ally_damage(r: Run) -> float:
 	var t := 0.0
 	for k in r.stats["damage_by"]:
@@ -90,6 +95,11 @@ func test_allies_wave() -> void:
 	check(r.enemies.size() + r.spawn_queue.size() > 0, "wave 4 starts")
 	var e := r.spawn_enemy("gnawer", Vector3(0, 0, 0))
 	check(e.max_hp > float(DB.ENEMIES["gnawer"]["hp"]) * 1.5, "foes are tougher with allies", "%.0f" % e.max_hp)
+	r.hero.invuln_t = 0.0
+	var hp1 := r.hero.hp
+	var dealt := r.damage(r.hero, 100.0, e, "test", "pure")
+	check(absf(r.party_dmg_mult() - 1.6) < 0.001 and dealt > 100.0 * weather_free(r), "foes hit harder with allies", "%.1f" % dealt)
+	r.hero.hp = hp1
 	await steps(r, 30)
 	await free_run(r)
 

@@ -829,6 +829,8 @@ const TOTAL_WAVES := 20
 const START_GOLD := 400
 ## Wave foes get this much more HP for every AI ally hero in the run.
 const ALLY_FOE_HP := 0.85
+## ...and deal this much more damage.
+const ALLY_FOE_DMG := 0.3
 ## Share of the gold the team earns that each AI ally gets to spend on its own items.
 const ALLY_GOLD_SHARE := 0.6
 const START_LIVES := 3

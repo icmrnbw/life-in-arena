@@ -814,7 +814,6 @@
  "%d rival heroes, 1 on 1": "%d héros rivaux, 1 contre 1",
  "%s (locked)": "%s (verrouillé)",
  "20 waves, 4 bosses": "20 vagues, 4 boss",
- "AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally.": "Des héros IA combattent à vos côtés. Le premier inflige l'autre type de dégâts. Les ennemis se renforcent à chaque allié.",
  "Allies": "Alliés",
  "Any of %d heroes": "Un des %d héros",
  "Arena": "Arène",
@@ -923,5 +922,6 @@
  "STR": "FOR",
  "Shop is only open in camp": "La boutique n'ouvre qu'au camp",
  "Unknown item": "Objet inconnu",
- "Unknown upgrade": "Amélioration inconnue"
+ "Unknown upgrade": "Amélioration inconnue",
+ "AI heroes fight beside you. The first deals the other damage type. Each ally gives foes +85% HP and +30% damage.": "Des héros IA combattent à vos côtés. Le premier inflige l'autre type de dégâts. Chaque allié donne aux ennemis +85 % de PV et +30 % de dégâts."
 }

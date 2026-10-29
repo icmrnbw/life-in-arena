@@ -814,7 +814,6 @@
  "%d rival heroes, 1 on 1": "%d héroes rivales, 1 contra 1",
  "%s (locked)": "%s (bloqueado)",
  "20 waves, 4 bosses": "20 oleadas, 4 jefes",
- "AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally.": "Héroes IA luchan a tu lado. El primero inflige el otro tipo de daño. Los enemigos se endurecen con cada aliado.",
  "Allies": "Aliados",
  "Any of %d heroes": "Cualquiera de %d héroes",
  "Arena": "Arena",
@@ -923,5 +922,6 @@
  "STR": "FUE",
  "Shop is only open in camp": "La tienda solo abre en el campamento",
  "Unknown item": "Objeto desconocido",
- "Unknown upgrade": "Mejora desconocida"
+ "Unknown upgrade": "Mejora desconocida",
+ "AI heroes fight beside you. The first deals the other damage type. Each ally gives foes +85% HP and +30% damage.": "Héroes de IA luchan a tu lado. El primero inflige el otro tipo de daño. Cada aliado da a los enemigos +85% de PV y +30% de daño."
 }

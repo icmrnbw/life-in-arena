@@ -814,7 +814,6 @@
  "%d rival heroes, 1 on 1": "%d名对手英雄，一对一",
  "%s (locked)": "%s（未解锁）",
  "20 waves, 4 bosses": "20波，4个首领",
- "AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally.": "AI英雄与你并肩作战。第一位盟友造成另一种伤害类型。每多一位盟友，敌人就更强。",
  "Allies": "盟友",
  "Any of %d heroes": "%d名英雄中任选",
  "Arena": "竞技场",
@@ -923,5 +922,6 @@
  "STR": "力量",
  "Shop is only open in camp": "商店只在营地开放",
  "Unknown item": "未知物品",
- "Unknown upgrade": "未知强化"
+ "Unknown upgrade": "未知强化",
+ "AI heroes fight beside you. The first deals the other damage type. Each ally gives foes +85% HP and +30% damage.": "AI英雄与你并肩作战。第一位造成另一种伤害类型。每名盟友使敌人生命值+85%、伤害+30%。"
 }

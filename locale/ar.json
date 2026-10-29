@@ -814,7 +814,6 @@
  "%d rival heroes, 1 on 1": "%d أبطال منافسين، واحد لواحد",
  "%s (locked)": "%s (مقفل)",
  "20 waves, 4 bosses": "20 موجة، 4 زعماء",
- "AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally.": "أبطال الذكاء الاصطناعي يقاتلون بجانبك. الأول يُلحق النوع الآخر من الضرر. يزداد الأعداء قوة مع كل حليف.",
  "Allies": "الحلفاء",
  "Any of %d heroes": "أي من %d أبطال",
  "Arena": "الساحة",
@@ -923,5 +922,6 @@
  "STR": "قوة",
  "Shop is only open in camp": "المتجر مفتوح في المخيم فقط",
  "Unknown item": "غرض غير معروف",
- "Unknown upgrade": "ترقية غير معروفة"
+ "Unknown upgrade": "ترقية غير معروفة",
+ "AI heroes fight beside you. The first deals the other damage type. Each ally gives foes +85% HP and +30% damage.": "أبطال الذكاء الاصطناعي يقاتلون بجانبك. الأول يُحدث نوع الضرر الآخر. كل حليف يمنح الأعداء +85% نقاط صحة و+30% ضررًا."
 }

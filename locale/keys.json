@@ -814,7 +814,7 @@
  "%d rival heroes, 1 on 1": "scripts/ui/play_menu.gd",
  "%s (locked)": "scripts/ui/play_menu.gd",
  "20 waves, 4 bosses": "scripts/ui/play_menu.gd",
- "AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally.": "scripts/ui/play_menu.gd",
+ "AI heroes fight beside you. The first deals the other damage type. Each ally gives foes +85% HP and +30% damage.": "scripts/ui/play_menu.gd",
  "Allies": "scripts/ui/play_menu.gd",
  "Any of %d heroes": "scripts/ui/play_menu.gd",
  "Arena": "scripts/ui/play_menu.gd",

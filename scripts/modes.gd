@@ -39,7 +39,7 @@ const TIERS := {
 		"unlock": "Clear wave 10 on Hard"},
 }
 
-const MODE_ORDER := ["classic", "random", "endless", "delve", "daily", "duels", "practice", "training"]
+const MODE_ORDER := ["classic", "random", "endless", "delve", "duels", "daily", "practice", "training"]
 const MODES := {
 	"classic": {"name": "Classic", "desc": "Pick a hero and survive 20 waves. Bosses on every 5th wave.", "icon": "portrait_ashwarden", "tiers": true},
 	"random": {"name": "Random Hero", "desc": "The Pit picks your hero for you. +150 starting gold.", "icon": "portrait_twinhide", "tiers": true},

@@ -814,7 +814,6 @@
  "%d rival heroes, 1 on 1": "%d tướng đối thủ, một chọi một",
  "%s (locked)": "%s (đã khóa)",
  "20 waves, 4 bosses": "20 đợt, 4 trùm",
- "AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally.": "Tướng AI chiến đấu bên bạn. Tướng đầu tiên gây loại sát thương còn lại. Địch mạnh hơn với mỗi đồng minh.",
  "Allies": "Đồng minh",
  "Any of %d heroes": "Bất kỳ trong %d tướng",
  "Arena": "Đấu trường",
@@ -923,5 +922,6 @@
  "STR": "SỨC",
  "Shop is only open in camp": "Cửa hàng chỉ mở ở trại",
  "Unknown item": "Món đồ không rõ",
- "Unknown upgrade": "Nâng cấp không rõ"
+ "Unknown upgrade": "Nâng cấp không rõ",
+ "AI heroes fight beside you. The first deals the other damage type. Each ally gives foes +85% HP and +30% damage.": "Tướng AI chiến đấu bên bạn. Người đầu tiên gây loại sát thương còn lại. Mỗi đồng minh cho kẻ địch +85% HP và +30% sát thương."
 }

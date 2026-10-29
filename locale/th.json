@@ -814,7 +814,6 @@
  "%d rival heroes, 1 on 1": "ฮีโร่คู่แข่ง %d ตัว ตัวต่อตัว",
  "%s (locked)": "%s (ล็อก)",
  "20 waves, 4 bosses": "20 เวฟ บอส 4 ตัว",
- "AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally.": "ฮีโร่ AI สู้เคียงข้างคุณ ตัวแรกสร้างดาเมจอีกประเภท ศัตรูแกร่งขึ้นตามจำนวนพันธมิตร",
  "Allies": "พันธมิตร",
  "Any of %d heroes": "ฮีโร่ใดก็ได้จาก %d ตัว",
  "Arena": "สนาม",
@@ -923,5 +922,6 @@
  "STR": "พลัง",
  "Shop is only open in camp": "ร้านค้าเปิดเฉพาะในค่าย",
  "Unknown item": "ไอเทมที่ไม่รู้จัก",
- "Unknown upgrade": "อัปเกรดที่ไม่รู้จัก"
+ "Unknown upgrade": "อัปเกรดที่ไม่รู้จัก",
+ "AI heroes fight beside you. The first deals the other damage type. Each ally gives foes +85% HP and +30% damage.": "ฮีโร่ AI สู้เคียงข้างคุณ ตัวแรกทำดาเมจอีกประเภท พันธมิตรแต่ละตัวทำให้ศัตรูได้ HP +85% และดาเมจ +30%"
 }

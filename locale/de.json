@@ -814,7 +814,6 @@
  "%d rival heroes, 1 on 1": "%d rivalisierende Helden, 1 gegen 1",
  "%s (locked)": "%s (gesperrt)",
  "20 waves, 4 bosses": "20 Wellen, 4 Bosse",
- "AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally.": "KI-Helden kämpfen an deiner Seite. Der erste macht die andere Schadensart. Gegner werden mit jedem Verbündeten zäher.",
  "Allies": "Verbündete",
  "Any of %d heroes": "Einer von %d Helden",
  "Arena": "Arena",
@@ -923,5 +922,6 @@
  "STR": "STÄ",
  "Shop is only open in camp": "Der Laden ist nur im Lager offen",
  "Unknown item": "Unbekanntes Item",
- "Unknown upgrade": "Unbekanntes Upgrade"
+ "Unknown upgrade": "Unbekanntes Upgrade",
+ "AI heroes fight beside you. The first deals the other damage type. Each ally gives foes +85% HP and +30% damage.": "KI-Helden kämpfen an deiner Seite. Der erste verursacht die andere Schadensart. Jeder Verbündete gibt Gegnern +85 % LP und +30 % Schaden."
 }

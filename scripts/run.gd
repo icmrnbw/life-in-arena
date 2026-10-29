@@ -598,6 +598,8 @@ func _rival_view() -> Array:
 ## or cfg "ally_ids" (exactly these).
 ## `saved`: their state from a saved run (snapshot()), in the same order.
 func _add_companions(saved: Array) -> void:
+	if delve:
+		return   # the Undercroft is a solo crawl
 	var ids: Array = cfg.get("ally_ids", [])
 	if ids.is_empty() and int(cfg.get("allies", 0)) > 0:
 		ids = pick_companions(hero_id, int(cfg["allies"]), rng)
@@ -768,6 +770,11 @@ func party_hp_mult() -> float:
 	return 1.0 + DB.ALLY_FOE_HP * companions.size()
 
 
+## ...and hit harder (a duel rival doesn't: it is a hero, not a wave foe).
+func party_dmg_mult() -> float:
+	return 1.0 + DB.ALLY_FOE_DMG * companions.size()
+
+
 ## Rolls whether a freshly spawned wave enemy becomes an elite.
 func _roll_elite(e: Enemy) -> void:
 	var from := int(cfg.get("elite_from", 4))
@@ -912,6 +919,8 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 		a *= hero_dmg_mult
 	if src != null and src.team == 1:
 		a *= weather.foe_dmg_mult()
+		if not src is Hero:
+			a *= party_dmg_mult()
 		if pit_enraged:
 			a *= DB.ENRAGE_DMG
 		if is_drummed(src):
@@ -1717,13 +1726,13 @@ func _step(dt: float) -> void:
 	Game.mark(5)
 	if hero.kit:
 		hero.kit.tick(dt)
+	if delve and delve.active and not hero.in_camp:
+		hero.pos = delve.resolve(hero, hero.pos)   # dashes and blinks stop at the dungeon's walls
 	for c in companions:
 		if c.alive and not c.dead:
 			as_unit(c, _tick_ai.bind(c, dt))
 	if rival != null and rival.alive:
 		as_unit(rival, _tick_ai.bind(rival, dt))
-	if delve and delve.active and not hero.in_camp:
-		hero.pos = delve.resolve(hero, hero.pos)   # dashes and blinks stop at the dungeon's walls
 	Game.mark(6)
 	for e in enemies:
 		if e.alive and e is Enemy:

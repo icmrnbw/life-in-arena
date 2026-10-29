@@ -480,7 +480,7 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 	elif run.mode == "delve":
 		sub_text = L.f("%s cleared all %d depths of the Undercroft." if win else "%s fell on depth %d of the Undercroft.", [hd["name"],
 			Delve.DEPTHS if win else Delve.depth_of(run.max_wave_reached)])
-	elif not run.companions.is_empty():
+	if not run.companions.is_empty():
 		sub_text += " " + L.f("Allies: %s.", [", ".join(run.companions.map(func(c): return c.data["name"]))])
 	var sub := UIK.label(sub_text, "", 22, UIK.col("text", Color(0.95, 0.9, 0.82)))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

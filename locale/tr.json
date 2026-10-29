@@ -814,7 +814,6 @@
  "%d rival heroes, 1 on 1": "%d rakip kahraman, bire bir",
  "%s (locked)": "%s (kilitli)",
  "20 waves, 4 bosses": "20 dalga, 4 boss",
- "AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally.": "Yapay zekâ kahramanları yanında savaşır. İlki diğer hasar türünü verir. Her müttefikle düşmanlar güçlenir.",
  "Allies": "Müttefikler",
  "Any of %d heroes": "%d kahramandan herhangi biri",
  "Arena": "Arena",
@@ -923,5 +922,6 @@
  "STR": "GÜÇ",
  "Shop is only open in camp": "Dükkân yalnızca kampta açık",
  "Unknown item": "Bilinmeyen eşya",
- "Unknown upgrade": "Bilinmeyen yükseltme"
+ "Unknown upgrade": "Bilinmeyen yükseltme",
+ "AI heroes fight beside you. The first deals the other damage type. Each ally gives foes +85% HP and +30% damage.": "Yapay zekâ kahramanları yanında savaşır. İlki diğer hasar türünü verir. Her müttefik düşmanlara +%85 can ve +%30 hasar kazandırır."
 }

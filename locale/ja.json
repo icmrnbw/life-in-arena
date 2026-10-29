@@ -814,7 +814,6 @@
  "%d rival heroes, 1 on 1": "ライバルのヒーロー%d人と1対1",
  "%s (locked)": "%s（ロック中）",
  "20 waves, 4 bosses": "20ウェーブ、ボス4体",
- "AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally.": "AIヒーローが一緒に戦う。最初の仲間はもう一方のダメージタイプ担当。仲間が増えるほど敵は強くなる。",
  "Allies": "仲間",
  "Any of %d heroes": "%d人のヒーローからランダム",
  "Arena": "アリーナ",
@@ -923,5 +922,6 @@
  "STR": "筋力",
  "Shop is only open in camp": "ショップはキャンプでのみ利用可能",
  "Unknown item": "不明なアイテム",
- "Unknown upgrade": "不明な強化"
+ "Unknown upgrade": "不明な強化",
+ "AI heroes fight beside you. The first deals the other damage type. Each ally gives foes +85% HP and +30% damage.": "AIヒーローがあなたと共に戦います。1人目はもう一方のダメージタイプを持ちます。味方1人ごとに敵のHPが+85%、ダメージが+30%。"
 }

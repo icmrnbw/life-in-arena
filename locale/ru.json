@@ -814,7 +814,6 @@
  "%d rival heroes, 1 on 1": "%d соперников, один на один",
  "%s (locked)": "%s (закрыто)",
  "20 waves, 4 bosses": "20 волн, 4 босса",
- "AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally.": "ИИ-герои сражаются рядом с вами. Первый наносит другой тип урона. Враги крепнут с каждым союзником.",
  "Allies": "Союзники",
  "Any of %d heroes": "Любой из %d героев",
  "Arena": "Арена",
@@ -923,5 +922,6 @@
  "STR": "СИЛ",
  "Shop is only open in camp": "Магазин открыт только в лагере",
  "Unknown item": "Неизвестный предмет",
- "Unknown upgrade": "Неизвестное улучшение"
+ "Unknown upgrade": "Неизвестное улучшение",
+ "AI heroes fight beside you. The first deals the other damage type. Each ally gives foes +85% HP and +30% damage.": "ИИ-герои сражаются рядом с вами. Первый наносит другой тип урона. Каждый союзник даёт врагам +85% ОЗ и +30% урона."
 }

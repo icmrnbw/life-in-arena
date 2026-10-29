@@ -65,7 +65,7 @@ static func create(on_choose: Callable, on_launch: Callable, on_back: Callable, 
 			var b: Button = st["buttons"][id]
 			b.modulate = Color(1, 1, 1) if id == st["mode"] else Color(0.7, 0.67, 0.63)
 			(b.get_meta("ring") as Control).visible = id == st["mode"]
-		go.text = "Choose Hero" if st["mode"] in ["classic", "endless", "practice", "duels", "delve"] else "Start"
+		go.text = "Choose Hero" if st["mode"] in ["classic", "endless", "practice", "delve", "duels"] else "Start"
 		for c in detail_holder.get_children():
 			c.queue_free()
 		detail_holder.add_child(_mode_detail(st, st["refresh"]))
@@ -91,8 +91,6 @@ const ALLY_MODES := ["classic", "random", "endless", "practice"]
 static func _start(st: Dictionary, on_choose: Callable, on_launch: Callable) -> void:
 	var mode: String = st["mode"]
 	var al := {"allies": int(st["allies"])} if mode in ALLY_MODES and int(st["allies"]) > 0 else {}
-	if mode in ALLY_MODES:
-		Profile.d()["last_allies"] = int(st["allies"])
 	if mode in MAP_MODES:
 		Profile.d()["last_map"] = st["map"]
 		al["map"] = st["map"]
@@ -225,7 +223,7 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 				st["allies"] = nn
 				refresh.call())
 			arow.add_child(ab)
-		var al := UIK.label(L.t("AI heroes fight beside you. The first deals the other damage type. Foes get tougher for each ally.") if int(st["allies"]) > 0
+		var al := UIK.label(L.t("AI heroes fight beside you. The first deals the other damage type. Each ally gives foes +85% HP and +30% damage.") if int(st["allies"]) > 0
 			else L.t("Bring up to 3 AI heroes into the Pit with you."), "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))
 		al.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		al.custom_minimum_size = Vector2(300, 0)
@@ -247,6 +245,8 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 		ml2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		ml2.custom_minimum_size = Vector2(300, 0)
 		v.add_child(ml2)
+	if mode in ALLY_MODES:
+		Profile.d()["last_allies"] = int(st["allies"])
 	match mode:
 		"daily":
 			var dd := Modes.daily(Modes.today())
