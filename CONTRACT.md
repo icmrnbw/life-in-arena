@@ -114,6 +114,7 @@ Command-line user args after `--`:
 - `--mode=classic|random|endless|daily|practice|training` and `--tier=normal|hard|extreme` set the run's mode and tier (`--date=YYYY-MM-DD` picks a Daily Run's day). See `scripts/modes.gd`.
 - `--weather=<id>` pin one weather for the whole run (ids in `DB.WEATHER`); `--arena=topple|crumble` force the boss-fight arena changes in any wave (pillars at 3 s and 5 s, rim at 3 s and 12 s).
 - `--soak`: crash soak monitor (`scripts/soak.gd`); adds a `soak` section (issues, camp-visit node counts, longest frame) to the `--report` JSON. `--soak-freeze-ms=<ms>` (default 1500) and `--soak-wave-limit=<sim s>` (default 600) tune it. Driven by `tools/soak.py`.
+- `--allies=N` brings N AI ally heroes (picked for the hero), `--ally=<id>,<id>` exactly these; `--duel=<id>` offers a camp duel against that rival every prep (and picks Duel Ladder rivals); `--duels` makes the autoplay bot accept duels; `--mode=duels` is the Duel Ladder; `--scene=camp|duel` opens camp with the duel offer, or a duel under way.
 - `--profile`: let a `--hero` run update the saved profile (records, unlocks, saved run); off by default so bot runs don't touch it. Tests point `Profile.use_paths()` at test files.
 A global `Game` (autoload or the main node) exposes `state` Dictionary (phase, wave, lives, gold, level, enemies_alive).
 

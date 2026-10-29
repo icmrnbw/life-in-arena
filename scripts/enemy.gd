@@ -18,6 +18,7 @@ var elite := ""                # elite affix id (DB.ELITE_AFFIXES), "" = normal
 var swings := 0
 var bashing := false
 var support := false           # Chanter / Drummer: hangs back behind the pack
+var pack := -1                 # Delve: index of its pack
 var captain := false           # leads the wave: tougher, named, slams every third swing
 var bash_r := 1.5
 var aura_fx: Node = null
@@ -199,6 +200,10 @@ func pick_target() -> Unit:
 
 func tick(dt: float) -> void:
 	tick_status(dt)
+	if dormant:
+		if not burrowed:
+			set_state("idle")
+		return
 	if stun_t > 0.0:
 		return
 	if run.forced_motion(self, dt):

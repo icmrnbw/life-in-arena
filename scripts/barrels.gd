@@ -1,6 +1,6 @@
 class_name BarrelField
 extends Node3D
-## Barrel stacks and powder kegs in the arena (DB.STACKS / DB.KEGS), laid out like Life in Arena.
+## Barrel stacks and powder kegs in the arena (Maps.stacks() / Maps.kegs()), laid out like Life in Arena.
 ## A stack is a solid block of barrels on a square grid filling a corner of the arena. Smash your way in to dig a
 ## corridor and fight from the end of it: foes follow the corridor single file, so only the front one reaches you.
 ## Foes path over the same grid (A*): a sealed corridor costs them a barrel to break, so they smash in; wide foes
@@ -43,8 +43,8 @@ func setup(r: Run) -> void:
 	run = r
 	name = "Barrels"
 	_grid.resize(N * N)
-	for si in DB.STACKS.size():
-		var d: Dictionary = DB.STACKS[si]
+	for si in Maps.stacks().size():
+		var d: Dictionary = Maps.stacks()[si]
 		var st := {"sx": int(d["sx"]), "sz": int(d["sz"]), "t": float(d["t"]), "cells": [], "lane": []}
 		for j in N:
 			for i in N:
@@ -58,7 +58,7 @@ func setup(r: Run) -> void:
 				_grid[_idx(kc)].keg = true
 		_make_lane(st)
 		stacks.append(st)
-	for kp in DB.KEGS:
+	for kp in Maps.kegs():
 		var kc := cell_of(kp)
 		if _grid[_idx(kc)] == null:
 			_add(kc, -1, true)
@@ -116,7 +116,7 @@ func _make_astar() -> AStarGrid2D:
 			var c := Vector2i(i, j)
 			var p := cell_pos(c)
 			var solid := Vector2(p.x, p.z).length() > DB.ARENA_R - 0.5 and _grid[_idx(c)] == null
-			for pl in DB.PILLARS:
+			for pl in Maps.pillars():
 				if _flat(p - pl).length() < DB.PILLAR_R + 0.25:
 					solid = true
 			if solid:

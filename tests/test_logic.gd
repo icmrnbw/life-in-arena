@@ -73,6 +73,8 @@ func _main() -> void:
 	await test_melee_ranged_items()
 	await test_weather()
 	await test_arena_changes()
+	await test_maps()
+	await test_delve()
 	print("\n==== RESULT: %d passed, %d failed" % [passed, failed])
 	for f in fails:
 		print("FAILED: ", f)
@@ -901,7 +903,7 @@ func test_barrels_buffers() -> void:
 	check(near(r.damage(far_e, 50.0, h, "Test", "magic"), 50.0), "far from the chanter takes damage")
 	check(r.damage(ch, 50.0, h, "Test", "magic") > 0.0, "chanter itself can be hurt")
 	h.pos = Vector3(-6, 0, 1)
-	check(r._pick_hero_target() == ch, "auto-attack skips immune foes")
+	check(r._pick_target_for(r.hero) == ch, "auto-attack skips immune foes")
 	r.kill(ch, h)
 	r._tick_corpses(0.0)
 	check(r.damage(nb, 50.0, h, "Test", "magic") > 0.0, "immunity ends when the chanter dies")
@@ -1746,4 +1748,225 @@ func test_arena_changes() -> void:
 	check(a.radius == DB.ARENA_R, "the floor is whole again after the wave")
 	_g().god = false
 	free_run(r)
+	await get_tree().process_frame
+
+
+
+func _run_cfg(hero: String, cfg: Dictionary) -> Run:
+	var r := Run.new()
+	r.setup(hero, 1, cfg)
+	get_tree().root.add_child(r)
+	r.weather.pin("clear")
+	return r
+
+
+# ------------------------------------------------------------------ arenas
+func test_maps() -> void:
+	section("arenas (Maps)")
+	for id in Maps.ORDER:
+		Maps.use(id)
+		check(Maps.gates().size() == 4 and Maps.gates().has("N") and Maps.gates().has("E") and Maps.gates().has("W") and Maps.gates().has("NE"),
+			"%s: the four gate keys waves use" % id)
+		for gk in Maps.gates():
+			var g: Vector3 = Maps.gates()[gk]
+			check(absf(Vector2(g.x, g.z).length() - 21.0) < 0.3, "%s: gate %s on the wall" % [id, gk])
+		for pl in Maps.pillars():
+			check(Vector2(pl.x, pl.z).length() < DB.ARENA_R - 4.0 and BarrelField._flat(pl - DB.ARENA_SPAWN).length() > DB.PILLAR_R + 2.0,
+				"%s: pillar %s inside, clear of the spawn" % [id, pl])
+	check(Maps.pillars().size() <= 6, "the floor shader takes up to 6 pillars")
+	Maps.use("nonsense")
+	check(Maps.cur == "pit", "unknown map falls back to the Pit")
+	check(Modes.config("classic", "hard", {"map": "hollow"})["map"] == "hollow", "classic keeps the chosen arena")
+	check(Modes.config("daily", "hard", {"map": "hollow"})["map"] == "pit", "the Daily Run is always in the Pit")
+	check(Modes.config("delve")["map"] == "delve", "Delve has its own map")
+	check(Modes.label(Modes.config("classic", "hard", {"map": "hollow"})).contains("Rimefang"), "run label names the arena")
+	var r := _run_cfg("ashwarden", Modes.config("classic", "hard", {"map": "hollow"}))
+	await get_tree().process_frame
+	check(Maps.cur == "hollow" and r.arena.pillars.size() == 5, "Hollow run: five pillars", str(r.arena.pillars.size()))
+	check(r.barrels.stacks.size() == 2, "Hollow run: two barrel stacks", str(r.barrels.stacks.size()))
+	var clear_ok := true
+	for s2 in r.barrels.stacks:
+		for c2 in s2["cells"]:
+			var p2 := BarrelField.cell_pos(c2)
+			for gk in Maps.gates():
+				if BarrelField._flat(Maps.gates()[gk] - p2).length() < 4.0:
+					clear_ok = false
+			if BarrelField._flat(DB.ARENA_SPAWN - p2).length() < 3.0:
+				clear_ok = false
+			for pl in Maps.pillars():
+				if BarrelField._flat(pl - p2).length() < DB.PILLAR_R + 1.0:
+					clear_ok = false
+	check(clear_ok, "Hollow stacks keep clear of the gates, pillars and the hero's entry")
+	check(r.barrels.stacks[0]["lane"].size() > BarrelField.DIG_DEPTH, "Hollow stacks have a lane to dig")
+	# a unit walking into a Hollow pillar is pushed out
+	var pl0: Vector3 = Maps.pillars()[0]
+	var p := r.resolve_pos(r.hero, pl0 + Vector3(0.3, 0, 0), pl0 + Vector3(3, 0, 0))
+	check(BarrelField._flat(p - pl0).length() >= DB.PILLAR_R + r.hero.radius - 0.01, "Hollow pillars are solid")
+	r.start_wave()
+	for i in 90:
+		r._step(1.0 / 30.0)
+		if r.enemies.size() > 0:
+			break
+	var near_gate := 0
+	for e in r.enemies:
+		for gk in Maps.gates():
+			if BarrelField._flat(e.pos - Maps.gates()[gk]).length() < 6.0:
+				near_gate += 1
+				break
+	check(r.enemies.size() > 0 and near_gate == r.enemies.size(), "foes come in at the Hollow's gates", "%d / %d" % [near_gate, r.enemies.size()])
+	r.arena.topple(4, Vector3(0, 0, -1), null)
+	_steps(r, DB.TOPPLE_TIME + 0.3)
+	check(not r.arena.pillars[4]["up"], "Hollow pillars topple too")
+	free_run(r)
+	await get_tree().process_frame
+	var r2 := make_run()
+	check(Maps.cur == "pit" and r2.arena.pillars.size() == DB.PILLARS.size(), "the next run is back in the Pit")
+	free_run(r2)
+	await get_tree().process_frame
+
+
+# ------------------------------------------------------------------ delve
+func test_delve() -> void:
+	section("Delve mode")
+	_g().god = true
+	var r := _run_cfg("ashwarden", Modes.config("delve", "hard", {"seed": 4242}))
+	await get_tree().process_frame
+	check(r.delve != null and r.wave == 2 and r.wave_step == 2, "Delve starts on depth 1 (wave 2)", "wave %d" % r.wave)
+	check(r.hero.level == 1 and r.gold == DB.START_GOLD, "depth 1 starts fresh (level 1, start gold)")
+	check(r.boss_kind(6) == "pit_brute" and r.boss_kind(12) == "matron" and r.boss_kind(20) == "hollow_choir" and r.boss_kind(10) == "", "Delve bosses on depths 3, 6, 10")
+	check(String(r.wave_info()["name"]).begins_with("Depth 1"), "camp preview names the depth", String(r.wave_info()["name"]))
+	r.start_wave()
+	var dv: Delve = r.delve
+	check(dv.active and r.phase == "wave", "descending builds the depth")
+	check(dv.walkable(r.hero.pos) and not r.hero.in_camp, "the hero lands on the floor of the start room")
+	check(dv.rooms.size() >= 4 and dv.rooms[0]["kind"] == "start", "rooms laid out", str(dv.rooms.size()))
+	var path := dv.astar.get_id_path(Delve.cell_of(dv.start_pos), Delve.cell_of(dv.lair_pos))
+	check(path.size() > 10, "the lair can be reached from the start", str(path.size()))
+	var all_z := true
+	for j in Delve.H:
+		for i in Delve.W:
+			if not dv.is_solid(Vector2i(i, j)) and Delve.cell_pos(Vector2i(i, j)).z >= 29.0:
+				all_z = false
+	check(all_z, "the whole dungeon is north of the camp")
+	var n := 0
+	var dormant_all := true
+	var on_floor := true
+	var reach_all := true
+	for pk in dv.packs:
+		for e in pk["units"]:
+			n += 1
+			dormant_all = dormant_all and e.dormant
+			on_floor = on_floor and dv.walkable(e.pos)
+			reach_all = reach_all and dv.astar.get_id_path(Delve.cell_of(dv.start_pos), Delve.cell_of(e.pos)).size() > 0
+	check(n >= 8 and dormant_all, "packs placed, all asleep", str(n))
+	check(on_floor and reach_all, "every foe stands on reachable floor")
+	check(r.enemies.size() <= Run.MAX_ENEMIES, "no more foes than the arena cap", str(r.enemies.size()))
+	check(dv.wells.size() >= 1, "ember wells placed", str(dv.wells.size()))
+	# deterministic per seed and depth
+	var cells0 := dv.solid.duplicate()
+	dv.generate(2, absi(hash("4242-2")))
+	check(dv.solid == cells0, "the same seed builds the same depth")
+	dv.generate(4, absi(hash("4242-4")))
+	check(dv.solid != cells0, "the next depth is a different layout")
+	dv.generate(2, absi(hash("4242-2")))
+	# walls: resolve keeps units out of rock, los and shots stop at walls
+	var rock := Vector2i(-1, -1)
+	var floor_c := Vector2i(-1, -1)
+	for j in range(1, Delve.H - 1):
+		for i in range(1, Delve.W - 1):
+			if dv.is_solid(Vector2i(i, j)) and not dv.is_solid(Vector2i(i, j + 1)):
+				rock = Vector2i(i, j)
+				floor_c = Vector2i(i, j + 1)
+				break
+		if rock.x >= 0:
+			break
+	var into := r.resolve_pos(r.hero, Delve.cell_pos(rock) + Vector3(0, 0, 0.6), Delve.cell_pos(floor_c))
+	check(dv.walkable(into), "walking into a wall is stopped")
+	check(not dv.los(Delve.cell_pos(floor_c) + Vector3(0, 0, 2), Delve.cell_pos(rock) + Vector3(0, 0, -4)), "walls block line of sight")
+	check(dv.blocks_shot(Delve.cell_pos(rock)), "walls stop projectiles")
+	var deep := dv.resolve(r.hero, Delve.cell_pos(rock))
+	check(dv.walkable(deep), "a unit blinked into rock is put back on the floor")
+	# waking: a hit wakes the whole pack; coming close wakes one
+	var pk0: Dictionary = dv.packs[0]
+	var e0: Enemy = pk0["units"][0]
+	r.damage(e0, 1.0, r.hero, "Test")
+	var awake := true
+	for e in pk0["units"]:
+		awake = awake and not e.dormant
+	check(pk0["awake"] and awake, "hitting a sleeping foe wakes its pack")
+	var other: Dictionary = dv.packs[1]
+	check(not other["awake"], "other packs keep sleeping")
+	r.hero.pos = dv.resolve(r.hero, other["units"][0].pos + Vector3(2.0, 0, 0))
+	_steps(r, 0.5)
+	check(other["awake"], "walking up to a pack wakes it")
+	var wp := dv.waypoint(other["units"][0], dv.lair_pos)
+	check(dv.walkable(wp), "foes path over the floor")
+	# kill everything awake, then step into the lair: the guardian appears; killing it clears the depth
+	for e in r.enemies.duplicate():
+		if e.alive:
+			r.kill(e, r.hero)
+	check(not dv.lair_open, "the lair stays shut until the hero walks in")
+	r.hero.pos = dv.lair_pos
+	_steps(r, 0.5)
+	check(dv.lair_open and dv.guardians.size() == 1 and r.captain != null, "entering the lair brings out the guardian (a captain on depth 1)")
+	var gold0 := r.gold
+	for g in dv.guardians:
+		r.kill(g, r.hero)
+	_steps(r, 0.5)
+	check(r.phase == "clear" and r.waves_cleared == 1 and r.gold > gold0, "slaying the guardian clears the depth")
+	_steps(r, 3.0)
+	check(r.phase == "prep" and r.wave == 4 and r.hero.in_camp and not dv.active and r.enemies.is_empty(), "back to camp, next depth is wave 4",
+		"%s wave %d" % [r.phase, r.wave])
+	check(dv.vis == null, "the dungeon is freed in camp")
+	# a boss depth: the boss waits in the lair
+	r.wave = 6
+	r.start_wave()
+	check(r.boss_units.is_empty(), "no boss before the lair opens")
+	r.hero.pos = dv.lair_pos
+	_steps(r, 0.5)
+	check(r.boss_units.size() == 1 and r.boss_units[0].kind == "pit_brute" and r.boss_title == "Pit Brute", "depth 3's lair holds the Pit Brute")
+	# dying replays the same depth from camp
+	_g().god = false
+	r.lives = 3
+	r.damage(r.hero, 1e9, null, "Test", "pure")
+	_steps(r, 4.0)
+	check(r.phase == "prep" and r.wave == 6 and not dv.active, "dying sends you back to camp to retry the depth", "%s %d" % [r.phase, r.wave])
+	# wells heal once, chests pay once
+	r.start_wave()
+	if dv.wells.size() > 0:
+		r.hero.hp = r.hero.max_hp * 0.3
+		r.hero.pos = dv.wells[0]["pos"] + Vector3(0.8, 0, 0)
+		for e in r.enemies:
+			e.dormant = true   # keep them out of the way
+		dv._props(r.hero)
+		var hp1 := r.hero.hp
+		check(hp1 > r.hero.max_hp * 0.6 and dv.wells[0]["used"], "an ember well heals", str(hp1 / r.hero.max_hp))
+		r.hero.hp = r.hero.max_hp * 0.3
+		dv._props(r.hero)
+		check(r.hero.hp < r.hero.max_hp * 0.5, "a well heals only once")
+	if dv.chests.size() > 0:
+		var g1 := r.gold
+		r.hero.pos = dv.chests[0]["pos"]
+		dv._props(r.hero)
+		check(r.gold > g1, "a chest holds gold")
+		var g2 := r.gold
+		dv._props(r.hero)
+		check(r.gold == g2, "and opens only once")
+	_g().god = false
+	free_run(r)
+	await get_tree().process_frame
+	# saved runs keep the mode, and the last depth wins the run
+	var r3 := _run_cfg("riftdancer", Modes.config("delve", "hard", {"seed": 99}))
+	await get_tree().process_frame
+	check(r3.snapshot()["cfg"]["mode"] == "delve", "a saved Delve run stays a Delve run")
+	r3.wave = 20
+	r3.start_wave()
+	r3.hero.pos = r3.delve.lair_pos
+	_steps(r3, 0.5)
+	check(r3.boss_units.size() >= 1 and r3.boss_units[0].kind == "hollow_choir", "depth 10's lair holds the Hollow Choir")
+	for b in r3.boss_units.duplicate():
+		r3.kill(b, r3.hero)
+	_steps(r3, 3.5)
+	check(r3.result == "victory", "clearing depth 10 wins the run", r3.result)
+	free_run(r3)
 	await get_tree().process_frame

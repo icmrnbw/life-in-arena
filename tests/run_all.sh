@@ -12,6 +12,8 @@ echo "== logic (headless)"
 timeout 400 godot --headless --path . res://tests/test_logic.tscn 2>&1 | filter $L/logic.log || rc=1
 echo "== regressions (headless)"
 timeout 600 godot --headless --path . res://tests/test_regressions.tscn 2>&1 | filter $L/regressions.log || rc=1
+echo "== allies and duels (headless)"
+timeout 900 godot --headless --path . res://tests/test_party.tscn 2>&1 | filter $L/party.log || rc=1
 echo "== flows + touch (xvfb, 2400x1080)"
 timeout 400 xvfb-run -a -s "-screen 0 2400x1080x24" godot --rendering-driver opengl3 --path . --resolution 2400x1080 \
   res://tests/test_flows.tscn -- --weather=clear 2>&1 | filter $L/flows.log || rc=1

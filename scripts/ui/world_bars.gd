@@ -47,6 +47,12 @@ func _draw() -> void:
 	for e in run.enemies:
 		if not e.alive or e.untargetable:
 			continue
+		if not (e is Enemy):
+			# the duel rival: a full-size red bar, ringed when focused
+			_bar(cam, e, 80.0, hpc, 0.4, 7.0, 1.0)
+			if e == focus:
+				SkillButton.ring(self, cam.unproject_position(e.pos), 30.0 + e.radius * 8.0, UIK.col("gold", Color.GOLD))
+			continue
 		var elite: bool = e.is_boss or e.captain or e.elite != "" or float(DB.ENEMIES.get(e.kind, {}).get("hp", 0.0)) >= 200.0
 		var recent: bool = now - e.hurt_at < 3.0 and e.hp < e.max_hp - 0.5
 		if e == focus:
@@ -68,7 +74,7 @@ func _draw() -> void:
 		var gold: Color = DB.AURAS["chanter"]["color"]
 		var red: Color = DB.AURAS["drummer"]["color"]
 		for e in run.enemies:
-			if not e.alive or e.untargetable or e.support:
+			if not e.alive or e.untargetable or not (e is Enemy) or e.support:
 				continue
 			var sh: bool = run.is_sheltered(e)
 			var dr: bool = run.is_drummed(e)
@@ -95,7 +101,11 @@ func _draw() -> void:
 			if b.hp < b.max_hp - 0.01:
 				_bar(cam, b, 30.0, Color(0.85, 0.6, 0.3), 0.2, 4.0, 0.85)
 	for a in run.allies:
-		if a.alive and a.hp < a.max_hp - 0.5:
+		if a is Hero:
+			# AI ally heroes always show a bar, in a bluer green than the player's
+			if a.alive and not a.dead:
+				_bar(cam, a, 54.0, Color(0.3, 0.85, 0.75), 0.45, 5.0, 0.95)
+		elif a.alive and a.hp < a.max_hp - 0.5:
 			_bar(cam, a, 30.0, Color(0.4, 0.9, 0.35), 0.3, 4.0, 0.8)
 	var h := run.hero
 	if h.alive and not h.dead:

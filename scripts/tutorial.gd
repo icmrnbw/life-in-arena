@@ -252,7 +252,7 @@ func _enter_arena() -> void:
 
 func _spawn_pack(n: int) -> void:
 	spawned.clear()
-	var gate: Vector3 = DB.GATES["N"]
+	var gate: Vector3 = Maps.gates()["N"]
 	for i in n:
 		var p := gate + Vector3(randf_range(-2.0, 2.0), 0, randf_range(0.0, 2.5))
 		var e := run.spawn_enemy("gnawer", p, 1)
@@ -262,7 +262,7 @@ func _spawn_pack(n: int) -> void:
 
 func _spawn_captain() -> void:
 	spawned.clear()
-	var gate: Vector3 = DB.GATES["N"]
+	var gate: Vector3 = Maps.gates()["N"]
 	var e := run.spawn_enemy("gnawer", gate + Vector3(0, 0, 2.0), 1)
 	e.make_captain()
 	e.max_hp *= 0.6

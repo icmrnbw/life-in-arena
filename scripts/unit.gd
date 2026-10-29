@@ -50,6 +50,7 @@ var is_boss := false
 var is_summon := false
 var targetable := true         # enemies can pick it as a target
 var untargetable := false      # hero side can't target (burrowed)
+var dormant := false           # Delve: an Enemy asleep with its pack until the hero comes close (scripts/delve.gd)
 var collides := true
 var blocks_front := false      # shieldbearer
 var no_push := false           # totems, bosses

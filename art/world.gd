@@ -5,8 +5,7 @@ extends RefCounted
 const MK := preload("res://art/mesh_kit.gd")
 const SH := preload("res://art/shaders.gd")
 
-const GATES := [Vector2(0, -22), Vector2(22, 0), Vector2(-22, 0), Vector2(15.5, -15.5)]
-const PILLARS := [Vector2(-9, -6), Vector2(9, -6), Vector2(0, 10)]
+# pillar and gate positions come from Maps (scripts/maps.gd): the arena the run fights in
 const PILLAR_PIVOT := 0.8   # pillars topple about this height (top of the plinth)
 const CAMP := Vector3(0, 0, 40)
 const SHOP := Vector3(-4, 0, 42)
@@ -14,15 +13,50 @@ const FOUNTAIN := Vector3(4, 0, 42)
 const SPAWN := Vector3(0, 0, 37)
 const SUN_ROT := Vector3(-52, -32, 0)
 
-static func setup_environment(parent: Node) -> void:
+## Arena looks (Maps "theme"). "ember" = the Pit's warm stone; "frost" = Rimefang Hollow.
+const THEMES := {
+	"ember": {"bg": Color("120e1c"), "ambient": Color("7480b8"), "ambient_e": 0.62, "fog": Color("2c2348"),
+		"wall": Color("6e6a78"), "wall_top": Color("827d8a"), "wall_out": Color("4c4756"), "cliff": Color("3c3444"),
+		"cloth": Color("8e1f1c"), "trim": Color("d6a24a"), "emblem": Color("ff8a3a"),
+		"pillar": Color("706a78"), "pillar_d": Color("524c5a"), "bronze": Color("9a6a36"), "rune": Color("ff7a2f"),
+		"gate": Color("736e7c"), "gate_d": Color("4e4958"),
+		"floor_a": Color(0.30, 0.29, 0.30), "floor_b": Color(0.40, 0.37, 0.34), "sand": Color(0.48, 0.38, 0.26),
+		"mortar": Color(0.12, 0.10, 0.10), "grate": Color(1.0, 0.42, 0.12),
+		"braziers": [157.5, 22.5, -157.5, 90.0], "particles": "embers"},
+	"frost": {"bg": Color("0b1120"), "ambient": Color("8fa8e0"), "ambient_e": 0.72, "fog": Color("223452"),
+		"wall": Color("6c7686"), "wall_top": Color("9aa6b8"), "wall_out": Color("465060"), "cliff": Color("3a4456"),
+		"cloth": Color("1f3f86"), "trim": Color("c8d4e4"), "emblem": Color("8ad8ff"),
+		"pillar": Color("6e7a8c"), "pillar_d": Color("505a6c"), "bronze": Color("8c9aac"), "rune": Color("6fd2ff"),
+		"gate": Color("717b8c"), "gate_d": Color("4c5466"),
+		"floor_a": Color(0.31, 0.34, 0.40), "floor_b": Color(0.43, 0.47, 0.54), "sand": Color(0.80, 0.86, 0.93),
+		"mortar": Color(0.08, 0.10, 0.14), "grate": Color(0.35, 0.78, 1.0),
+		"braziers": [-90.0, 90.0, -20.0, -160.0], "particles": "snow"},
+}
+## The look being built (set by build()).
+static var T: Dictionary = THEMES["ember"]
+
+static func _gates_v2() -> Array:
+	var out := []
+	for g in Maps.gates().values():
+		out.append(Vector2(g.x, g.z).normalized() * 22.0)
+	return out
+
+static func _pillars_v2() -> Array:
+	var out := []
+	for p in Maps.pillars():
+		out.append(Vector2(p.x, p.z))
+	return out
+
+static func setup_environment(parent: Node, theme := "ember") -> void:
+	var th: Dictionary = THEMES.get(theme, THEMES["ember"])
 	var we := WorldEnvironment.new()
 	we.name = "ArtEnvironment"
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("120e1c")
+	env.background_color = th["bg"]
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("7480b8")
-	env.ambient_light_energy = 0.62
+	env.ambient_light_color = th["ambient"]
+	env.ambient_light_energy = th["ambient_e"]
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.08
 	env.tonemap_white = 5.0
@@ -36,7 +70,7 @@ static func setup_environment(parent: Node) -> void:
 	for i in 7:
 		env.set_glow_level(i, 1.0 if i in [1, 2, 3, 4] else 0.0)
 	env.fog_enabled = true
-	env.fog_light_color = Color("2c2348")
+	env.fog_light_color = th["fog"]
 	env.fog_light_energy = 1.0
 	env.fog_density = 0.0035
 	env.fog_height = -1.0
@@ -69,59 +103,13 @@ static func build(parent: Node3D) -> Dictionary:
 	var root := Node3D.new()
 	root.name = "ArtWorld"
 	parent.add_child(root)
+	T = THEMES.get(Maps.theme(), THEMES["ember"])
 	var flames: Array = []   # [pos, scale]
-	var arena_lights: Array = []  # Vector4(x, z, radius, intensity)
 
-	# ---------------- floor
-	var floor_mi := MeshInstance3D.new()
-	var pm := PlaneMesh.new(); pm.size = Vector2(49, 49)
-	floor_mi.mesh = pm
-	floor_mi.name = "ArenaFloor"
-	var fmat: ShaderMaterial = SH.mat("floor")
-	floor_mi.material_override = fmat
-	floor_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.add_child(floor_mi)
-
-	# ---------------- arena stone
-	var k := MK.new()
-	_walls(k, flames, arena_lights)
-	var pillar_mks: Array = []
-	var pillar_flames: Array = []
-	_pillars(k, flames, arena_lights, pillar_mks, pillar_flames)
-	_gates(k, flames, arena_lights)
-	_cliff(k, Vector3.ZERO, 24.6, 17.0, Color("3c3444"), 64, 11)
-	arena_lights.append(Vector4(0, 0, 5.5, 0.55))
-	var arena_mesh := MeshInstance3D.new()
-	arena_mesh.name = "ArenaStone"
-	arena_mesh.mesh = k.build()
-	var wmat: ShaderMaterial = SH.mat("world")
-	arena_mesh.material_override = wmat
-	arena_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.add_child(arena_mesh)
-	# pillar shafts are their own nodes so they can topple (scripts/arena.gd); the plinths stay in ArenaStone
+	# ---------------- arena (Delve builds no arena: its dungeon is art/dungeon.gd)
 	var pillar_res: Array = []
-	for i in pillar_mks.size():
-		var pmi := MeshInstance3D.new()
-		pmi.name = "Pillar%d" % i
-		pmi.mesh = (pillar_mks[i] as MK).build()
-		pmi.material_override = wmat
-		pmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		pmi.position = Vector3(PILLARS[i].x, PILLAR_PIVOT, PILLARS[i].y)
-		root.add_child(pmi)
-		pillar_res.append({"node": pmi, "flame": pillar_flames[i]})
-	var lights := PackedVector4Array()
-	for l in arena_lights:
-		lights.append(l)
-	while lights.size() < 12:
-		lights.append(Vector4(0, 0, 1, 0))
-	lights.resize(12)
-	wmat.set_shader_parameter("lights", lights)
-	fmat.set_shader_parameter("lights", lights)
-	var pil := PackedVector4Array()
-	for pp in PILLARS:
-		pil.append(Vector4(pp.x, pp.y, 1.6, 0))
-	fmat.set_shader_parameter("pillars", pil)
-	fmat.set_shader_parameter("sun_dir", _sun_dir())
+	if Maps.theme() != "none":
+		pillar_res = _arena(root, flames)
 
 	# ---------------- camp
 	var shop := Node3D.new(); shop.name = "Shop"; shop.position = SHOP
@@ -161,15 +149,80 @@ static func build(parent: Node3D) -> Dictionary:
 
 	# ---------------- flames, embers, void rocks
 	var flames_mm := _flames(root, flames)
-	_embers(root)
+	if Maps.theme() != "none":
+		_embers(root)
 	_void_rocks(root)
 	return {"shop": shop, "fountain": fountain, "pillars": pillar_res, "flames_mm": flames_mm}
 
 # =================================================================== arena
 
+static func _arena(root: Node3D, flames: Array) -> Array:
+	var arena_lights: Array = []  # Vector4(x, z, radius, intensity)
+	# ---------------- floor
+	var floor_mi := MeshInstance3D.new()
+	var pm := PlaneMesh.new(); pm.size = Vector2(49, 49)
+	floor_mi.mesh = pm
+	floor_mi.name = "ArenaFloor"
+	var fmat: ShaderMaterial = SH.mat("floor")
+	floor_mi.material_override = fmat
+	floor_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(floor_mi)
+
+	# ---------------- arena stone
+	var k := MK.new()
+	arena_lights.append(Vector4(0, 0, 5.5, 0.55))
+	_walls(k, flames, arena_lights)
+	var pillar_mks: Array = []
+	var pillar_flames: Array = []
+	_pillars(k, flames, arena_lights, pillar_mks, pillar_flames)
+	_gates(k, flames, arena_lights)
+	_cliff(k, Vector3.ZERO, 24.6, 17.0, T["cliff"], 64, 11)
+	var arena_mesh := MeshInstance3D.new()
+	arena_mesh.name = "ArenaStone"
+	arena_mesh.mesh = k.build()
+	var wmat: ShaderMaterial = SH.mat("world")
+	arena_mesh.material_override = wmat
+	arena_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(arena_mesh)
+	# pillar shafts are their own nodes so they can topple (scripts/arena.gd); the plinths stay in ArenaStone
+	var pillar_res: Array = []
+	var pv := _pillars_v2()
+	for i in pillar_mks.size():
+		var pmi := MeshInstance3D.new()
+		pmi.name = "Pillar%d" % i
+		pmi.mesh = (pillar_mks[i] as MK).build()
+		pmi.material_override = wmat
+		pmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		pmi.position = Vector3(pv[i].x, PILLAR_PIVOT, pv[i].y)
+		root.add_child(pmi)
+		pillar_res.append({"node": pmi, "flame": pillar_flames[i]})
+	var lights := PackedVector4Array()
+	for l in arena_lights:
+		lights.append(l)
+	while lights.size() < 12:
+		lights.append(Vector4(0, 0, 1, 0))
+	lights.resize(12)
+	wmat.set_shader_parameter("lights", lights)
+	fmat.set_shader_parameter("lights", lights)
+	var pil := PackedVector4Array()
+	for pp in pv:
+		pil.append(Vector4(pp.x, pp.y, 1.6, 0))
+	while pil.size() < 6:
+		pil.append(Vector4(0, 0, 0, 0))
+	fmat.set_shader_parameter("pillars", pil)
+	fmat.set_shader_parameter("sun_dir", _sun_dir())
+	fmat.set_shader_parameter("stone_a", T["floor_a"])
+	fmat.set_shader_parameter("stone_b", T["floor_b"])
+	fmat.set_shader_parameter("sand", T["sand"])
+	fmat.set_shader_parameter("mortar_c", T["mortar"])
+	fmat.set_shader_parameter("ember", T["grate"])
+	return pillar_res
+
+
+
 static func _gate_angles() -> Array:
 	var out := []
-	for g in GATES:
+	for g in _gates_v2():
 		out.append(atan2(g.y, g.x))
 	return out
 
@@ -184,7 +237,7 @@ static func _walls(k: MK, flames: Array, lights: Array) -> void:
 	var r_out := 24.3
 	var h := 3.3
 	var steps := 144
-	var stone := Color("6e6a78"); var stone_top := Color("827d8a"); var stone_out := Color("4c4756")
+	var stone: Color = T["wall"]; var stone_top: Color = T["wall_top"]; var stone_out: Color = T["wall_out"]
 	var gap := 0.135
 	k.cur_aux = 1.0
 	for i in steps:
@@ -213,14 +266,14 @@ static func _walls(k: MK, flames: Array, lights: Array) -> void:
 		if i % 8 == 0 and not _near_gate(am, gap + 0.12):
 			_banner(k, am, r_in - 0.04)
 	k.cur_aux = 0.0
-	# wall braziers (fake lights) beside the barrel stacks and at S
-	for a in [deg_to_rad(157.5), deg_to_rad(22.5), deg_to_rad(-157.5), deg_to_rad(90.0)]:
-		var c := _p(a, 20.9, 0)
+	# wall braziers (fake lights) between the gates (the Pit: beside the barrel stacks and at S)
+	for deg in T["braziers"]:
+		var c := _p(deg_to_rad(deg), 20.9, 0)
 		_brazier(k, c, 0.9, flames)
 		lights.append(Vector4(c.x, c.z, 7.0, 0.9))
 
 static func _banner(k: MK, a: float, r: float) -> void:
-	var cloth := Color("8e1f1c"); var trim := Color("d6a24a"); var ember := Color("ff8a3a")
+	var cloth: Color = T["cloth"]; var trim: Color = T["trim"]; var ember: Color = T["emblem"]
 	var rot := Vector3(0, _yrot(cos(a), sin(a)), 0)
 	k.cur_aux = 0.0
 	k.box(Vector3(0.06, 1.9, 1.0), _p(a, r - 0.03, 2.05), cloth, rot)
@@ -252,11 +305,12 @@ static func _brazier(k: MK, c: Vector3, s: float, flames: Array) -> void:
 ## Plinths go into `k`; each shaft + top goes into its own MK in `out_mks` (local to the pillar's pivot,
 ## PILLAR_PIVOT above its base) and the index of its flame (-1 = none) into `out_flames`.
 static func _pillars(k0: MK, flames: Array, lights: Array, out_mks: Array, out_flames: Array) -> void:
-	var stone := Color("706a78"); var stone_d := Color("524c5a"); var bronze := Color("9a6a36"); var rune := Color("ff7a2f")
-	for idx in PILLARS.size():
-		var pp: Vector2 = PILLARS[idx]
+	var stone: Color = T["pillar"]; var stone_d: Color = T["pillar_d"]; var bronze: Color = T["bronze"]; var rune: Color = T["rune"]
+	var pv := _pillars_v2()
+	for idx in pv.size():
+		var pp: Vector2 = pv[idx]
 		var base := Vector3(pp.x, 0, pp.y)
-		var broken := idx == 2
+		var broken := idx == pv.size() - 1
 		k0.cur_aux = 1.0
 		k0.cyl(1.95, 2.1, 0.55, base + Vector3(0, 0.27, 0), stone_d, Vector3.ZERO, -1, 8)
 		k0.cyl(1.7, 1.85, 0.3, base + Vector3(0, 0.68, 0), stone, Vector3.ZERO, -1, 8)
@@ -302,9 +356,9 @@ static func _pillars(k0: MK, flames: Array, lights: Array, out_mks: Array, out_f
 	k0.cur_aux = 0.0
 
 static func _gates(k: MK, flames: Array, lights: Array) -> void:
-	var stone := Color("736e7c"); var stone_d := Color("4e4958"); var iron := Color("2a2626"); var rune := Color("ff7a2f")
+	var stone: Color = T["gate"]; var stone_d: Color = T["gate_d"]; var iron := Color("2a2626"); var rune: Color = T["rune"]
 	var void_c := Color(0.015, 0.01, 0.02)
-	for g in GATES:
+	for g in _gates_v2():
 		var a := atan2(g.y, g.x)
 		var rad := Vector3(cos(a), 0, sin(a))
 		var tn := Vector3(-sin(a), 0, cos(a))
@@ -678,6 +732,16 @@ static func _embers(root: Node3D) -> void:
 	var g := Gradient.new()
 	g.offsets = PackedFloat32Array([0.0, 0.2, 0.8, 1.0])
 	g.colors = PackedColorArray([Color(1.0, 0.5, 0.1, 0.0), Color(1.0, 0.6, 0.2, 0.75), Color(1.0, 0.35, 0.05, 0.55), Color(1.0, 0.2, 0.0, 0.0)])
+	if T.get("particles", "embers") == "snow":
+		# Rimefang Hollow: slow snow drifting down instead of embers rising
+		e.name = "Snow"
+		e.position = Vector3(0, 9.0, 8)
+		e.amount = 110
+		e.emission_box_extents = Vector3(30, 2.0, 36)
+		e.direction = Vector3.DOWN; e.spread = 20
+		e.gravity = Vector3(0.25, -0.5, 0.1)
+		e.scale_amount_min = 0.04; e.scale_amount_max = 0.09
+		g.colors = PackedColorArray([Color(0.8, 0.9, 1.0, 0.0), Color(0.85, 0.92, 1.0, 0.55), Color(0.8, 0.88, 1.0, 0.45), Color(0.7, 0.8, 1.0, 0.0)])
 	e.color_ramp = g
 	e.visibility_aabb = AABB(Vector3(-35, -5, -45), Vector3(70, 30, 90))
 	root.add_child(e)
@@ -691,6 +755,8 @@ static func _embers(root: Node3D) -> void:
 	pit.initial_velocity_min = 0.6; pit.initial_velocity_max = 1.6
 	pit.scale_amount_min = 0.06; pit.scale_amount_max = 0.14
 	pit.color_ramp = _ramp(Color(1.0, 0.7, 0.3, 1.0), Color(1.0, 0.2, 0.0, 0.0))
+	if T.get("particles", "embers") == "snow":
+		pit.color_ramp = _ramp(Color(0.6, 0.9, 1.0, 1.0), Color(0.2, 0.5, 1.0, 0.0))
 	root.add_child(pit)
 
 static func _void_rocks(root: Node3D) -> void:

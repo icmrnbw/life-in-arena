@@ -2,7 +2,7 @@ class_name Profile
 extends RefCounted
 ## What carries over between runs, saved on the phone: unlocked heroes, records, totals, the training flag,
 ## and the run in progress (saved in camp, so closing the app mid-run loses at most the wave being fought).
-## Only runs whose cfg["counts"] is true (Classic, Random Hero, Endless, Daily) add to records and unlocks.
+## Only runs whose cfg["counts"] is true (Classic, Random Hero, Endless, Delve, Daily) add to records and unlocks.
 
 const VERSION := 1
 static var path := "user://profile.json"
@@ -13,12 +13,13 @@ static var _loaded := false
 
 static func defaults() -> Dictionary:
 	return {"version": VERSION, "unlocked": Modes.STARTER_HEROES.duplicate(), "tiers": Modes.TIER_ORDER.duplicate(),
-		"training_done": false, "training_offered": false, "last_tier": "hard",
+		"training_done": false, "training_offered": false, "last_tier": "hard", "last_map": "pit",
 		"totals": {"runs": 0, "wins": 0, "kills": 0, "bosses": 0, "waves": 0, "deaths": 0, "time": 0.0},
 		"heroes": {},       # id -> {runs, best_wave, wins, kills}
 		"tier_best": {},    # tier -> best wave cleared (Classic / Random Hero)
 		"best_score": {},   # mode -> best score
 		"endless_best": 0,  # best wave cleared in Endless
+		"delve_best": 0,    # deepest Delve depth cleared
 		"daily": {"date": "", "best_wave": 0, "best_score": 0, "runs": 0}}
 
 
@@ -167,6 +168,8 @@ static func on_wave_cleared(r: Run, boss: bool) -> Array:
 		d()["tier_best"][r.tier] = maxi(int(d()["tier_best"].get(r.tier, 0)), w)
 	elif mode == "endless":
 		d()["endless_best"] = maxi(int(d()["endless_best"]), w)
+	elif mode == "delve":
+		d()["delve_best"] = maxi(int(d()["delve_best"]), Delve.depth_of(w))
 	elif mode == "daily":
 		var dr := _daily_rec(r)
 		dr["best_wave"] = maxi(int(dr["best_wave"]), w)

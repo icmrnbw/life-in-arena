@@ -8,6 +8,7 @@ var run: Run
 var root: Control
 var controls: Control
 var world_bars: Control
+var minimap: Control = null   # Delve only (scripts/ui/minimap.gd)
 var shop: Control = null
 
 var hp_bar: ProgressBar
@@ -24,6 +25,9 @@ var prep_box: Control
 var prep_label: Label
 var fight_btn: Button
 var shop_btn: Button
+var duel_btn: Button
+var party_rows: Array = []   # [{hero, bar, level, row}] for each AI ally
+var preview_duel: Label
 var boss_box: Control
 var preview_box: Control
 var preview_name: Label
@@ -82,8 +86,15 @@ func setup(r: Run) -> void:
 	_build_top_right()
 	_build_slots()
 	_build_banner_toasts()
+	if run.delve:
+		minimap = load("res://scripts/ui/minimap.gd").new()
+		minimap.name = "Minimap"
+		minimap.setup(run)
+		minimap.size_flags_horizontal = Control.SIZE_SHRINK_END
+		right_col.add_child(minimap)
+		minimap.visible = false
 
-	controls.blockers = [top_right, fight_btn, shop_btn, slots_box, pause_btn, info_btn, prep_box]
+	controls.blockers = [top_right, fight_btn, shop_btn, duel_btn, slots_box, pause_btn, info_btn, prep_box]
 	run.toast_requested.connect(show_toast)
 	run.banner_requested.connect(show_banner)
 	root.resized.connect(_apply_safe_area)
@@ -185,6 +196,22 @@ func _build_top_left() -> void:
 	var m := run.hero.kit.hud_meter()
 	meter_box.visible = not m.is_empty()
 	meter_bar.visible = m.get("type", "") in ["flow", "bar"]
+	# AI allies: portrait, health and level under the player's bars
+	for c in run.companions:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bars.add_child(row)
+		var ic := UIK.icon_rect("portrait_" + c.hero_id, 34)
+		row.add_child(ic)
+		var cb := UIK.bar("FlowBar", Color(0.3, 0.85, 0.75), Vector2(150, 14))
+		cb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(cb)
+		var cl := UIK.label("", "SmallLabel", 16)
+		cl.add_theme_constant_override("outline_size", 5)
+		cl.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		row.add_child(cl)
+		party_rows.append({"hero": c, "bar": cb, "level": cl, "row": row})
 
 
 func _bar_with_label(variation: String, color: Color, sz: Vector2) -> Array:
@@ -236,6 +263,12 @@ func _build_top_center() -> void:
 	shop_btn = UIK.icon_button("Shop", "shop", "PrimaryButton", Vector2(150, 76), 48.0, 22)
 	shop_btn.pressed.connect(toggle_shop)
 	prep_box.add_child(shop_btn)
+	duel_btn = UIK.button("Duel!", "PrimaryButton", Vector2(130, 76))
+	duel_btn.name = "DuelButton"
+	duel_btn.add_theme_color_override("font_color", Color(1.0, 0.55, 0.45))
+	duel_btn.pressed.connect(func(): run.duel.accept())
+	duel_btn.visible = false
+	prep_box.add_child(duel_btn)
 	prep_label = UIK.label("", "", 22, Color(1, 0.95, 0.85))
 	prep_label.add_theme_constant_override("outline_size", 6)
 	prep_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
@@ -300,14 +333,35 @@ func _build_preview() -> void:
 	preview_foes.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	preview_foes.custom_minimum_size = Vector2(372, 0)
 	v.add_child(preview_foes)
+	preview_duel = UIK.label("", "", 18, Color(1.0, 0.62, 0.5))
+	preview_duel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview_duel.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preview_duel.custom_minimum_size = Vector2(372, 0)
+	v.add_child(preview_duel)
 	preview_box.visible = false
 
 
 func _refresh_preview() -> void:
-	var key := "%d|%s" % [run.wave, run.weather.id]
+	var off: Dictionary = run.duel.offer
+	var key := "%d|%s|%s" % [run.wave, run.weather.id, off.get("hero", "")]
 	if _preview_wave == key:
 		return
 	_preview_wave = key
+	preview_duel.visible = not off.is_empty()
+	if not off.is_empty():
+		var rn: String = DB.HEROES[off["hero"]]["name"]
+		var dt: String = DB.HEROES[off["hero"]].get("dmg_type", "mixed")
+		var dts: String = {"phys": "physical", "magic": "magic"}.get(dt, "mixed")
+		preview_duel.text = "Challenger: %s (level %d, %s)" % [rn, int(off["level"]), dts]
+		if int(off.get("gold", 0)) > 0:
+			preview_duel.text += "\nWin: +%d gold, +%d all stats" % [int(off["gold"]), int(Duel.WIN_STATS)]
+	if run.duel.ladder():
+		preview_name.text = "Duel %d / %d" % [run.wave, Duel.LADDER_ROUNDS]
+		preview_rule.visible = false
+		preview_desc.text = "Shop, then fight. Your hero reaches level %d for this duel." % int(off.get("level", 1))
+		preview_weather.visible = false
+		preview_foes.visible = false
+		return
 	var info := run.wave_info()
 	preview_name.text = "Next: " + String(info.get("name", ""))
 	var bits := []
@@ -553,9 +607,13 @@ func _process(_delta: float) -> void:
 	if ph == "prep":
 		wave_label.text = _wave_text()
 		prep_box.visible = true
-		prep_label.text = "Next wave\n%d s" % int(ceil(run.prep_t))
-		if run.boss_kind() != "":
-			prep_label.text = "BOSS wave\n%d s" % int(ceil(run.prep_t))
+		prep_label.text = ("Descend\n%d s" if run.delve else "Next wave\n%d s") % int(ceil(run.prep_t))
+		if run.duel.ladder():
+			prep_label.text = "Next duel\n%d s" % int(ceil(run.prep_t))
+		elif run.boss_kind() != "":
+			prep_label.text = ("BOSS depth\n%d s" if run.delve else "BOSS wave\n%d s") % int(ceil(run.prep_t))
+		fight_btn.text = "Duel!" if run.duel.ladder() else "Fight!"
+		duel_btn.visible = run.duel.can_accept() and not run.duel.ladder()
 		shop_btn.visible = true
 		_refresh_preview()
 		preview_box.visible = shop == null and run.tutorial == null
@@ -565,17 +623,32 @@ func _process(_delta: float) -> void:
 	else:
 		prep_box.visible = false
 		preview_box.visible = false
-		if ph == "wave" or ph == "clear":
+		if run.delve:
+			wave_label.text = _wave_text() + ("" if run.delve.lair_open else "  ·  find the lair")
+		elif ph == "wave" or ph == "clear":
 			wave_label.text = "%s  ·  %d left" % [_wave_text(), run.enemies.size() + run.spawn_queue.size()]
+		elif ph == "duel" or ph == "duel_end":
+			wave_label.text = "Duel  ·  %d s" % maxi(0, int(ceil(Duel.TIME_LIMIT - run.duel.t)))
+	if minimap:
+		minimap.visible = ph == "wave" or ph == "clear"
 	var bh := run.boss_hp()
 	boss_box.visible = run.boss_units.size() > 0 and bh.y > 0.0
-	if boss_box.visible:
+	if run.rival != null and (ph == "duel" or ph == "duel_end"):
+		boss_box.visible = true
+		boss_bar.value = run.rival.hp / maxf(1.0, run.rival.max_hp)
+		boss_label.text = "%s  ·  level %d  %d%%" % [run.rival.data["name"], run.rival.level, int(ceil(100.0 * boss_bar.value))]
+	elif boss_box.visible:
 		boss_bar.value = bh.x / bh.y
 		boss_label.text = "%s  %d%%" % [run.boss_title, int(ceil(100.0 * bh.x / bh.y))]
 	elif run.captain != null and run.captain.alive and ph == "wave":
 		boss_box.visible = true
 		boss_bar.value = run.captain.hp / maxf(1.0, run.captain.max_hp)
 		boss_label.text = "%s  %d%%" % [run.captain.display_name, int(ceil(100.0 * boss_bar.value))]
+	for pr in party_rows:
+		var c: Hero = pr["hero"]
+		(pr["bar"] as ProgressBar).value = 0.0 if c.dead else c.hp / maxf(1.0, c.max_hp)
+		(pr["level"] as Label).text = "down" if c.dead else str(c.level)
+		(pr["row"] as Control).modulate = Color(1, 1, 1, 0.45) if c.dead else Color(1, 1, 1)
 	# inventory (icons are drawn by slot_overlay)
 	for i in 6:
 		var b: Button = slot_nodes[i]
@@ -603,8 +676,12 @@ func _process(_delta: float) -> void:
 func _wave_text() -> String:
 	if run.mode == "training":
 		return "Training"
+	if run.delve:
+		return "Depth %d / %d" % [Delve.depth_of(run.wave), Delve.DEPTHS]
 	if run.mode == "endless":
 		return "Wave %d · Endless" % run.wave
+	if run.duel.ladder():
+		return "Duel %d / %d" % [run.wave, Duel.LADDER_ROUNDS]
 	return "Wave %d / %d" % [run.wave, DB.TOTAL_WAVES]
 
 

@@ -190,7 +190,7 @@ uniform vec4 mortar_c : source_color = vec4(0.12, 0.10, 0.10, 1.0);
 uniform vec4 ember : source_color = vec4(1.0, 0.42, 0.12, 1.0);
 uniform vec4 lights[12];
 uniform vec3 light_col = vec3(1.0, 0.55, 0.22);
-uniform vec4 pillars[3];
+uniform vec4 pillars[6];
 uniform vec3 sun_dir = vec3(0.45, 0.0, -0.6);
 varying vec3 wp;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -266,9 +266,10 @@ void fragment() {
 	col *= 1.0 - smoothstep(0.62, 0.8, texture(noise_tex, p * 0.07 + vec2(9.0, 2.0)).r) * 0.35;
 	// wall AO + pillar AO + fake cast shadows
 	col *= mix(1.0, 0.42, smoothstep(19.8, 22.0, r));
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 6; i++) {
 		vec2 pc = pillars[i].xy;
 		float pr = pillars[i].z;
+		if (pr <= 0.0) { continue; }
 		float d = length(p - pc);
 		col *= mix(0.55, 1.0, smoothstep(pr, pr + 1.4, d));
 		vec2 sp = pc + normalize(sun_dir.xz) * 2.6;
