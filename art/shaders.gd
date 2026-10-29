@@ -16,6 +16,24 @@ void light() {
 }
 """
 
+# Skin recolour: rotate hue (radians) and scale saturation / brightness of the vertex colours in YIQ space.
+const SKIN_FN := """
+uniform float skin_hue = 0.0;
+uniform float skin_sat = 1.0;
+uniform float skin_val = 1.0;
+vec3 skin_col(vec3 c) {
+	if (skin_hue == 0.0 && skin_sat == 1.0 && skin_val == 1.0) { return c; }
+	float y = dot(c, vec3(0.299, 0.587, 0.114)) * skin_val;
+	float i = dot(c, vec3(0.596, -0.274, -0.322));
+	float q = dot(c, vec3(0.211, -0.523, 0.312));
+	float cs = cos(skin_hue) * skin_sat * skin_val;
+	float sn = sin(skin_hue) * skin_sat * skin_val;
+	float i2 = i * cs - q * sn;
+	float q2 = i * sn + q * cs;
+	return max(vec3(y + 0.956 * i2 + 0.621 * q2, y - 0.272 * i2 - 0.647 * q2, y - 1.106 * i2 + 1.703 * q2), vec3(0.0));
+}
+"""
+
 const UNIT := """
 shader_type spatial;
 render_mode cull_back, specular_disabled;
@@ -30,10 +48,12 @@ uniform float rim_pow = 2.6;
 uniform float dissolve = 0.0;
 uniform float ao_height = 1.8;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
+""" + SKIN_FN + """
 void fragment() {
 	float n = texture(noise_tex, UV2 * 0.45).r;
 	float n2 = texture(noise_tex, UV2 * 1.9 + vec2(0.37, 0.11)).r;
-	vec3 base = COLOR.rgb;
+	vec3 vcol = skin_col(COLOR.rgb);
+	vec3 base = vcol;
 	base *= 0.78 + 0.44 * n;
 	base = mix(base, base * vec3(1.08, 0.97, 0.88), n2 * 0.35);
 	float ao = mix(0.5, 1.0, clamp(UV2.y / (ao_height * 0.55), 0.0, 1.0)) * UV.y;
@@ -41,7 +61,7 @@ void fragment() {
 	base *= tint.rgb;
 	ALBEDO = mix(base, flash.rgb, flash.a * 0.65);
 	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), rim_pow);
-	vec3 em = COLOR.rgb * UV.x * (glow_strength + glow_boost * 2.5) * (0.8 + 0.4 * n);
+	vec3 em = vcol * UV.x * (glow_strength + glow_boost * 2.5) * (0.8 + 0.4 * n);
 	em += rim_color.rgb * fres * rim_strength * (0.6 + 0.4 * ao);
 	em += glow_color.rgb * glow_boost * fres * 1.5;
 	em += flash.rgb * flash.a * 0.9;
@@ -57,7 +77,7 @@ void fragment() {
 # Translucent parts (wings) and ghosts (afterimage)
 const UNIT_GHOST := """
 shader_type spatial;
-render_mode blend_add, depth_draw_never, cull_disabled, unshaded, shadows_disabled;
+render_mode blend_add, depth_draw_never, cull_disabled, unshaded, shadows_disabled, fog_disabled;
 uniform vec4 tint : source_color = vec4(1.0);
 uniform vec4 flash : source_color = vec4(1.0, 1.0, 1.0, 0.0);
 uniform vec4 glow_color : source_color = vec4(0.3, 1.0, 0.9, 1.0);
@@ -68,10 +88,11 @@ uniform float alpha = 0.55;
 uniform float ao_height = 1.8;
 uniform float use_vcol = 1.0;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
+""" + SKIN_FN + """
 void fragment() {
 	float n = texture(noise_tex, UV2 * 0.9 + vec2(TIME * 0.05, -TIME * 0.11)).r;
 	float fres = pow(1.0 - abs(dot(NORMAL, VIEW)), 1.6);
-	vec3 c = mix(glow_color.rgb, COLOR.rgb * glow_color.rgb * 1.6, use_vcol) * tint.rgb;
+	vec3 c = mix(glow_color.rgb, skin_col(COLOR.rgb) * glow_color.rgb * 1.6, use_vcol) * tint.rgb;
 	float a = alpha * (0.25 + 0.95 * fres) * (0.7 + 0.5 * n) * (1.0 - dissolve);
 	a *= 0.75 + 0.25 * sin(TIME * 7.0 + UV2.y * 9.0);
 	ALBEDO = c * a * (glow_strength + glow_boost) + flash.rgb * flash.a * 0.5;
@@ -169,7 +190,7 @@ uniform vec4 mortar_c : source_color = vec4(0.12, 0.10, 0.10, 1.0);
 uniform vec4 ember : source_color = vec4(1.0, 0.42, 0.12, 1.0);
 uniform vec4 lights[12];
 uniform vec3 light_col = vec3(1.0, 0.55, 0.22);
-uniform vec4 pillars[3];
+uniform vec4 pillars[6];
 uniform vec3 sun_dir = vec3(0.45, 0.0, -0.6);
 varying vec3 wp;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -245,9 +266,10 @@ void fragment() {
 	col *= 1.0 - smoothstep(0.62, 0.8, texture(noise_tex, p * 0.07 + vec2(9.0, 2.0)).r) * 0.35;
 	// wall AO + pillar AO + fake cast shadows
 	col *= mix(1.0, 0.42, smoothstep(19.8, 22.0, r));
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 6; i++) {
 		vec2 pc = pillars[i].xy;
 		float pr = pillars[i].z;
+		if (pr <= 0.0) { continue; }
 		float d = length(p - pc);
 		col *= mix(0.55, 1.0, smoothstep(pr, pr + 1.4, d));
 		vec2 sp = pc + normalize(sun_dir.xz) * 2.6;
@@ -355,7 +377,7 @@ void fragment() {
 
 const FLAME := """
 shader_type spatial;
-render_mode blend_add, depth_draw_never, cull_disabled, unshaded, shadows_disabled;
+render_mode blend_add, depth_draw_never, cull_disabled, unshaded, shadows_disabled, fog_disabled;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
 uniform vec4 col_hot : source_color = vec4(1.0, 0.85, 0.45, 1.0);
 uniform vec4 col_cool : source_color = vec4(1.0, 0.32, 0.06, 1.0);
@@ -415,6 +437,7 @@ uniform float intensity = 1.0;
 uniform vec2 size = vec2(2.0, 2.0);
 uniform float edge_w = 0.14;
 uniform float seed = 0.0;
+uniform float arc = 0.8;
 void fragment() {
 	vec2 uv = UV * 2.0 - 1.0;
 	float d = length(uv);
@@ -497,6 +520,38 @@ void fragment() {
 		float notch = step(0.93, fract(ang / 6.28318 * 3.0 + t * 0.05)) * step(1.0 - ew * 4.0, d) * step(d, 1.0 - ew * 1.6);
 		a = max(ring * (0.85 + 0.15 * sin(t * 2.4)), max(inner, notch * 0.9));
 		c = mix(color.rgb, color2.rgb, ring * 0.5);
+	} else if (mode == 10) { // cone wedge: forward = local -Z, arc = half angle (rad), fill = sweep 0..1
+		float s = atan(uv.x, -uv.y);
+		if (d > 1.0 || abs(s) > arc) { discard; }
+		float sw = mix(-arc, arc, fill);
+		float swept = step(s, sw + 0.001);
+		float lead = (1.0 - smoothstep(0.0, 0.14, abs(s - sw))) * step(0.02, fill) * (1.0 - step(0.999, fill));
+		float rim = smoothstep(0.84, 0.96, d) * (1.0 - smoothstep(0.98, 1.0, d));
+		float side = 1.0 - smoothstep(0.0, 0.05 / max(d, 0.08), arc - abs(s));
+		float n = texture(noise_tex, vec2(s * 0.9 + seed, d * 1.4 - t * 1.2)).r;
+		a = swept * (0.12 + 0.6 * d * d * (0.55 + 0.7 * n) + rim * 0.9 + side * 0.5) + lead * d * 0.9;
+		c = mix(color.rgb, color2.rgb, clamp(lead + rim * 0.8, 0.0, 1.0));
+	} else if (mode == 11) { // zone: soft glowing disc, crisp rim, slow swirl
+		if (d > 1.0) { discard; }
+		float rim = 1.0 - smoothstep(0.0, ew, abs(d - (1.0 - ew)));
+		float n = texture(noise_tex, vec2(ang * 0.5 + t * 0.04 + seed, d * 0.9 - t * 0.12)).r;
+		float body = (0.1 + 0.26 * smoothstep(0.15, 1.0, d)) * (0.55 + 0.9 * n);
+		float inner = 1.0 - smoothstep(0.0, ew * 0.6, abs(d - 0.78 - 0.015 * sin(t * 2.0)));
+		float ticks = step(0.86, fract(ang / 6.28318 * 12.0 - t * 0.05)) * step(0.82, d) * step(d, 0.9);
+		a = max(rim * 0.95, body + inner * 0.3 + ticks * 0.35);
+		c = mix(color.rgb, color2.rgb, max(rim, n * 0.4));
+	} else if (mode == 12) { // grave marker: mint glow, cracked earth, small tombstone glyph (top = -Z)
+		if (d > 1.0) { discard; }
+		vec2 q = uv;
+		float stone = max(step(abs(q.x), 0.27) * step(-0.12, q.y) * step(q.y, 0.48), step(length(q - vec2(0.0, -0.12)), 0.27));
+		float inner = max(step(abs(q.x), 0.17) * step(-0.12, q.y) * step(q.y, 0.38), step(length(q - vec2(0.0, -0.12)), 0.17));
+		float crs = max(step(abs(q.x), 0.04) * step(-0.24, q.y) * step(q.y, 0.24), step(abs(q.y + 0.06), 0.04) * step(abs(q.x), 0.13));
+		float n = texture(noise_tex, vec2(ang * 1.1 + seed, d * 0.5)).r;
+		float cr = (1.0 - smoothstep(0.0, 0.07, abs(fract(ang / 6.28318 * 5.0 + n * 0.7 + seed) - 0.5) * d)) * step(0.52, d) * (1.0 - smoothstep(0.78, 0.98, d));
+		float glow = pow(1.0 - d, 1.4) * 0.5;
+		float outline = stone - inner;
+		a = max(max(outline, crs * 0.85), max(cr * 0.75, glow));
+		c = mix(color.rgb, color2.rgb, max(outline, crs));
 	} else { // soft glow disc
 		if (d > 1.0) { discard; }
 		a = pow(1.0 - d, 2.0);
@@ -509,7 +564,7 @@ void fragment() {
 # Glow billboards and additive meshes (projectile cores, flashes, beams, columns)
 const ADD := """
 shader_type spatial;
-render_mode blend_add, depth_draw_never, cull_disabled, unshaded, shadows_disabled;
+render_mode blend_add, depth_draw_never, cull_disabled, unshaded, shadows_disabled, fog_disabled;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
 uniform vec4 color : source_color = vec4(1.0, 0.6, 0.2, 1.0);
 uniform vec4 color2 : source_color = vec4(1.0, 1.0, 0.8, 1.0);
@@ -589,10 +644,10 @@ static func shader(key: String) -> Shader:
 		"floor": code = FLOOR
 		"grass": code = GRASS
 		"water": code = WATER
-		"water_add": code = WATER.replace("render_mode cull_disabled, specular_disabled, unshaded;", "render_mode blend_add, depth_draw_never, cull_disabled, unshaded;")
+		"water_add": code = WATER.replace("render_mode cull_disabled, specular_disabled, unshaded;", "render_mode blend_add, depth_draw_never, cull_disabled, unshaded, fog_disabled;")
 		"flame": code = FLAME
 		"decal_mix": code = DECAL.replace("BLEND_MODE", "blend_mix")
-		"decal_add": code = DECAL.replace("BLEND_MODE", "blend_add")
+		"decal_add": code = DECAL.replace("BLEND_MODE", "blend_add, fog_disabled")
 		"add": code = ADD
 		_: code = UNIT
 	var s := Shader.new()
@@ -651,6 +706,7 @@ static func mat(key: String) -> Material:
 			var pm := StandardMaterial3D.new()
 			pm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			pm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+			pm.disable_fog = true
 			pm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			pm.vertex_color_use_as_albedo = true
 			pm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES

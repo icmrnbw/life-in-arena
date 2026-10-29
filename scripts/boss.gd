@@ -13,6 +13,8 @@ var summon_t := 6.0
 var adds: Array = []
 var enraged := false
 var last_pattern := ""
+var chain_charge := false
+var withdrawn := false         # Warden's gauntlet: out of the fight while echoes of earlier bosses fight
 
 
 func init_enemy(k: String, w: int, r: Run) -> void:
@@ -22,7 +24,7 @@ func init_enemy(k: String, w: int, r: Run) -> void:
 	# bosses use designed numbers, scaled gently
 	max_hp = float(data["hp"])
 	hp = max_hp
-	atk_dmg = float(data["dmg"]) * (1.0 + 0.02 * w)
+	atk_dmg = float(data["dmg"]) * (1.0 + 0.02 * w) * DB.BOSS_DMG_BASE
 	armor = data["armor"]
 	base_speed = data["speed"]
 	xp_val = data["xp"]
@@ -46,7 +48,7 @@ func pick_target() -> Unit:
 
 
 func damage_taken_mult() -> float:
-	return 0.0 if phase_invuln > 0.0 else 1.0
+	return 0.0 if phase_invuln > 0.0 or withdrawn else 1.0
 
 
 func on_death() -> void:
@@ -78,6 +80,11 @@ func tick(dt: float) -> void:
 	if kind == "matron":
 		_matron_link(dt)
 	if kind == "warden":
+		if withdrawn:
+			set_state("cast")
+			return
+		if _gauntlet_check():
+			return
 		_warden_phase()
 	if not beam.is_empty():
 		_tick_beam(dt)
@@ -101,7 +108,7 @@ func tick(dt: float) -> void:
 		# stands still while channeling
 		set_state("cast")
 		return
-	pattern_t -= dt * (1.35 if enraged else 1.0)
+	pattern_t -= dt * (1.35 if enraged else 1.0) * (1.25 if run.pit_enraged else 1.0)
 	summon_t -= dt
 	if pattern_t <= 0.0:
 		_choose_pattern()
@@ -120,10 +127,12 @@ func _choose_pattern() -> void:
 	match kind:
 		"pit_brute":
 			if d > 6.0 and last_pattern != "charge":
+				# wounded: the second charge follows straight after the first
+				chain_charge = hp < max_hp * 0.5
 				_charge()
 			else:
 				_slam_front(4.0, 2.6, 1.1)
-			pattern_t = randf_range(3.6, 4.6)
+			pattern_t = randf_range(3.6, 4.6) if hp >= max_hp * 0.5 else randf_range(2.8, 3.6)
 		"matron":
 			if last_pattern == "volley":
 				_slam_at(target.pos, 3.2, 2.2, 1.3)
@@ -139,7 +148,7 @@ func _choose_pattern() -> void:
 				_start_beam(220.0, 6.0, 20.0, 1.8, 2.2)
 				pattern_t = 9.0
 			else:
-				_ring(10)
+				_ring(10 if hp >= max_hp * 0.5 else 14)
 				pattern_t = 3.0
 		"warden":
 			match phase:
@@ -201,7 +210,7 @@ func _ai_kite(dt: float) -> void:
 		set_state("run")
 	elif d < 6.5:
 		var away := run._flat(pos - t.pos).normalized()
-		if Vector2(pos.x, pos.z).length() > DB.ARENA_R - 4.0:
+		if Vector2(pos.x, pos.z).length() > run.arena_safe_r() - 4.0:
 			away = Vector3(-away.z, 0, away.x)
 		run.move_unit(self, away * speed() * 0.7 * dt)
 		turn_toward(t.pos - pos, dt)
@@ -255,6 +264,11 @@ func _slam_hit(center: Vector3, r: float, dmg: float) -> void:
 			run.damage(u, dmg, self, display_name, "phys")
 			if u.alive and not u.no_push:
 				u.knock = (off.normalized() if off.length() > 0.1 else Vector3(1, 0, 0)) * 9.0
+	# a slam on a pillar knocks it over, away from the boss
+	for i in run.arena.pillars.size():
+		var pl: Dictionary = run.arena.pillars[i]
+		if pl["up"] and run._flat(pl["pos"] - center).length() <= r + DB.PILLAR_R * 0.5:
+			run.arena.topple(i, run._flat(pl["pos"] - pos), self)
 
 
 func _charge() -> void:
@@ -264,7 +278,7 @@ func _charge() -> void:
 	var length := minf(run._flat(target.pos - pos).length() + 5.0, 26.0)
 	var end := pos + dir * length
 	# keep inside the arena
-	var lim := DB.ARENA_R - radius - 0.5
+	var lim := run.arena_safe_r() - radius - 0.5
 	if Vector2(end.x, end.z).length() > lim:
 		var e2 := Vector2(end.x, end.z).normalized() * lim
 		end = Vector3(e2.x, 0, e2.y)
@@ -296,7 +310,11 @@ func _tick_charge(dt: float) -> void:
 	var old := pos
 	pos = run.resolve_pos(self, pos + dir * stepl, pos)
 	if run._flat(pos - old).length() < stepl * 0.5 and not done:
-		done = true   # hit a pillar
+		done = true   # hit something solid
+		var pi := run.arena.pillar_hit(pos, radius)
+		if pi >= 0:
+			run.arena.topple(pi, dir, self, true)
+			chain_charge = false
 	face(dir)
 	for u in run.hero_side_targets():
 		if charge["hit"].has(u):
@@ -310,9 +328,16 @@ func _tick_charge(dt: float) -> void:
 					side = -side
 				u.knock = side * 10.0 + dir * 4.0
 			run.shake(0.6)
+	if done and chain_charge and target != null and target.alive:
+		chain_charge = false
+		charge = {}
+		run.fx("slam", {"pos": pos, "radius": 2.5})
+		set_state("idle", true)
+		_charge()
+		return
 	if done:
 		charge = {}
-		stun_t = 1.2   # dazed after a charge: punish window
+		stun_t = maxf(stun_t, 1.2)   # dazed after a charge: punish window (longer after a pillar)
 		run.fx("slam", {"pos": pos, "radius": 2.5})
 		run.shake(0.4)
 		set_state("idle", true)
@@ -358,7 +383,7 @@ func _summon_adds(add_kind: String, n: int) -> void:
 		e.xp_val *= 0.5
 		adds.append(e)
 		run.fx("teleport", {"pos": p})
-	run.toast("%s calls for aid!" % display_name, Art.palette.get("danger", Color.RED))
+	run.toast(L.f("%s calls for aid!", [shown_name()]), Art.palette.get("danger", Color.RED))
 
 
 func _start_beam(sweep_deg: float, dur: float, length: float, width: float, tele: float) -> void:
@@ -464,3 +489,44 @@ func _warden_phase() -> void:
 		run.shake(0.7)
 		run.banner_requested.emit("The Warden enrages", "Phase %d" % phase)
 		set_state("cast", true)
+		run.schedule(2.2, run.arena.crumble)
+
+
+# ------------------------------------------------------------ final gauntlet
+## Below each DB.GAUNTLET threshold the Warden steps back to the north wall, untouchable, and an echo of an
+## earlier boss takes his place. He returns when the echo falls.
+func _gauntlet_check() -> bool:
+	if run.gauntlet_i >= DB.GAUNTLET.size():
+		return false
+	var step: Dictionary = DB.GAUNTLET[run.gauntlet_i]
+	if hp > max_hp * float(step["at"]):
+		return false
+	run.gauntlet_i += 1
+	hp = max_hp * float(step["at"])
+	withdrawn = true
+	untargetable = true
+	collides = false
+	charge = {}
+	_stop_beam()
+	clear_mark()
+	run.fx("teleport", {"pos": pos})
+	pos = Vector3(0, 0, -(run.arena_r() - 3.5))
+	face(Vector3(0, 0, 1))
+	if node:
+		node.position = pos
+	run.fx("teleport", {"pos": pos})
+	set_state("cast", true)
+	run.start_echo(step)
+	return true
+
+
+func return_from_gauntlet() -> void:
+	withdrawn = false
+	untargetable = false
+	collides = true
+	phase_invuln = 1.0
+	busy_t = 1.0
+	pattern_t = 2.0
+	run.fx("level_up", {"pos": pos})
+	run.shake(0.6)
+	run.banner_requested.emit("The Warden returns", "Finish him!" if run.gauntlet_i >= DB.GAUNTLET.size() else "")

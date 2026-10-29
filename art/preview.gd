@@ -1,17 +1,22 @@
 extends Node3D
 ## Art review scene. User args (after --):
 ##   --view=world|camp|units|heroes|bosses|fx|icons|ui|game|perf   --shot=<png path>   --delay=<s>
-##   --state=<idle|run|attack|cast|hit|death|spawn> (hold one state in units/bosses views)   --count=<n> (perf view enemies)
+##   --state=<idle|run|attack|cast|hit|death|spawn|sit> (hold one state in units/bosses views)   --count=<n> (perf view enemies)
+##   --view=row --kinds=a,b,c   close-up row of any unit kinds
 
-const HEROES := ["ashwarden", "riftdancer", "hivemother"]
-const ENEMIES := ["gnawer", "shieldbearer", "hexcaster", "burrower", "bloater"]
+const HEROES := ["ashwarden", "riftdancer", "hivemother", "sanguine", "snarewright", "twinhide", "twinhide_beast",
+	"gravekeeper", "stoneshaper", "gunsmith", "sunspeaker", "duelist", "vanguard", "nightblade", "skyspear", "frostweaver",
+	"stormcaller", "alchemist", "chronomancer"]
+const ENEMIES := ["gnawer", "shieldbearer", "hexcaster", "burrower", "bloater", "ironhulk", "veilwraith"]
 const BOSSES := ["pit_brute", "matron", "hollow_choir", "warden"]
-const SUMMONS := ["broodling", "ember_totem", "afterimage", "choir_add"]
-const PROJ := ["fire_bolt", "spit", "hex_bolt", "boss_orb", "hero_bolt"]
+const SUMMONS := ["broodling", "ember_totem", "afterimage", "choir_add", "skeleton", "snare_trap", "blast_charge", "boulder", "stone_pillar"]
+const PROJ := ["fire_bolt", "spit", "hex_bolt", "boss_orb", "hero_bolt", "bullet", "crossbow_bolt", "spirit_lance", "grave_bolt", "blood_bolt",
+	"dagger", "frost_bolt", "vial", "time_bolt"]
 const FX_ONESHOT := ["hit", "death_burst", "level_up", "heal", "gold", "damage_number", "teleport", "tether_pull", "slip_trail",
-	"shatter", "rift_strike", "brood_hatch", "sacrifice_explosion", "slam", "fountain_heal"]
+	"shatter", "rift_strike", "brood_hatch", "sacrifice_explosion", "slam", "fountain_heal",
+	"cone", "ring_burst", "blood_burst", "trap_snap", "explosion", "soul_wisp", "form_shift"]
 const FX_PERSIST := ["telegraph_circle", "telegraph_line", "aim_circle", "aim_line", "ash_wall", "foundry_aura", "mark",
-	"rally_marker", "carapace", "bloater_pool", "beam"]
+	"rally_marker", "carapace", "bloater_pool", "beam", "zone", "stone_ridge", "grave_marker"]
 const CYCLE := [["idle", 1.6], ["run", 1.8], ["attack", 1.0], ["run", 1.0], ["cast", 1.1], ["idle", 0.8], ["hit", 0.6], ["idle", 0.6], ["death", 1.4], ["spawn", 1.0]]
 
 var view := "units"
@@ -20,6 +25,7 @@ var delay := 2.5
 var hold := ""
 var count := 60
 var fxsel: Array = []
+var kinds_sel: Array = []
 var cam: Camera3D
 var t := 0.0
 var units: Array = []
@@ -41,6 +47,7 @@ func _ready() -> void:
 		elif a.begins_with("--state="): hold = a.substr(8)
 		elif a.begins_with("--count="): count = int(a.substr(8))
 		elif a.begins_with("--fxsel="): fxsel = Array(a.substr(8).split(","))
+		elif a.begins_with("--kinds="): kinds_sel = Array(a.substr(8).split(","))
 	cam = Camera3D.new()
 	cam.fov = 45.0
 	cam.far = 200.0
@@ -67,6 +74,13 @@ func _ready() -> void:
 			"heroes": _build_heroes()
 			"enemies": _build_row(ENEMIES, 2.3)
 			"summons": _build_row(SUMMONS, 2.0)
+			"row": _build_row(kinds_sel, 2.0)
+			"lineup":
+				# every hero at the real game camera distance (phone-scale readability check)
+				var ks: Array = kinds_sel if not kinds_sel.is_empty() else HEROES
+				for i in ks.size():
+					_spawn_unit(ks[i], Vector3((i - (ks.size() - 1) * 0.5) * 1.9, 0, 0), i * 0.5)
+				_cam_at(Vector3(0, 18, 14), Vector3(0, 0, 0))
 			"bosses": _build_bosses()
 			"fx": _build_fx()
 			"game": _build_game(24)
@@ -97,23 +111,31 @@ func _spawn_unit(kind: String, pos: Vector3, phase: float) -> Node3D:
 	return u
 
 func _build_units() -> void:
-	var front := HEROES + SUMMONS
+	var front := HEROES.slice(0, 3) + SUMMONS
 	for i in front.size():
-		_spawn_unit(front[i], Vector3(-7.2 + i * 2.4, 0, -3.0), i * 0.7)
+		_spawn_unit(front[i], Vector3(-9.6 + i * 1.6, 0, -3.0), i * 0.7)
 	for i in ENEMIES.size():
 		_spawn_unit(ENEMIES[i], Vector3(-5.0 + i * 2.5, 0, -6.5), i * 0.9 + 0.3)
 	for i in PROJ.size():
 		var p := Art.create_projectile(PROJ[i])
 		add_child(p)
-		p.position = Vector3(-4.0 + i * 2.0, 1.2, -9.0)
+		p.position = Vector3(-6.75 + i * 1.5, 1.2, -9.0)
 		projs.append(p)
 	_cam_at(Vector3(0, 9.0, 6.5), Vector3(0, 0.6, -5.0))
 
 func _build_heroes() -> void:
+	# two rows: 5 in front, 6 behind (offset so every silhouette reads)
 	for i in HEROES.size():
-		var u := _spawn_unit(HEROES[i], Vector3(-2.3 + i * 2.3, 0, -6.0), i * 0.5)
-		u.rotation_degrees.y = 180.0 - (i - 1) * 25.0
-	_cam_at(Vector3(0, 3.6, 0.2), Vector3(0, 1.0, -6.0))
+		var back := i >= 5
+		var j := i - 5 if back else i
+		var n := 6 if back else 5
+		var x := (j - (n - 1) * 0.5) * 2.15
+		var z := -9.4 if back else -5.4
+		if back:
+			x += 0.0
+		var u := _spawn_unit(HEROES[i], Vector3(x, 0, z), i * 0.5)
+		u.rotation_degrees.y = 180.0 - x * 4.0
+	_cam_at(Vector3(0, 6.4, 2.6), Vector3(0, 0.6, -7.4))
 
 func _build_row(kinds: Array, sp: float) -> void:
 	for i in kinds.size():
@@ -160,13 +182,13 @@ func _cycle_units(dt: float) -> void:
 
 func _build_fx() -> void:
 	var names := FX_ONESHOT + FX_PERSIST
-	var cols := 7
+	var cols := 9
 	if not fxsel.is_empty():
 		names = fxsel
 		cols = 4
 	for i in names.size():
-		var x := -13.5 + (i % cols) * 4.5
-		var z := -9.0 + (i / cols) * 5.0
+		var x := -16.0 + (i % cols) * 4.0
+		var z := -10.0 + (i / cols) * 4.6
 		if not fxsel.is_empty():
 			x = -6.75 + (i % cols) * 4.5
 			z = -5.0 + (i / cols) * 4.6
@@ -180,7 +202,7 @@ func _build_fx() -> void:
 		l.modulate = Color(1, 0.95, 0.8)
 		add_child(l)
 	if fxsel.is_empty():
-		_cam_at(Vector3(0, 24, 18), Vector3(0, 0, 0.5))
+		_cam_at(Vector3(0, 27, 20), Vector3(0, 0, 0.5))
 	else:
 		_cam_at(Vector3(0, 13, 9.5), Vector3(0, 0, -1.2))
 
@@ -218,6 +240,13 @@ func _fire_fx(slot: Dictionary) -> void:
 		"carapace": o["target"] = _target_for(p, "hivemother"); o["duration"] = 2.6
 		"bloater_pool": o["radius"] = 1.7; o["duration"] = 2.6
 		"beam": o["from"] = p + Vector3(-1.9, 1.2, 0); o["to"] = p + Vector3(1.9, 1.2, 0); o["width"] = 0.9; o["duration"] = 2.6
+		"cone": o["dir"] = Vector3(0.3, 0, -1); o["range"] = 2.6; o["angle"] = 100.0; o["color"] = Color(1.0, 0.25, 0.3)
+		"ring_burst": o["radius"] = 2.0; o["color"] = Color(0.85, 0.65, 0.4)
+		"explosion": o["radius"] = 1.8
+		"soul_wisp": o["from"] = p + Vector3(-1.8, 0, 1.0); o["to"] = p + Vector3(1.6, 1.2, -1.0)
+		"zone": o["radius"] = 1.8; o["duration"] = 2.6; o["color"] = Color(1.0, 0.85, 0.4)
+		"stone_ridge": o["from"] = p + Vector3(-1.8, 0, 0.6); o["to"] = p + Vector3(1.8, 0, -0.6); o["duration"] = 2.4
+		"grave_marker": o["duration"] = 2.8
 	var node := Art.fx(n, o)
 	if n in FX_PERSIST:
 		slot["node"] = node
@@ -317,8 +346,10 @@ func _build_icons() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(bg)
 	var grid := GridContainer.new()
-	grid.columns = 10
-	grid.position = Vector2(20, 14)
+	var ids: Array = load("res://art/icons.gd").all_ids()
+	var big := ids.size() <= 40
+	grid.columns = 10 if big else 13
+	grid.position = Vector2(20, 14) if big else Vector2(12, 8)
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 2)
 	root.add_child(grid)
@@ -328,7 +359,7 @@ func _build_icons() -> void:
 		v.add_theme_constant_override("separation", 0)
 		var tr := TextureRect.new()
 		tr.texture = Art.icon(id)
-		tr.custom_minimum_size = Vector2(112, 112)
+		tr.custom_minimum_size = Vector2(112, 112) if big else Vector2(80, 80)
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		tr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
@@ -336,9 +367,9 @@ func _build_icons() -> void:
 		var l := Label.new()
 		l.text = id
 		l.theme_type_variation = "SmallLabel"
-		l.add_theme_font_size_override("font_size", 12)
+		l.add_theme_font_size_override("font_size", 12 if big else 10)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		l.custom_minimum_size = Vector2(118, 0)
+		l.custom_minimum_size = Vector2(118, 0) if big else Vector2(84, 0)
 		l.clip_text = true
 		v.add_child(l)
 		grid.add_child(v)

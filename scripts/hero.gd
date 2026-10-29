@@ -18,6 +18,7 @@ var str_v := 0.0
 var agi_v := 0.0
 var int_v := 0.0
 var bonus := {"str": 0.0, "agi": 0.0, "int": 0.0}   # tomes / auto stat points
+var train := {}          # Training Grounds ranks: {upgrade id: rank}
 var items: Array = []     # [{id, charges, choice, cd}]
 var item_stats := {}
 var attack_speed := 1.0
@@ -27,17 +28,23 @@ var lifesteal := 0.0
 var reflect := 0.0
 var burn_on_hit := false
 var has_aegis := false
+var base_range := 2.0           # the kit's attack range before items and weather (Twinhide changes it per form)
+var hit_n := 0                  # melee hits landed, for Skullcrusher's every-4th bash
 var aegis_ready := true
 var shield := 0.0
 var sprint_t := 0.0
 var regen_buff := []      # [{hp_per_s, mana_per_s, t}]
 var move_input := Vector2.ZERO
 var focus: Unit = null
+var bump: Unit = null           # barrel the player is pushing into (gets swung at)
+var bump_t := 0.0
 var kit: HeroKit
 var feathers_bought := 0
 var still_t := 0.0
 var in_camp := true
 var dead := false
+var ai := false           # an AI ally (companion) or the duel rival, played by scripts/bot.gd
+var purse := 0            # an AI hero's own gold for kit_out()
 
 
 func init_hero(id: String) -> void:
@@ -46,7 +53,8 @@ func init_hero(id: String) -> void:
 	kind = id
 	team = 0
 	skill_ids = data["skills"].duplicate()
-	atk_range = data["range"]
+	base_range = data["range"]
+	atk_range = base_range
 	atk_time = data["atk_time"]
 	skill_points = 1
 	recalc(true)
@@ -72,15 +80,20 @@ func recalc(fill := false) -> void:
 		if it["id"] == "sage_circlet":
 			var ch: String = it.get("choice", "int")
 			item_stats[ch] = item_stats.get(ch, 0.0) + 6.0
+	for id in train:
+		var ud: Dictionary = DB.UPGRADES.get(id, {})
+		for k in ud.get("stats", {}):
+			item_stats[k] = item_stats.get(k, 0.0) + float(ud["stats"][k]) * int(train[id])
 	var lv := float(level - 1)
 	str_v = data["str"] + data["str_g"] * lv + bonus["str"] + item_stats.get("str", 0.0)
 	agi_v = data["agi"] + data["agi_g"] * lv + bonus["agi"] + item_stats.get("agi", 0.0)
 	int_v = data["int"] + data["int_g"] * lv + bonus["int"] + item_stats.get("int", 0.0)
 	max_hp = 160.0 + str_v * 21.0 + item_stats.get("hp", 0.0)
-	hp_regen = 0.6 + str_v * 0.06
+	hp_regen = 0.6 + str_v * 0.06 + item_stats.get("hp_regen", 0.0)
 	max_mana = 80.0 + int_v * 12.0 + item_stats.get("mana", 0.0)
 	mana_regen = 0.7 + int_v * 0.045 + item_stats.get("mana_regen", 0.0)
 	armor = data["armor"] + agi_v * 0.14 + item_stats.get("armor", 0.0)
+	mres = minf(0.6, item_stats.get("mres", 0.0))
 	attack_speed = 1.0 + agi_v * 0.012 + item_stats.get("as", 0.0)
 	atk_dmg = data["dmg"] + primary_value() + item_stats.get("dmg", 0.0)
 	base_speed = data["speed"] * (1.0 + item_stats.get("ms", 0.0))
@@ -89,6 +102,7 @@ func recalc(fill := false) -> void:
 	reflect = item_stats.get("reflect", 0.0)
 	burn_on_hit = item_stats.get("burn", 0.0) > 0.0
 	has_aegis = item_stats.get("aegis", 0.0) > 0.0
+	update_range()
 	if fill:
 		hp = max_hp
 		mana = max_mana
@@ -102,17 +116,50 @@ func recalc(fill := false) -> void:
 		mana = minf(mana, max_mana)
 
 
+## Ranged = the current attack is a shot (Twinhide's spirit form, not her beast form).
+func attacks_ranged() -> bool:
+	return base_range >= 4.0
+
+
+## Does the special effect of item `id` fit this hero ("only" melee / ranged)? Twinhide has both forms.
+func item_fits(id: String) -> bool:
+	var only: String = DB.ITEMS.get(id, {}).get("only", "")
+	if only == "" or hero_id == "twinhide":
+		return true
+	return (only == "ranged") == bool(data.get("ranged", false))
+
+
+func set_base_range(r: float) -> void:
+	base_range = r
+	update_range()
+
+
+## Range items and Fog only change shots; melee reach stays the kit's.
+func update_range() -> void:
+	var r := base_range
+	if attacks_ranged():
+		r += item_stats.get("range", 0.0)
+		if run != null and run.weather != null and item_stats.get("lantern", 0.0) <= 0.0:
+			r *= run.weather.range_mult()
+	atk_range = r
+
+
 func speed() -> float:
 	var s := super.speed()
 	if sprint_t > 0.0:
 		s *= 1.6
 	if kit:
 		s *= kit.speed_mult()
+	if run:
+		s *= run.hero_speed_mult
 	return s
 
 
 func attack_interval() -> float:
-	var t := atk_time / maxf(0.2, attack_speed)
+	var a := attack_speed
+	if item_stats.get("berserk", 0.0) > 0.0 and not attacks_ranged() and hp < max_hp * 0.4:
+		a += 0.4
+	var t := atk_time / maxf(0.2, a)
 	if kit:
 		t /= kit.attack_speed_mult()
 	return t

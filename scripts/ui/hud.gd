@@ -2,11 +2,13 @@ extends CanvasLayer
 ## In-run HUD: bars, wave/prep info, gold & lives, boss bar, toasts, banner, item slots, shop, touch controls.
 
 signal pause_requested
+signal skills_info_requested
 
 var run: Run
 var root: Control
 var controls: Control
 var world_bars: Control
+var minimap: Control = null   # Delve only (scripts/ui/minimap.gd)
 var shop: Control = null
 
 var hp_bar: ProgressBar
@@ -23,12 +25,25 @@ var prep_box: Control
 var prep_label: Label
 var fight_btn: Button
 var shop_btn: Button
+var duel_btn: Button
+var party_rows: Array = []   # [{hero, bar, level, row}] for each AI ally
+var preview_duel: Label
 var boss_box: Control
+var preview_box: Control
+var preview_name: Label
+var preview_rule: Label
+var preview_desc: Label
+var preview_weather: Label
+var preview_foes: Label
+var weather_label: Label
+var _weather_shown := ""
+var _preview_wave := ""
 var boss_bar: ProgressBar
 var boss_label: Label
 var gold_label: Label
 var lives_label: Label
 var pause_btn: Button
+var info_btn: Button
 var toast_box: VBoxContainer
 var banner_box: VBoxContainer
 var banner_label: Label
@@ -71,8 +86,15 @@ func setup(r: Run) -> void:
 	_build_top_right()
 	_build_slots()
 	_build_banner_toasts()
+	if run.delve:
+		minimap = load("res://scripts/ui/minimap.gd").new()
+		minimap.name = "Minimap"
+		minimap.setup(run)
+		minimap.size_flags_horizontal = Control.SIZE_SHRINK_END
+		right_col.add_child(minimap)
+		minimap.visible = false
 
-	controls.blockers = [top_right, fight_btn, shop_btn, slots_box, pause_btn, prep_box]
+	controls.blockers = [top_right, fight_btn, shop_btn, duel_btn, slots_box, pause_btn, info_btn, prep_box]
 	run.toast_requested.connect(show_toast)
 	run.banner_requested.connect(show_banner)
 	root.resized.connect(_apply_safe_area)
@@ -157,6 +179,7 @@ func _build_top_left() -> void:
 	mana_bar = mana_stack[0]
 	mana_label = mana_stack[1]
 	bars.add_child(mana_stack[2])
+	mana_stack[2].visible = not run.hero.data.get("no_mana", false)
 	xp_bar = UIK.bar("XpBar", UIK.col("xp", Color(0.65, 0.36, 0.88)), Vector2(330, 10))
 	bars.add_child(xp_bar)
 	meter_box = HBoxContainer.new()
@@ -172,7 +195,23 @@ func _build_top_left() -> void:
 	meter_box.add_child(meter_bar)
 	var m := run.hero.kit.hud_meter()
 	meter_box.visible = not m.is_empty()
-	meter_bar.visible = m.get("type", "") == "flow"
+	meter_bar.visible = m.get("type", "") in ["flow", "bar"]
+	# AI allies: portrait, health and level under the player's bars
+	for c in run.companions:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bars.add_child(row)
+		var ic := UIK.icon_rect("portrait_" + c.hero_id, 34)
+		row.add_child(ic)
+		var cb := UIK.bar("FlowBar", Color(0.3, 0.85, 0.75), Vector2(150, 14))
+		cb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(cb)
+		var cl := UIK.label("", "SmallLabel", 16)
+		cl.add_theme_constant_override("outline_size", 5)
+		cl.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		row.add_child(cl)
+		party_rows.append({"hero": c, "bar": cb, "level": cl, "row": row})
 
 
 func _bar_with_label(variation: String, color: Color, sz: Vector2) -> Array:
@@ -210,6 +249,12 @@ func _build_top_center() -> void:
 	wave_label.add_theme_constant_override("outline_size", 8)
 	wave_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	top_center.add_child(wave_label)
+	weather_label = UIK.label("", "", 20, Color(1, 1, 1))
+	weather_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	weather_label.add_theme_constant_override("outline_size", 6)
+	weather_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	top_center.add_child(weather_label)
+	_build_preview()
 	# prep row (Shop / countdown / Fight!) lives in the right column, under gold & lives
 	prep_box = HBoxContainer.new()
 	prep_box.alignment = BoxContainer.ALIGNMENT_END
@@ -218,6 +263,12 @@ func _build_top_center() -> void:
 	shop_btn = UIK.icon_button("Shop", "shop", "PrimaryButton", Vector2(150, 76), 48.0, 22)
 	shop_btn.pressed.connect(toggle_shop)
 	prep_box.add_child(shop_btn)
+	duel_btn = UIK.button("Duel!", "PrimaryButton", Vector2(130, 76))
+	duel_btn.name = "DuelButton"
+	duel_btn.add_theme_color_override("font_color", Color(1.0, 0.55, 0.45))
+	duel_btn.pressed.connect(func(): run.duel.accept())
+	duel_btn.visible = false
+	prep_box.add_child(duel_btn)
 	prep_label = UIK.label("", "", 22, Color(1, 0.95, 0.85))
 	prep_label.add_theme_constant_override("outline_size", 6)
 	prep_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
@@ -240,6 +291,100 @@ func _build_top_center() -> void:
 	boss_bar = UIK.bar("BossBar", UIK.col("danger", Color(0.9, 0.2, 0.2)), Vector2(380, 22))
 	boss_box.add_child(boss_bar)
 	boss_box.visible = false
+
+
+## Camp preview of the next wave: its name, twist and captain, so the shop visit is a decision.
+func _build_preview() -> void:
+	preview_box = UIK.panel("DarkPanel")
+	preview_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.07, 0.05, 0.035, 0.82)
+	sb.border_color = UIK.col("frame", Color(0.54, 0.42, 0.23))
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(8)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 8
+	preview_box.add_theme_stylebox_override("panel", sb)
+	top_center.add_child(preview_box)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 2)
+	preview_box.add_child(v)
+	preview_name = UIK.label("", "", 24, UIK.col("gold", Color.GOLD))
+	preview_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(preview_name)
+	preview_rule = UIK.label("", "", 19, Color(1, 1, 1))
+	preview_rule.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(preview_rule)
+	preview_desc = UIK.label("", "", 19, Color(1, 0.93, 0.82))
+	preview_desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preview_desc.custom_minimum_size = Vector2(372, 0)
+	v.add_child(preview_desc)
+	preview_weather = UIK.label("", "", 18, Color(1, 1, 1))
+	preview_weather.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview_weather.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preview_weather.custom_minimum_size = Vector2(372, 0)
+	v.add_child(preview_weather)
+	preview_foes = UIK.label("", "", 17, Color(0.86, 0.9, 1.0))
+	preview_foes.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview_foes.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preview_foes.custom_minimum_size = Vector2(372, 0)
+	v.add_child(preview_foes)
+	preview_duel = UIK.label("", "", 18, Color(1.0, 0.62, 0.5))
+	preview_duel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview_duel.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	preview_duel.custom_minimum_size = Vector2(372, 0)
+	v.add_child(preview_duel)
+	preview_box.visible = false
+
+
+func _refresh_preview() -> void:
+	var off: Dictionary = run.duel.offer
+	var key := "%d|%s|%s" % [run.wave, run.weather.id, off.get("hero", "")]
+	if _preview_wave == key:
+		return
+	_preview_wave = key
+	preview_duel.visible = not off.is_empty()
+	if not off.is_empty():
+		var rn: String = DB.HEROES[off["hero"]]["name"]
+		var dt: String = DB.HEROES[off["hero"]].get("dmg_type", "mixed")
+		var dts: String = L.t({"phys": "physical", "magic": "magic"}.get(dt, "mixed"))
+		preview_duel.text = L.f("Challenger: %s (level %d, %s)", [rn, int(off["level"]), dts])
+		if int(off.get("gold", 0)) > 0:
+			preview_duel.text += "\n" + L.f("Win: +%d gold, +%d all stats", [int(off["gold"]), int(Duel.WIN_STATS)])
+	if run.duel.ladder():
+		preview_name.text = L.f("Duel %d / %d", [run.wave, Duel.LADDER_ROUNDS])
+		preview_rule.visible = false
+		preview_desc.text = L.f("Shop, then fight. Your hero reaches level %d for this duel.", [int(off.get("level", 1))])
+		preview_weather.visible = false
+		preview_foes.visible = false
+		return
+	var info := run.wave_info()
+	preview_name.text = L.f("Next: %s", [L.t(info.get("name", ""))])
+	var bits := []
+	var rule: String = info.get("rule", "")
+	if rule != "":
+		bits.append(L.t(DB.WAVE_RULES[rule]["name"]))
+		preview_rule.add_theme_color_override("font_color", DB.WAVE_RULES[rule]["color"])
+	else:
+		preview_rule.add_theme_color_override("font_color", Color(1, 0.85, 0.55))
+	var cap: String = info.get("captain", "")
+	if cap != "":
+		bits.append(L.f("Captain: %s", [L.t(DB.CAPTAIN_NAMES.get(cap, cap))]))
+	elif run.boss_kind() != "":
+		bits.append(L.t("Boss wave"))
+	preview_rule.text = "  ·  ".join(bits)
+	preview_rule.visible = not bits.is_empty()
+	preview_desc.text = L.t(info.get("desc", ""))
+	var wi: Dictionary = run.weather.info()
+	preview_weather.text = L.f("Weather: %s. %s", [L.t(wi["name"]), L.t(wi["desc"])]) if run.weather.id != "clear" else ""
+	preview_weather.add_theme_color_override("font_color", (wi["color"] as Color).lerp(Color.WHITE, 0.25))
+	preview_weather.visible = run.weather.id != "clear"
+	preview_foes.text = DB.matchup_line(run.wave)
+	preview_foes.visible = preview_foes.text != ""
 
 
 func _build_top_right() -> void:
@@ -283,6 +428,14 @@ func _build_top_right() -> void:
 	lives_label = UIK.label("3", "", 24, Color(1, 0.6, 0.55))
 	lives_label.custom_minimum_size = Vector2(28, 0)
 	ib.add_child(lives_label)
+	# one button for every skill's description (holding a skill button used to show it, and ranked it up by accident)
+	info_btn = UIK.button("", "SkillButton", Vector2(96, 96))
+	info_btn.icon = UIK.icon("info")
+	info_btn.expand_icon = true
+	info_btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info_btn.add_theme_constant_override("icon_max_width", 56)
+	info_btn.pressed.connect(func(): skills_info_requested.emit())
+	top_right.add_child(info_btn)
 	pause_btn = UIK.button("", "SkillButton", Vector2(96, 96))
 	pause_btn.icon = UIK.icon("pause")
 	pause_btn.expand_icon = true
@@ -379,8 +532,8 @@ func _build_banner_toasts() -> void:
 
 
 func show_banner(text: String, sub: String) -> void:
-	banner_label.text = text
-	banner_sub.text = sub
+	banner_label.text = L.t(text)
+	banner_sub.text = L.t(sub)
 	if banner_tween:
 		banner_tween.kill()
 	banner_box.modulate.a = 0.0
@@ -394,6 +547,7 @@ func show_banner(text: String, sub: String) -> void:
 
 
 func show_toast(text: String, color: Color) -> void:
+	text = L.t(text)
 	for c in toast_box.get_children():
 		if c is Label and c.text == text:
 			return
@@ -425,41 +579,83 @@ func _process(_delta: float) -> void:
 	var sp_on := h.skill_points > 0 and h.any_rank_up()
 	sp_badge.visible = sp_on
 	if sp_on:
-		sp_label.text = "+%d skill" % h.skill_points
+		sp_label.text = L.f("+%d skill", [h.skill_points])
 		sp_badge.modulate.a = 0.75 + 0.25 * sin(Time.get_ticks_msec() / 160.0)
 	var m := h.kit.hud_meter()
 	match m.get("type", ""):
 		"flow":
-			meter_label.text = "Flow %d" % int(m["value"])
+			meter_label.text = L.f("Flow %d", [int(m["value"])])
 			meter_bar.value = float(m["value"]) / float(m["max"])
 		"brood":
-			meter_label.text = "Brood %d / %d" % [int(m["count"]), int(m["cap"])]
+			meter_label.text = L.f("Brood %d / %d", [int(m["count"]), int(m["cap"])])
+		"bar":
+			meter_label.text = L.t(m.get("label", ""))
+			meter_bar.value = float(m["value"]) / maxf(0.001, float(m["max"]))
+			meter_bar.self_modulate = m.get("color", Color.WHITE)
+		"count":
+			meter_label.text = L.t(m.get("label", ""))
 	if run.gold != _last_gold:
 		_last_gold = run.gold
 		gold_label.text = str(run.gold)
-	lives_label.text = str(maxi(0, run.lives))
+	lives_label.text = "∞" if run.mode in ["practice", "training"] else str(maxi(0, run.lives))
 	var ph := run.phase
+	if run.weather.id != _weather_shown:
+		_weather_shown = run.weather.id
+		var wi: Dictionary = run.weather.info()
+		weather_label.text = L.t(wi["name"])
+		weather_label.add_theme_color_override("font_color", (wi["color"] as Color).lerp(Color.WHITE, 0.2))
+	weather_label.visible = run.weather.id != "clear"
 	if ph == "prep":
-		wave_label.text = "Wave %d / %d" % [run.wave, DB.TOTAL_WAVES]
+		wave_label.text = _wave_text()
 		prep_box.visible = true
-		prep_label.text = "Next wave\n%d s" % int(ceil(run.prep_t))
-		if DB.BOSS_WAVES.has(run.wave):
-			prep_label.text = "BOSS wave\n%d s" % int(ceil(run.prep_t))
+		prep_label.text = L.t("Descend" if run.delve else "Next wave")
+		if run.duel.ladder():
+			prep_label.text = L.t("Next duel")
+		elif run.boss_kind() != "":
+			prep_label.text = L.t("BOSS depth" if run.delve else "BOSS wave")
+		prep_label.text += "\n" + L.f("%d s", [int(ceil(run.prep_t))])
+		fight_btn.text = L.t("Duel!") if run.duel.ladder() else L.t("Fight!")
+		duel_btn.visible = run.duel.can_accept() and not run.duel.ladder()
 		shop_btn.visible = true
+		_refresh_preview()
+		preview_box.visible = shop == null and run.tutorial == null
+		# Training: the coach decides when to fight, so no countdown or Fight! button
+		prep_label.visible = run.tutorial == null
+		fight_btn.visible = run.tutorial == null
 	else:
 		prep_box.visible = false
-		if ph == "wave" or ph == "clear":
-			wave_label.text = "Wave %d / %d  ·  %d left" % [run.wave, DB.TOTAL_WAVES, run.enemies.size() + run.spawn_queue.size()]
+		preview_box.visible = false
+		if run.delve:
+			wave_label.text = _wave_text() + ("" if run.delve.lair_open else "  ·  " + L.t("find the lair"))
+		elif ph == "wave" or ph == "clear":
+			wave_label.text = "%s  ·  %s" % [_wave_text(), L.f("%d left", [run.enemies.size() + run.spawn_queue.size()])]
+		elif ph == "duel" or ph == "duel_end":
+			wave_label.text = L.t("Duel") + "  ·  " + L.f("%d s", [maxi(0, int(ceil(Duel.TIME_LIMIT - run.duel.t)))])
+	if minimap:
+		minimap.visible = ph == "wave" or ph == "clear"
 	var bh := run.boss_hp()
 	boss_box.visible = run.boss_units.size() > 0 and bh.y > 0.0
-	if boss_box.visible:
+	if run.rival != null and (ph == "duel" or ph == "duel_end"):
+		boss_box.visible = true
+		boss_bar.value = run.rival.hp / maxf(1.0, run.rival.max_hp)
+		boss_label.text = "%s  ·  %s  %d%%" % [run.rival.data["name"], L.f("level %d", [run.rival.level]), int(ceil(100.0 * boss_bar.value))]
+	elif boss_box.visible:
 		boss_bar.value = bh.x / bh.y
-		boss_label.text = "%s  %d%%" % [run.boss_title, int(ceil(100.0 * bh.x / bh.y))]
+		boss_label.text = "%s  %d%%" % [L.t(run.boss_title), int(ceil(100.0 * bh.x / bh.y))]
+	elif run.captain != null and run.captain.alive and ph == "wave":
+		boss_box.visible = true
+		boss_bar.value = run.captain.hp / maxf(1.0, run.captain.max_hp)
+		boss_label.text = "%s  %d%%" % [L.t(run.captain.display_name), int(ceil(100.0 * boss_bar.value))]
+	for pr in party_rows:
+		var c: Hero = pr["hero"]
+		(pr["bar"] as ProgressBar).value = 0.0 if c.dead else c.hp / maxf(1.0, c.max_hp)
+		(pr["level"] as Label).text = L.t("down") if c.dead else str(c.level)
+		(pr["row"] as Control).modulate = Color(1, 1, 1, 0.45) if c.dead else Color(1, 1, 1)
 	# inventory (icons are drawn by slot_overlay)
 	for i in 6:
 		var b: Button = slot_nodes[i]
 		if i < h.items.size():
-			b.tooltip_text = DB.ITEMS[h.items[i]["id"]]["name"]
+			b.tooltip_text = L.t(DB.ITEMS[h.items[i]["id"]]["name"])
 			b.modulate = Color(1, 1, 1)
 		else:
 			b.tooltip_text = ""
@@ -476,6 +672,19 @@ func _process(_delta: float) -> void:
 	if ph != "prep" and shop != null:
 		close_shop()
 	controls.enabled = shop == null
+
+
+## "Wave 7 / 20", or "Wave 23 · Endless" past the Warden, or "Training".
+func _wave_text() -> String:
+	if run.mode == "training":
+		return L.t("Training")
+	if run.delve:
+		return L.f("Depth %d / %d", [Delve.depth_of(run.wave), Delve.DEPTHS])
+	if run.mode == "endless":
+		return L.f("Wave %d · Endless", [run.wave])
+	if run.duel.ladder():
+		return L.f("Duel %d / %d", [run.wave, Duel.LADDER_ROUNDS])
+	return L.f("Wave %d / %d", [run.wave, DB.TOTAL_WAVES])
 
 
 func toggle_shop() -> void:

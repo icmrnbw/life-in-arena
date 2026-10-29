@@ -2,8 +2,12 @@ extends Node
 ## Autoplay bot (--autoplay). Plays through the same inputs a player has: move vector, casts, rank-ups, shop.
 ## --autoplay=passive: a careless player for difficulty calibration: shops the recommended build and taps skills
 ## whenever they're ready, but just walks at the nearest enemy (no dodging, kiting, healing or potions).
+## The same brain plays the AI heroes: role "ally" (a companion: fights, no shop or barrel digging) and "rival"
+## (the duel opponent; it runs inside Run.as_unit(), so `run.enemies` is the player's side).
 
 var run: Run
+var me: Hero
+var role := "player"
 var think_t := 0.0
 var shop_done_wave := -1
 var stuck_t := 0.0
@@ -13,33 +17,84 @@ var last_pos := Vector3.ZERO
 var orbit_sign := 1.0
 var orbit_flip_t := 4.0
 var passive := false
+## --noshop=N: buy nothing before wave N+1 (checks that skills and movement alone can't carry the early waves).
+var noshop := 0
+## Barrel stack play (smart bot, regular waves): dig a corridor into the nearest stack and fight from its end.
+var use_pens := true
+var pen_wave := -1
+var pen_i := -1
+var pen_slot := -1
+var pen_quit := false
+var pen_idle_t := 0.0
+var pen_kills := 0
+var pen_dry_t := 0.0   # time in pen play since the last kill
+var dry_t := 0.0       # time in a fight with foes up but no damage landing (smart bot)
+var dealt_last := 0.0
 
 
-func setup(r: Run) -> void:
+func setup(r: Run, h: Hero = null, as_role := "player") -> void:
 	run = r
-	passive = Game.autoplay_mode == "passive"
+	me = h if h != null else r.hero
+	role = as_role
+	passive = role == "player" and Game.autoplay_mode == "passive"
+	use_pens = role == "player" and Game.arg("pens", "1") != "0"
+	noshop = int(Game.arg("noshop", "0"))
+	orbit_sign = 1.0 if randf() < 0.5 else -1.0
 
 
 func tick(dt: float) -> void:
-	var h := run.hero
+	var h := me
 	if h.dead or not h.alive:
 		h.move_input = Vector2.ZERO
 		return
 	_rank_up()
 	think_t -= dt
+	match role:
+		"ally":
+			match run.phase:
+				"prep", "duel", "duel_end":
+					_ally_camp()
+				_:
+					if h.in_camp:
+						h.move_input = Vector2.ZERO
+					else:
+						_fight(dt)
+			return
+		"rival":
+			if run.phase == "duel":
+				_fight(dt)
+			else:
+				h.move_input = Vector2.ZERO
+			return
 	match run.phase:
 		"prep":
+			if Game.args.has("duels") and run.duel.can_accept():
+				run.duel.accept()
+				return
 			_prep(dt)
-		"wave", "clear", "victory_wait":
+		"wave", "clear", "victory_wait", "duel":
 			_fight(dt)
 		_:
 			h.move_input = Vector2.ZERO
 
 
+## Every skill point the hero has, spent in its skill order (AI heroes start leveled).
+func rank_all() -> void:
+	_rank_up()
+
+
+## An ally in camp: heal at the fountain, else wait beside the player.
+func _ally_camp() -> void:
+	var h := me
+	var goal: Vector3 = DB.FOUNTAIN_POS if h.hp < h.max_hp * 0.95 or h.mana < h.max_mana * 0.8 else run.hero.pos + (h.pos - run.hero.pos).limit_length(1.0).normalized() * 2.4
+	var to := run._flat(goal - h.pos)
+	h.move_input = Vector2(to.x, to.z).normalized() if to.length() > 1.2 else Vector2.ZERO
+
+
 func _rank_up() -> void:
-	var h := run.hero
+	var h := me
 	var guard := 0
-	while h.skill_points > 0 and h.any_rank_up() and guard < 8:
+	while h.skill_points > 0 and h.any_rank_up() and guard < 20:
 		guard += 1
 		var order: Array = h.data["skill_order"]
 		var counts := [0, 0, 0, 0]
@@ -48,19 +103,26 @@ func _rank_up() -> void:
 			counts[s] += 1
 			if h.ranks[s] < counts[s]:
 				if h.can_rank_up(s):
-					run.rank_up(s)
+					_rank(s)
 					done = true
 				break
 		if not done:
 			for s in [3, 0, 1, 2]:
 				if h.can_rank_up(s):
-					run.rank_up(s)
+					_rank(s)
 					break
+
+
+func _rank(s: int) -> void:
+	if me == run.hero:
+		run.rank_up(s)
+	else:
+		me.rank_up(s)
 
 
 # ---------------------------------------------------------------- prep
 func _prep(_dt: float) -> void:
-	var h := run.hero
+	var h := me
 	if shop_done_wave != run.wave:
 		shop_done_wave = run.wave
 		_shop()
@@ -71,9 +133,10 @@ func _prep(_dt: float) -> void:
 	if think_t <= 0.0:
 		think_t = 0.25
 		# fill the brood / prepare in camp
-		for s in 4:
-			if h.ranks[s] > 0 and h.kit.is_ready(s) and h.mana >= h.skill_mana(s) and s == 0 and h.hero_id == "hivemother" and h.kit.bot_wants(0):
-				run.try_cast(0)
+		var camp_cast: Array = h.kit.bot_profile().get("camp_cast", [])
+		for s in camp_cast:
+			if h.ranks[s] > 0 and h.kit.is_ready(s) and h.mana >= h.skill_mana(s) and h.kit.bot_wants(s):
+				run.cast_for(me, s)
 	var need_heal := h.hp < h.max_hp * 0.97 or h.mana < h.max_mana * 0.9
 	if need_heal:
 		var to := run._flat(DB.FOUNTAIN_POS - h.pos)
@@ -85,7 +148,9 @@ func _prep(_dt: float) -> void:
 
 
 func _shop() -> void:
-	var h := run.hero
+	var h := me
+	if run.wave <= noshop:
+		return
 	# make room for the build: sell potions when the bag is nearly full
 	if h.items.size() >= 5 and not run.build_needs().is_empty():
 		for i in range(h.items.size() - 1, -1, -1):
@@ -132,13 +197,31 @@ func _shop() -> void:
 	if needs2.is_empty():
 		if run.feathers == 0 and run.gold >= 1500 and run.lives <= 2:
 			run.buy("phoenix_feather")
-		while run.gold >= 500 + (1500 if run.feathers == 0 and run.lives <= 2 else 0) and run.can_buy("tome_of_might") == "":
-			run.buy("tome_of_might")
+		# spare gold: the cheapest Training rank that suits the hero, or a Tome once ranks cost more than it
+		var keep := 1500 if run.feathers == 0 and run.lives <= 2 else 0
+		var picks := ["train_" + String(h.data["primary"]), "train_dmg", "train_armor", "train_haste", "train_vigor", "train_regen"]
+		var guard2 := 0
+		while guard2 < 60:
+			guard2 += 1
+			var best := ""
+			var best_p := 500
+			for u in picks:
+				if run.can_upgrade(u) == "" and run.upgrade_price(u) < best_p:
+					best = u
+					best_p = run.upgrade_price(u)
+			if run.gold - best_p < keep:
+				break
+			if best != "":
+				run.buy_upgrade(best)
+			elif run.can_buy("tome_of_might") == "":
+				run.buy("tome_of_might")
+			else:
+				break
 
 
 # ---------------------------------------------------------------- fight
 func _fight(dt: float) -> void:
-	var h := run.hero
+	var h := me
 	if think_t <= 0.0:
 		think_t = 0.15
 		if passive:
@@ -150,7 +233,7 @@ func _fight(dt: float) -> void:
 
 
 func _cast() -> void:
-	var h := run.hero
+	var h := me
 	for s in [3, 0, 1, 2]:
 		if h.ranks[s] <= 0:
 			continue
@@ -159,26 +242,28 @@ func _cast() -> void:
 		if not h.kit.free_cast(s) and h.mana < h.skill_mana(s):
 			continue
 		if h.kit.bot_wants(s):
-			if run.try_cast(s):
+			if run.cast_for(me, s):
 				return
 
 
 func _cast_careless() -> void:
-	var h := run.hero
+	var h := me
 	if run.nearest_enemy(h.pos, 9.0) == null:
 		return
 	for s in [0, 1, 2, 3]:
 		if h.ranks[s] > 0 and h.kit.is_ready(s) and h.mana >= h.skill_mana(s):
 			if h.kit.free_cast(s):
 				continue
-			if h.hero_id == "hivemother" and s == 0 and not h.kit.bot_wants(0):
+			if s in h.kit.bot_profile().get("camp_cast", []) and not h.kit.bot_wants(s):
 				continue
-			if run.try_cast(s):
+			if h.kit.blocked(s):
+				continue
+			if run.cast_for(me, s):
 				return
 
 
 func _items() -> void:
-	var h := run.hero
+	var h := me
 	for i in h.items.size():
 		var id: String = h.items[i]["id"]
 		if id == "healing_draught" and h.hp < h.max_hp * 0.45 and float(h.items[i].get("cd", 0.0)) <= 0.0:
@@ -187,38 +272,50 @@ func _items() -> void:
 				if b["hp"] > 0.0:
 					active = true
 			if not active:
-				run.use_item(i)
+				run.use_item_for(me, i)
 				return
 		if id == "mana_draught" and h.mana < h.max_mana * 0.25:
-			run.use_item(i)
+			run.use_item_for(me, i)
 			return
 		if id == "wayfarer_treads" and h.hp < h.max_hp * 0.35 and float(h.items[i].get("cd", 0.0)) <= 0.0:
-			run.use_item(i)
+			run.use_item_for(me, i)
 			return
 
 
 func _move(dt: float) -> void:
-	var h := run.hero
+	var h := me
 	if passive:
 		# walks at the nearest enemy and auto-attacks; no skills, no shopping, no dodging
 		var n := run.nearest_enemy(h.pos, 60.0)
 		var goal := n.pos if n else Vector3(0, 0, 4)
+		if run.delve and run.delve.active:
+			goal = run.delve.waypoint(h, n.pos if n else run.delve.bot_goal(h.pos))
 		var to := run._flat(goal - h.pos)
 		var stop := (h.atk_range + n.radius + h.radius - 0.3) if n else 1.0
 		h.move_input = Vector2(to.x, to.z).normalized() if to.length() > stop else Vector2.ZERO
 		return
+	_focus_buffers()
+	if run.delve == null and _pen_play(dt):
+		return
 	var v := Vector3.ZERO
 	var enemies := []
 	for e in run.enemies:
-		if e.alive and not e.untargetable:
+		if e.alive and not e.untargetable and not e.dormant:
 			enemies.append(e)
 	var hp_frac := h.hp / maxf(1.0, h.max_hp)
-	var hive := h.hero_id == "hivemother"
-	var rift := h.hero_id == "riftdancer"
+	var prof: Dictionary = h.kit.bot_profile()
+	var ranged: bool = prof.get("ranged", false)
+	var orbit: float = prof.get("orbit", 0.0)
+	# a channeling hero stands still (stick input would cancel the channel), unless something must be dodged
+	if h.kit.override_motion_active():
+		var hz0 := _hazard_push()
+		h.move_input = Vector2(hz0.x, hz0.z).normalized() if hz0.length() > 0.5 else Vector2.ZERO
+		return
 	orbit_flip_t -= dt
 	if orbit_flip_t <= 0.0:
 		orbit_flip_t = randf_range(3.0, 6.0)
 		orbit_sign = -orbit_sign
+	var chase: Unit = null
 	if enemies.size() > 0:
 		# local crowd
 		var near_n := 0
@@ -233,58 +330,94 @@ func _move(dt: float) -> void:
 		# target: boss first, else nearest
 		var tgt: Unit = null
 		for b in run.boss_units:
-			if b.alive:
+			if b.alive and not b.untargetable:
 				tgt = b
 		if tgt == null or (run._flat(tgt.pos - h.pos).length() > 6.0 and near_n >= 3):
 			tgt = run.nearest_enemy(h.pos, 60.0)
+		chase = tgt
 		if tgt != null:
 			var to_t := run._flat(tgt.pos - h.pos)
 			var dist := to_t.length()
 			var dirt := to_t / maxf(0.01, dist)
 			var want := h.atk_range + tgt.radius + h.radius - 0.2
-			if hive:
-				want = 7.0
+			if ranged:
+				want = float(prof.get("keep", 7.0))
 			var boss_only := near_n <= 2 and tgt.is_boss
-			var retreat := hp_frac < (0.32 if not hive else 0.45) and not (boss_only and hp_frac > 0.2)
-			var crowd_limit := 7 if h.hero_id == "ashwarden" else (4 if rift else 2)
-			if retreat or (near_n >= crowd_limit and not hive):
+			var retreat := hp_frac < float(prof.get("retreat", 0.32)) and not (boss_only and hp_frac > 0.2)
+			var crowd_limit: int = prof.get("crowd", 2)
+			if retreat or (near_n >= crowd_limit and not ranged):
 				if near_n > 0:
 					var away := run._flat(h.pos - centroid)
 					v += (away.normalized() if away.length() > 0.1 else -dirt) * 1.5
 				else:
 					v -= dirt
-			elif hive:
+			elif ranged:
 				var nd := run._flat(run.nearest_enemy(h.pos, 60.0).pos - h.pos).length() if run.nearest_enemy(h.pos, 60.0) else 99.0
-				if nd < 5.5:
+				var shielded := tgt.blocks_front and tgt.facing.dot(-dirt) > 0.3
+				if nd < (3.5 if shielded else 5.5):
 					v -= dirt * 1.2
 				elif dist > want + 2.0:
 					v += dirt * 0.8
-				v += Vector3(-dirt.z, 0, dirt.x) * orbit_sign * 0.35
+				# shields block shots from the front: circle round to its side
+				var flank := 1.0 if shielded else orbit
+				v += Vector3(-dirt.z, 0, dirt.x) * orbit_sign * flank
 			else:
-				if dist > want + 0.3:
+				# close in until it is truly in reach (want is reach - 0.2): a kiting Hexcaster that
+				# stops just past reach used to freeze the bot in place for the rest of the wave
+				if dist > want:
 					v += dirt
 				elif dist < want - 0.8:
 					v -= dirt * 0.5
-				if rift or tgt.is_boss:
-					v += Vector3(-dirt.z, 0, dirt.x) * orbit_sign * (0.8 if rift else 0.4)
+				if orbit >= 0.6 or tgt.is_boss:
+					v += Vector3(-dirt.z, 0, dirt.x) * orbit_sign * maxf(orbit, 0.4)
 		# ranged harassers: melee heroes go for hexcasters when nothing is close
-		if near_n == 0 and not hive:
+		if near_n == 0 and not ranged:
 			var hx := _nearest_kind("hexcaster")
 			if hx:
 				v += run._flat(hx.pos - h.pos).normalized() * 0.5
+	elif run.delve and run.delve.active:
+		# Delve: nothing awake, so go and wake the nearest pack (or open the lair)
+		v += run._flat(run.delve.waypoint(h, run.delve.bot_goal(h.pos)) - h.pos).normalized()
 	else:
 		# nothing visible: drift to the middle (burrowers / spawns)
 		var to2 := run._flat(Vector3(0, 0, 3) - h.pos)
 		if to2.length() > 2.0:
 			v += to2.normalized() * 0.6
+	# Delve: a foe round a corner is reached by the path, not straight through the wall
+	if run.delve and run.delve.active and chase != null and not run.delve.los(h.pos, chase.pos):
+		v = run._flat(run.delve.waypoint(h, chase.pos) - h.pos).normalized()
 	# hazards
 	var hz := _hazard_push()
 	if hz.length() > 0.01:
 		v = v * 0.3 + hz * 3.0
 	# stay off the outer wall
 	var rr := Vector2(h.pos.x, h.pos.z).length()
-	if rr > DB.ARENA_R - 4.0 and not h.in_camp:
-		v += run._flat(-h.pos).normalized() * (rr - (DB.ARENA_R - 4.0)) * 0.6
+	if rr > run.arena_safe_r() - 4.0 and not h.in_camp:
+		v += run._flat(-h.pos).normalized() * (rr - (run.arena_safe_r() - 4.0)) * 0.6
+	# out in the open, keep off the barrel stacks: kiting into one gets you pinned
+	if run.barrels and not h.in_camp and run.barrels.cover(h.pos) < 2:
+		var nb := run.barrels.barrel_near(h.pos, 2.5)
+		if nb != null:
+			var gap := run._flat(h.pos - nb.pos).length() - DB.BARREL_R - h.radius
+			v += run._flat(h.pos - nb.pos).normalized() * clampf(1.0 - gap / 2.0, 0.0, 1.0) * 1.5
+	# in a corridor mid-wave: out the way we came, not into the barrels
+	if run.barrels and run.barrels.cover(h.pos) >= 2 and not h.in_camp:
+		v = run._flat(run.barrels.waypoint(h, Vector3(0, 0, 3)) - h.pos).normalized() * 2.0 + v * 0.2
+	# no hits landing for a while (a Hexcaster behind a barrel stack or a pillar): walk the barrel-aware path to the
+	# nearest foe instead of the straight line that keeps bumping into the same cover
+	if role != "rival" and run.barrels and not h.in_camp:
+		var dealt := 0.0
+		for d in run.stats["damage_by"].values():
+			dealt += float(d)
+		if enemies.is_empty() or dealt > dealt_last + 0.5:
+			dry_t = 0.0
+			dealt_last = dealt
+		else:
+			dry_t += dt
+		if dry_t > 5.0:
+			var nf := run.nearest_enemy(h.pos, 60.0)
+			if nf != null and h.edge_dist(nf) > h.atk_range:
+				v = run._flat(run.barrels.waypoint(h, nf.pos) - h.pos).normalized() * 2.0 + _hazard_push() * 2.0
 	# unstick
 	if stuck_left > 0.0:
 		stuck_left -= dt
@@ -302,12 +435,89 @@ func _move(dt: float) -> void:
 	h.move_input = Vector2(v.x, v.z).normalized() if v.length() > 0.15 else Vector2.ZERO
 
 
+## Tap Chanters and Drummers first when they're close.
+func _focus_buffers() -> void:
+	var h := me
+	if h.focus != null and h.focus.alive and not (h.focus is Barrel):
+		return
+	var best: Unit = null
+	var bd := 12.0
+	for b in run.chanters + run.drummers:
+		if b.alive:
+			var d := run._flat(b.pos - h.pos).length()
+			if d < bd:
+				bd = d
+				best = b
+	if best != null:
+		h.focus = best
+
+
+func _pen_play(dt: float) -> bool:
+	var h := me
+	var bf := run.barrels
+	if not use_pens or bf == null or run.phase != "wave" or not run.boss_units.is_empty() or run.boss_kind() != "":
+		return false
+	if pen_wave != run.wave:
+		pen_wave = run.wave
+		pen_quit = false
+		pen_idle_t = 0.0
+		pen_dry_t = 0.0
+		pen_kills = int(run.stats["kills"])
+		pen_i = -1
+		var bd := 1e9
+		for i in bf.stacks.size():
+			if bf.stacks[i]["lane"].is_empty():
+				continue
+			var d := run._flat(bf.stacks[i]["front"] - h.pos).length()
+			if d < bd:
+				bd = d
+				pen_i = i
+	if pen_quit or pen_i < 0:
+		return false
+	var st: Dictionary = bf.stacks[pen_i]
+	var lane: Array = st["lane"]
+	var want := mini(BarrelField.DIG_DEPTH, lane.size())
+	var depth := 0
+	while depth < want and bf.barrel_at(lane[depth]) == null:
+		depth += 1
+	var hold: Vector3 = st["front"] if depth == 0 else BarrelField.cell_pos(lane[depth - 1])
+	var hp_frac := h.hp / maxf(1.0, h.max_hp)
+	var near := run.count_enemies(hold, 8.0)
+	var dug_in := depth >= want and run._flat(h.pos - hold).length() < 0.8
+	if dug_in and near == 0:
+		pen_idle_t += dt
+	else:
+		pen_idle_t = 0.0
+	if int(run.stats["kills"]) != pen_kills:
+		pen_kills = int(run.stats["kills"])
+		pen_dry_t = 0.0
+	else:
+		pen_dry_t += dt
+	# the corridor got smashed open around us, nothing is coming, nothing is dying, or a buffer needs killing
+	var breached := depth >= want and bf.cover(hold) < 2
+	if breached or pen_idle_t > 6.0 or pen_dry_t > 14.0 or (h.focus != null and h.focus.alive and not (h.focus is Barrel) and run._flat(h.focus.pos - hold).length() > h.atk_range + 2.5):
+		pen_quit = true
+		return false
+	var goal := hold
+	if depth < want:
+		h.focus = bf.barrel_at(lane[depth])   # dig: break the next barrel of the lane
+	if run._flat(goal - h.pos).length() > 1.5:
+		goal = bf.waypoint(h, goal)
+	var to := run._flat(goal - h.pos)
+	var v := to.normalized() if to.length() > 0.2 else Vector3.ZERO
+	var hz := _hazard_push()
+	if hz.length() > 0.01:
+		v = v * 0.3 + hz * 3.0
+	h.move_input = Vector2(v.x, v.z).normalized() if v.length() > 0.15 else Vector2.ZERO
+	return true
+
+
 func _nearest_kind(k: String) -> Unit:
 	var best: Unit = null
 	var bd := 1e9
 	for e in run.enemies:
 		if e.alive and not e.untargetable and e.kind == k:
-			var d := run._flat(e.pos - run.hero.pos).length()
+			var d := run._flat(e.pos - me.pos).length()
 			if d < bd:
 				bd = d
 				best = e
@@ -315,7 +525,7 @@ func _nearest_kind(k: String) -> Unit:
 
 
 func _hazard_push() -> Vector3:
-	var h := run.hero
+	var h := me
 	var push := Vector3.ZERO
 	for hz in run.hazards:
 		match hz.get("type", ""):

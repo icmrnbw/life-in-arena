@@ -3,11 +3,18 @@ extends RefCounted
 ## All static game content: heroes, skills, items, enemies, waves, economy curves.
 ## Numbers are starting balance (see plan sections 3-5).
 
-const HERO_ORDER := ["ashwarden", "riftdancer", "hivemother"]
+const HERO_ORDER := ["ashwarden", "riftdancer", "hivemother", "sanguine", "snarewright", "twinhide", "gravekeeper", "stoneshaper", "gunsmith", "sunspeaker",
+	"duelist", "vanguard", "nightblade", "skyspear", "frostweaver", "stormcaller", "alchemist", "chronomancer"]
+
+## Adding a hero: an entry here + its skills below + scripts/kits/<id>_kit.gd + a rig, a portrait and 4 skill icons in art/.
+## "tag" is the one-word playstyle shown on hero select (each hero has its own), "difficulty" 1-3 stars.
+## "bot" tunes the autoplay bot: ranged (kite at "keep" m), "crowd" (melee: back off when this many are close),
+## "retreat" (HP fraction), "orbit" (circle-strafe strength), "camp_cast" (slots cast in camp before a wave).
 
 const HEROES := {
 	"ashwarden": {
-		"name": "Ashwarden", "title": "The Architect", "role": "Zone control",
+		"name": "Ashwarden", "title": "The Architect", "role": "Zone control", "tag": "Zones", "difficulty": 1, "dmg_type": "magic",
+		"bot": {"crowd": 7},
 		"playstyle": "Builds the battlefield: plant totems, raise walls, then pull the enemy pack into the fire.",
 		"primary": "str", "str": 24.0, "agi": 12.0, "int": 16.0, "str_g": 2.8, "agi_g": 1.3, "int_g": 1.7,
 		"dmg": 24.0, "range": 2.3, "atk_time": 1.4, "speed": 5.0, "armor": 3.0, "ranged": false,
@@ -16,16 +23,18 @@ const HEROES := {
 		"build": ["iron_knuckles", "vigor_charm", "hide_vest", "bulwark_plate", "focus_pendant", "runners_boots", "wayfarer_treads", "stout_belt", "wardens_aegis", "swift_gloves", "iron_knuckles", "emberbrand", "vigor_charm", "iron_knuckles", "bloodthirst_fang", "sage_circlet", "focus_pendant", "hivecore_sigil"],
 	},
 	"riftdancer": {
-		"name": "Riftdancer", "title": "The Momentum Fighter", "role": "Combo / mobility",
+		"name": "Riftdancer", "title": "The Momentum Fighter", "role": "Combo / mobility", "tag": "Momentum", "difficulty": 3, "dmg_type": "mixed",
+		"bot": {"crowd": 4, "orbit": 0.8},
 		"playstyle": "Never stop moving: dash through foes, mark them, then shatter every mark at once.",
 		"primary": "agi", "str": 19.0, "agi": 24.0, "int": 14.0, "str_g": 2.0, "agi_g": 3.0, "int_g": 1.5,
 		"dmg": 18.0, "range": 2.1, "atk_time": 1.25, "speed": 6.0, "armor": 3.0, "ranged": false,
 		"skills": ["slip", "shatter_mark", "afterimage", "rift_cascade"],
 		"skill_order": [0, 1, 0, 2, 1, 3, 0, 1, 0, 1, 3, 2, 2, 2, 3],
-		"build": ["iron_knuckles", "vigor_charm", "bloodthirst_fang", "swift_gloves", "iron_knuckles", "emberbrand", "runners_boots", "focus_pendant", "wayfarer_treads", "hide_vest", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "sage_circlet", "focus_pendant", "hivecore_sigil"],
+		"build": ["iron_knuckles", "vigor_charm", "bloodthirst_fang", "brawlers_wraps", "iron_knuckles", "cleaving_axe", "runners_boots", "focus_pendant", "wayfarer_treads", "hide_vest", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "sage_circlet", "focus_pendant", "hivecore_sigil"],
 	},
 	"hivemother": {
-		"name": "Hivemother", "title": "The Commander", "role": "Swarm management",
+		"name": "Hivemother", "title": "The Commander", "role": "Swarm management", "tag": "Summons", "difficulty": 2, "dmg_type": "phys",
+		"bot": {"ranged": true, "keep": 7.0, "retreat": 0.45, "orbit": 0.35, "camp_cast": [0]},
 		"playstyle": "Fights through her brood: hatch broodlings, send them in, spend them as living bombs.",
 		"primary": "int", "str": 19.0, "agi": 13.0, "int": 24.0, "str_g": 2.1, "agi_g": 1.3, "int_g": 3.0,
 		"dmg": 14.0, "range": 9.0, "atk_time": 1.5, "speed": 5.0, "armor": 2.0, "ranged": true,
@@ -33,7 +42,167 @@ const HEROES := {
 		"skill_order": [0, 2, 0, 1, 0, 3, 0, 2, 2, 2, 3, 1, 1, 1, 3],
 		"build": ["focus_pendant", "vigor_charm", "sage_circlet", "hivecore_sigil", "hide_vest", "bulwark_plate", "runners_boots", "focus_pendant", "wayfarer_treads", "stout_belt", "wardens_aegis", "iron_knuckles", "vigor_charm", "bloodthirst_fang"],
 	},
+	"sanguine": {
+		"name": "Sanguine", "title": "The Blood Pact", "role": "Risk / sustain", "tag": "Blood", "difficulty": 2, "dmg_type": "phys", "no_mana": true,
+		"playstyle": "Pays for every skill with his own blood and drinks it back with every hit. The lower his HP, the harder he hits.",
+		"primary": "str", "str": 25.0, "agi": 14.0, "int": 12.0, "str_g": 3.0, "agi_g": 1.4, "int_g": 1.1,
+		"dmg": 22.0, "range": 2.2, "atk_time": 1.3, "speed": 5.2, "armor": 2.0, "ranged": false,
+		"skills": ["crimson_cleave", "blood_rush", "hemorrhage", "undying_pact"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 2, 1, 2, 3, 2, 1, 1, 3],
+		"build": ["iron_knuckles", "vigor_charm", "bloodthirst_fang", "hide_vest", "vigor_charm", "bulwark_plate", "swift_gloves", "vigor_charm", "berserkers_torc", "runners_boots", "stout_belt", "wardens_aegis", "focus_pendant", "wayfarer_treads", "vigor_charm", "iron_knuckles", "bloodthirst_fang"],
+		"bot": {"crowd": 5, "retreat": 0.22, "orbit": 0.3},
+	},
+	"snarewright": {
+		"name": "Snarewright", "title": "The Trapper", "role": "Traps / planning", "tag": "Traps", "difficulty": 2, "dmg_type": "phys",
+		"playstyle": "Wins before the fight starts: lay traps, timed charges and tripwires where the pack will walk, then pick off the snared.",
+		"primary": "agi", "str": 21.0, "agi": 23.0, "int": 16.0, "str_g": 2.2, "agi_g": 2.8, "int_g": 1.7,
+		"dmg": 17.0, "range": 8.0, "atk_time": 1.35, "speed": 5.4, "armor": 3.0, "ranged": true,
+		"skills": ["snare_trap", "blast_charge", "tripwire", "killing_field"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 1, 0, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["fletchers_quiver", "swift_gloves", "vigor_charm", "splinter_quiver", "runners_boots", "bloodthirst_fang", "hide_vest", "focus_pendant", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "sage_circlet", "focus_pendant", "hivecore_sigil"],
+		"bot": {"ranged": true, "keep": 7.0, "retreat": 0.5, "orbit": 0.4},
+	},
+	"twinhide": {
+		"name": "Twinhide", "title": "The Two-Souled", "role": "Shapeshifter", "tag": "Forms", "difficulty": 3, "dmg_type": "mixed",
+		"playstyle": "Two heroes in one: a spirit caster at range and a beast up close, each with its own Q and W. Shift right after a skill to get its twin ready at once.",
+		"primary": "agi", "str": 20.0, "agi": 20.0, "int": 20.0, "str_g": 2.3, "agi_g": 2.3, "int_g": 2.2,
+		"dmg": 16.0, "range": 8.0, "atk_time": 1.45, "speed": 5.2, "armor": 2.0, "ranged": true,
+		"skills": ["spirit_lance", "moonwell", "shift", "twin_fury"],
+		"beast_skills": ["rend", "pounce"],
+		"skill_order": [0, 2, 1, 0, 2, 3, 0, 1, 0, 1, 3, 1, 2, 2, 3],
+		"build": ["fletchers_quiver", "hide_vest", "vigor_charm", "skirmisher_cloak", "runners_boots", "bloodthirst_fang", "hide_vest", "focus_pendant", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "sage_circlet", "focus_pendant", "hivecore_sigil"],
+		"bot": {"ranged": true, "keep": 7.0, "retreat": 0.4, "orbit": 0.4},
+	},
+	"gravekeeper": {
+		"name": "Gravekeeper", "title": "The Undertaker", "role": "Corpse summoner", "tag": "Corpses", "difficulty": 2, "dmg_type": "magic",
+		"playstyle": "Every enemy that falls leaves a grave. Raise skeletons from them, blow them up, or open every grave at once.",
+		"primary": "int", "str": 18.0, "agi": 12.0, "int": 25.0, "str_g": 2.0, "agi_g": 1.2, "int_g": 3.0,
+		"dmg": 15.0, "range": 8.5, "atk_time": 1.6, "speed": 5.0, "armor": 2.0, "ranged": true,
+		"skills": ["raise_dead", "corpse_blast", "grave_chill", "open_graves"],
+		"skill_order": [0, 2, 0, 1, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["focus_pendant", "vigor_charm", "sage_circlet", "hivecore_sigil", "hide_vest", "bulwark_plate", "runners_boots", "focus_pendant", "wayfarer_treads", "stout_belt", "wardens_aegis", "iron_knuckles", "vigor_charm", "bloodthirst_fang"],
+		"bot": {"ranged": true, "keep": 7.5, "retreat": 0.45, "orbit": 0.35},
+	},
+	"stoneshaper": {
+		"name": "Stoneshaper", "title": "The Mountain's Hand", "role": "Terrain / control", "tag": "Impact", "difficulty": 2, "dmg_type": "phys",
+		"playstyle": "Uses the arena as a weapon: shove foes into pillars, walls and each other. A body that hits something takes heavy damage and is stunned. Skin of stone: takes 20% less damage.",
+		"primary": "str", "str": 26.0, "agi": 12.0, "int": 15.0, "str_g": 3.1, "agi_g": 1.3, "int_g": 1.6,
+		"dmg": 28.0, "range": 2.3, "atk_time": 1.4, "speed": 4.8, "armor": 4.0, "ranged": false,
+		"skills": ["rock_shove", "stone_ridge", "quake", "avalanche"],
+		"skill_order": [0, 2, 0, 1, 0, 3, 2, 0, 2, 1, 3, 2, 1, 1, 3],
+		"build": ["iron_knuckles", "vigor_charm", "hide_vest", "bulwark_plate", "focus_pendant", "runners_boots", "wayfarer_treads", "stout_belt", "wardens_aegis", "stout_belt", "iron_knuckles", "skullcrusher", "vigor_charm", "iron_knuckles", "bloodthirst_fang", "sage_circlet", "focus_pendant", "hivecore_sigil"],
+		"bot": {"crowd": 6, "orbit": 0.2},
+	},
+	"gunsmith": {
+		"name": "Gunsmith", "title": "The Deadshot", "role": "Long range", "tag": "Ammo", "difficulty": 2, "dmg_type": "phys",
+		"playstyle": "Longest reach in the Pit, but eight shots to a magazine. Reload on an empty chamber for incendiary rounds, and keep the pack at mortar range.",
+		"primary": "agi", "str": 21.0, "agi": 25.0, "int": 14.0, "str_g": 2.3, "agi_g": 3.1, "int_g": 1.4,
+		"dmg": 20.0, "range": 10.5, "atk_time": 0.9, "speed": 5.2, "armor": 3.0, "ranged": true,
+		"skills": ["hot_reload", "scattershot", "mortar", "deadeye"],
+		"skill_order": [1, 0, 2, 1, 2, 3, 1, 2, 1, 2, 3, 0, 0, 0, 3],
+		"build": ["fletchers_quiver", "focus_pendant", "vigor_charm", "hawkeye_lens", "runners_boots", "bloodthirst_fang", "hide_vest", "focus_pendant", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "sage_circlet", "focus_pendant", "hivecore_sigil"],
+		"bot": {"ranged": true, "keep": 8.5, "retreat": 0.5, "orbit": 0.45},
+	},
+	"sunspeaker": {
+		"name": "Sunspeaker", "title": "The Channeler", "role": "Stand-and-cast", "tag": "Channel", "difficulty": 3, "dmg_type": "magic",
+		"playstyle": "Stand your ground: Radiance builds while you stay still and powers every beam. Moving bleeds it away.",
+		"primary": "int", "str": 21.0, "agi": 11.0, "int": 26.0, "str_g": 2.3, "agi_g": 1.1, "int_g": 3.2,
+		"dmg": 14.0, "range": 8.5, "atk_time": 1.55, "speed": 5.0, "armor": 2.5, "ranged": true,
+		"skills": ["sunbeam", "solar_flare", "sanctum", "dawn_lance"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["focus_pendant", "vigor_charm", "sage_circlet", "hivecore_sigil", "hide_vest", "bulwark_plate", "runners_boots", "focus_pendant", "wayfarer_treads", "stout_belt", "wardens_aegis", "iron_knuckles", "vigor_charm", "bloodthirst_fang"],
+		"bot": {"ranged": true, "keep": 8.0, "retreat": 0.5, "orbit": 0.1},
+	},
+	# --- 0.6 roster: 4 physical, 4 magic ---
+	"duelist": {
+		"name": "Duelist", "title": "The Riposte", "role": "Timing / counters", "tag": "Parry", "difficulty": 3, "dmg_type": "phys",
+		"playstyle": "Raise your blade just before a blow lands: a parry takes no damage, counters hard and refunds the skill. Poise from parries makes every swing faster.",
+		"primary": "agi", "str": 21.0, "agi": 24.0, "int": 14.0, "str_g": 2.3, "agi_g": 3.0, "int_g": 1.4,
+		"dmg": 19.0, "range": 2.2, "atk_time": 1.2, "speed": 5.6, "armor": 3.0, "ranged": false,
+		"skills": ["riposte", "lunge", "feint", "blade_dance"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["iron_knuckles", "vigor_charm", "bloodthirst_fang", "brawlers_wraps", "iron_knuckles", "cleaving_axe", "runners_boots", "hide_vest", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "focus_pendant", "skullcrusher", "sage_circlet", "hivecore_sigil"],
+		"bot": {"crowd": 5, "orbit": 0.4, "retreat": 0.3},
+	},
+	"vanguard": {
+		"name": "Vanguard", "title": "The Unbroken", "role": "Tank / rage", "tag": "Rage", "difficulty": 1, "no_mana": true, "dmg_type": "phys",
+		"playstyle": "No mana: every blow you give or take fills Rage, and Rage pays for your skills. Roar to pull the pack onto you, then turn their hits into a shield. Plate: takes 15% less damage.",
+		"primary": "str", "str": 27.0, "agi": 11.0, "int": 13.0, "str_g": 3.2, "agi_g": 1.1, "int_g": 1.2,
+		"dmg": 24.0, "range": 2.3, "atk_time": 1.5, "speed": 4.8, "armor": 5.0, "ranged": false,
+		"skills": ["shield_bash", "war_cry", "iron_will", "juggernaut"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 2, 2, 2, 3, 1, 1, 1, 3],
+		"build": ["iron_knuckles", "vigor_charm", "hide_vest", "bulwark_plate", "runners_boots", "stout_belt", "wayfarer_treads", "wardens_aegis", "cleaving_axe", "vigor_charm", "iron_knuckles", "skullcrusher", "bloodthirst_fang", "berserkers_torc", "stout_belt"],
+		"bot": {"crowd": 6, "retreat": 0.3, "orbit": 0.2},
+	},
+	"nightblade": {
+		"name": "Nightblade", "title": "The Unseen", "role": "Assassin", "tag": "Stealth", "difficulty": 3, "dmg_type": "phys",
+		"playstyle": "Strike from behind: hits on a foe's back deal 60% more and heal her for 12% of the damage. Step through shadows to a foe's back, vanish so the pack swarms an empty spot, and mark a victim for death.",
+		"primary": "agi", "str": 20.0, "agi": 26.0, "int": 14.0, "str_g": 2.1, "agi_g": 3.2, "int_g": 1.4,
+		"dmg": 24.0, "range": 2.0, "atk_time": 1.15, "speed": 5.8, "armor": 3.0, "ranged": false,
+		"skills": ["shadowstep", "fan_of_knives", "vanish", "death_mark"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["iron_knuckles", "swift_gloves", "bloodthirst_fang", "brawlers_wraps", "vigor_charm", "cleaving_axe", "runners_boots", "hide_vest", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "skullcrusher", "focus_pendant", "hivecore_sigil"],
+		"bot": {"crowd": 3, "retreat": 0.4, "orbit": 0.6},
+	},
+	"skyspear": {
+		"name": "Skyspear", "title": "The Spear Thrower", "role": "Throw and recall", "tag": "Recall", "difficulty": 2, "dmg_type": "phys",
+		"playstyle": "Throw your spear and it stays where it lands. Call it back through the pack, or vault to it. Without it you fight with fists: quick but weak.",
+		"primary": "agi", "str": 22.0, "agi": 23.0, "int": 13.0, "str_g": 2.5, "agi_g": 2.8, "int_g": 1.3,
+		"dmg": 22.0, "range": 2.8, "atk_time": 1.3, "speed": 5.3, "armor": 3.0, "ranged": false,
+		"skills": ["hurl_spear", "recall", "vault", "skyfall"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["iron_knuckles", "vigor_charm", "bloodthirst_fang", "brawlers_wraps", "runners_boots", "cleaving_axe", "hide_vest", "wayfarer_treads", "vigor_charm", "bulwark_plate", "stout_belt", "wardens_aegis", "iron_knuckles", "skullcrusher", "focus_pendant", "sage_circlet", "hivecore_sigil"],
+		"bot": {"crowd": 5, "orbit": 0.35},
+	},
+	"frostweaver": {
+		"name": "Frostweaver", "title": "The Winter Witch", "role": "Freeze / setup", "tag": "Freeze", "difficulty": 2, "dmg_type": "magic",
+		"playstyle": "Every hit adds Chill; five Chill freezes a foe solid. Frozen foes are brittle: physical hits deal about 50% more. Shatter them yourself or let a physical ally do it.",
+		"primary": "int", "str": 18.0, "agi": 13.0, "int": 25.0, "str_g": 1.9, "agi_g": 1.3, "int_g": 3.1,
+		"dmg": 14.0, "range": 8.5, "atk_time": 1.5, "speed": 5.0, "armor": 2.0, "ranged": true,
+		"skills": ["ice_shard", "frost_nova", "shatter", "blizzard"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 2, 2, 2, 3, 1, 1, 1, 3],
+		"build": ["focus_pendant", "vigor_charm", "sage_circlet", "hivecore_sigil", "hide_vest", "bulwark_plate", "runners_boots", "focus_pendant", "wayfarer_treads", "stout_belt", "wardens_aegis", "iron_knuckles", "vigor_charm", "bloodthirst_fang"],
+		"bot": {"ranged": true, "keep": 7.5, "retreat": 0.5, "orbit": 0.4},
+	},
+	"stormcaller": {
+		"name": "Stormcaller", "title": "The Thunderhead", "role": "Chain damage", "tag": "Chains", "difficulty": 2, "dmg_type": "magic",
+		"playstyle": "Lightning jumps from foe to foe and grows with every jump, so the bigger the pack the harder it hits. Each jump builds Static; at full Static the next chain overloads.",
+		"primary": "int", "str": 19.0, "agi": 14.0, "int": 24.0, "str_g": 2.0, "agi_g": 1.4, "int_g": 3.0,
+		"dmg": 13.0, "range": 8.0, "atk_time": 1.4, "speed": 5.1, "armor": 2.0, "ranged": true,
+		"skills": ["chain_lightning", "ball_lightning", "storm_step", "thunderstorm"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["focus_pendant", "vigor_charm", "sage_circlet", "hivecore_sigil", "hide_vest", "bulwark_plate", "runners_boots", "focus_pendant", "wayfarer_treads", "stout_belt", "wardens_aegis", "iron_knuckles", "vigor_charm", "bloodthirst_fang"],
+		"bot": {"ranged": true, "keep": 7.5, "retreat": 0.5, "orbit": 0.45},
+	},
+	"alchemist": {
+		"name": "Alchemist", "title": "The Goldbrewer", "role": "Gold / debuffs", "tag": "Gold", "difficulty": 2, "dmg_type": "magic",
+		"playstyle": "Gold is fuel: every kill transmutes extra coin, and your bombs burn gold for more damage. Acid corrodes armor so physical allies hit harder.",
+		"primary": "int", "str": 21.0, "agi": 14.0, "int": 22.0, "str_g": 2.4, "agi_g": 1.4, "int_g": 2.7,
+		"dmg": 15.0, "range": 7.5, "atk_time": 1.5, "speed": 5.0, "armor": 3.0, "ranged": true,
+		"skills": ["acid_flask", "gilded_bomb", "elixir", "golden_touch"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 1, 0, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["focus_pendant", "vigor_charm", "hide_vest", "sage_circlet", "bulwark_plate", "runners_boots", "hivecore_sigil", "wayfarer_treads", "stout_belt", "wardens_aegis", "focus_pendant", "iron_knuckles", "vigor_charm", "bloodthirst_fang"],
+		"bot": {"ranged": true, "keep": 7.0, "retreat": 0.5, "orbit": 0.4},
+	},
+	"chronomancer": {
+		"name": "Chronomancer", "title": "The Hourglass", "role": "Time control", "tag": "Time", "difficulty": 3, "dmg_type": "magic",
+		"playstyle": "Bend time: slow foes, snap back to where you stood 3 s ago with the HP you had then, and stop time itself. Damage dealt to stopped foes lands all at once, 25% harder.",
+		"primary": "int", "str": 18.0, "agi": 15.0, "int": 25.0, "str_g": 1.9, "agi_g": 1.5, "int_g": 3.0,
+		"dmg": 13.0, "range": 8.5, "atk_time": 1.5, "speed": 5.1, "armor": 2.0, "ranged": true,
+		"skills": ["time_bolt", "stasis_field", "rewind", "time_stop"],
+		"skill_order": [0, 1, 0, 2, 0, 3, 0, 1, 1, 1, 3, 2, 2, 2, 3],
+		"build": ["focus_pendant", "vigor_charm", "sage_circlet", "hivecore_sigil", "hide_vest", "bulwark_plate", "runners_boots", "focus_pendant", "wayfarer_treads", "stout_belt", "wardens_aegis", "iron_knuckles", "vigor_charm", "bloodthirst_fang"],
+		"bot": {"ranged": true, "keep": 8.0, "retreat": 0.5, "orbit": 0.4},
+	},
 }
+
+## Which damage a hero mostly deals: "phys" (cut by armor; brittle and corroded foes take more) or "magic".
+## Shown on hero select so a team can cover both kinds of foe.
+const DMG_TYPES := {"phys": {"name": "Physical", "color": Color("ff9a5a")}, "magic": {"name": "Magic", "color": Color("8ab8ff")},
+	"mixed": {"name": "Mixed", "color": Color("d8b8ff")}}
+
+static func hero_dmg_type(id: String) -> String:
+	return String(HEROES.get(id, {}).get("dmg_type", "phys"))
 
 ## Skill data. mana/cd arrays are per rank (index 0 = rank 1).
 const SKILLS := {
@@ -76,11 +245,218 @@ const SKILLS := {
 	"queens_carapace": {"name": "Queen's Carapace", "max": 3, "mana": [100, 110, 120], "cd": [50.0, 45.0, 40.0],
 		"aim": "self", "range": 0.0,
 		"desc": "Absorb up to 6 broodlings into a shell of HP; your spit becomes a wide cone."},
+
+	# --- Sanguine (no mana: "hp" is the share of max HP each cast costs) ---
+	"crimson_cleave": {"name": "Crimson Cleave", "max": 4, "mana": [0, 0, 0, 0], "hp": 0.05, "cd": [4.5, 4.0, 3.5, 3.0],
+		"aim": "direction", "range": 3.6, "width": 3.0,
+		"desc": "Costs 5% HP. Cleave in front of you; heal 30% of the damage dealt (60% below half HP)."},
+	"blood_rush": {"name": "Blood Rush", "max": 4, "mana": [0, 0, 0, 0], "hp": 0.08, "cd": [10.0, 9.0, 8.0, 7.0],
+		"aim": "direction", "range": 7.0, "width": 1.8,
+		"desc": "Costs 8% HP. Charge through enemies, cutting each; every enemy hit heals 3% max HP."},
+	"hemorrhage": {"name": "Hemorrhage", "max": 4, "mana": [0, 0, 0, 0], "hp": 0.06, "cd": [12.0, 11.0, 10.0, 9.0],
+		"aim": "point", "range": 9.0, "radius": 3.5,
+		"desc": "Costs 6% HP. Open wounds in an area: enemies bleed for 5 s. A bleeding enemy that dies heals you 4% max HP."},
+	"undying_pact": {"name": "Undying Pact", "max": 3, "mana": [0, 0, 0], "hp": 0.0, "cd": [80.0, 70.0, 60.0],
+		"aim": "self", "range": 0.0,
+		"desc": "For 6/7/8 s you can't drop below 1 HP and every hit you deal heals you 25/35/45% of its damage."},
+	# --- Snarewright ---
+	"snare_trap": {"name": "Snare Trap", "max": 4, "mana": [30, 30, 30, 30], "cd": [6.0, 5.5, 5.0, 4.5],
+		"aim": "point", "range": 9.0, "radius": 1.0,
+		"desc": "Set a trap that snaps on the first foe to step on it: damage and root. 2 charges (3 at rank 3). Up to 4-7 traps."},
+	"blast_charge": {"name": "Blast Charge", "max": 4, "mana": [60, 65, 70, 75], "cd": [9.0, 8.5, 8.0, 7.5],
+		"aim": "point", "range": 10.0, "radius": 3.5,
+		"desc": "Plant a charge that blows up after 2 s, knocking foes back. Traps in the blast snap too."},
+	"tripwire": {"name": "Tripwire", "max": 4, "mana": [50, 50, 55, 55], "cd": [12.0, 11.0, 10.0, 9.0],
+		"aim": "wall", "range": 9.0,
+		"desc": "String a wire for 8 s. Foes that cross it are cut, slowed and snared."},
+	"killing_field": {"name": "Killing Field", "max": 3, "mana": [120, 140, 160], "cd": [60.0, 52.0, 45.0],
+		"aim": "point", "range": 10.0, "radius": 4.0,
+		"desc": "Throw a ring of 6/8/10 armed traps. For 8 s your bolts deal double damage to snared foes."},
+	# --- Twinhide (Q and W change with the form; E shifts) ---
+	"spirit_lance": {"name": "Spirit Lance", "max": 4, "mana": [50, 55, 60, 65], "cd": [6.0, 5.5, 5.0, 4.5],
+		"aim": "direction", "range": 12.0, "width": 1.4,
+		"desc": "Spirit form. Hurl a lance of light that pierces every foe in a line."},
+	"moonwell": {"name": "Moonwell", "max": 4, "mana": [70, 75, 80, 85], "cd": [14.0, 13.0, 12.0, 11.0],
+		"aim": "point", "range": 9.0, "radius": 3.0,
+		"desc": "Spirit form. Open a pool for 5 s that heals you while you stand in it and slows foes."},
+	"rend": {"name": "Rend", "max": 4, "mana": [35, 35, 40, 40], "cd": [4.0, 3.6, 3.2, 2.8],
+		"aim": "direction", "range": 3.2, "width": 3.0,
+		"desc": "Beast form. Rake everything in front of you and heal 25% of the damage."},
+	"pounce": {"name": "Pounce", "max": 4, "mana": [45, 45, 50, 50], "cd": [9.0, 8.0, 7.0, 6.0],
+		"aim": "point", "range": 8.0, "radius": 2.5,
+		"desc": "Beast form. Leap to a spot, damaging and stunning foes where you land."},
+	"shift": {"name": "Shift", "max": 4, "mana": [20, 20, 20, 20], "cd": [4.0, 3.5, 3.0, 2.5],
+		"aim": "self", "range": 0.0,
+		"desc": "Swap between spirit and beast form with a burst. Shift within 2 s of a skill and its twin is ready at once."},
+	"twin_fury": {"name": "Twin Fury", "max": 3, "mana": [100, 120, 140], "cd": [60.0, 52.0, 45.0],
+		"aim": "self", "range": 0.0,
+		"desc": "For 10/12/14 s Shift is free and instant, each shift bursts twice as hard, and you keep both forms' strengths."},
+	# --- Gravekeeper ---
+	"raise_dead": {"name": "Raise Dead", "max": 4, "mana": [40, 45, 50, 55], "cd": [5.0, 4.5, 4.0, 3.5],
+		"aim": "self", "range": 10.0,
+		"desc": "Raise 2 skeletons (3 at rank 3) from graves near you. Up to 4/6/8/10 skeletons."},
+	"corpse_blast": {"name": "Corpse Blast", "max": 4, "mana": [60, 65, 70, 75], "cd": [7.0, 6.5, 6.0, 5.5],
+		"aim": "point", "range": 11.0, "radius": 4.0,
+		"desc": "Every grave and skeleton in the area explodes, hurting foes around it."},
+	"grave_chill": {"name": "Grave Chill", "max": 4, "mana": [70, 75, 80, 85], "cd": [13.0, 12.0, 11.0, 10.0],
+		"aim": "point", "range": 10.0, "radius": 3.5,
+		"desc": "Curse an area for 6 s: foes inside are slowed and wither. Each one that dies there leaves 2 graves."},
+	"open_graves": {"name": "Open the Graves", "max": 3, "mana": [150, 175, 200], "cd": [75.0, 65.0, 55.0],
+		"aim": "self", "range": 14.0,
+		"desc": "Raise every grave nearby (up to 8/10/12) plus 3 more from the earth as empowered skeletons."},
+	# --- Stoneshaper ---
+	"rock_shove": {"name": "Rock Shove", "max": 4, "mana": [45, 50, 55, 60], "cd": [5.0, 4.6, 4.2, 3.8],
+		"aim": "direction", "range": 3.6, "width": 3.2,
+		"desc": "Shove everything in front of you. Foes that slam into a pillar, wall, ridge or another foe take impact damage and are stunned."},
+	"stone_ridge": {"name": "Stone Ridge", "max": 4, "mana": [70, 75, 80, 85], "cd": [13.0, 12.0, 11.0, 10.0],
+		"aim": "wall", "range": 9.0,
+		"desc": "Raise a rock ridge foes can't cross. Good to shove them into."},
+	"quake": {"name": "Quake", "max": 4, "mana": [60, 65, 70, 75], "cd": [9.0, 8.5, 8.0, 7.5],
+		"aim": "self", "range": 4.5,
+		"desc": "Stomp: damage and slow around you and throw foes outward."},
+	"avalanche": {"name": "Avalanche", "max": 3, "mana": [120, 140, 160], "cd": [50.0, 44.0, 38.0],
+		"aim": "direction", "range": 18.0, "width": 2.2,
+		"desc": "Roll a huge boulder that crushes and flings every foe in its path, then shatters."},
+	# --- Gunsmith ---
+	"hot_reload": {"name": "Hot Reload", "max": 4, "mana": [20, 20, 20, 20], "cd": [8.0, 7.0, 6.0, 5.0],
+		"aim": "self", "range": 0.0,
+		"desc": "Reload instantly. On an empty or last bullet, the new magazine is incendiary: +35/45/55/65% damage and burn."},
+	"scattershot": {"name": "Scattershot", "max": 4, "mana": [40, 40, 45, 45], "cd": [6.0, 5.5, 5.0, 4.5],
+		"aim": "direction", "range": 7.0, "width": 4.0,
+		"desc": "Fire every loaded bullet at once as a spray of pellets (2 per bullet) that knocks foes back."},
+	"mortar": {"name": "Mortar", "max": 4, "mana": [60, 65, 70, 75], "cd": [10.0, 9.5, 9.0, 8.5],
+		"aim": "point", "range": 14.0, "radius": 3.2,
+		"desc": "Lob a shell (at least 4 m away) that lands after 1 s: big area damage and a slow."},
+	"deadeye": {"name": "Deadeye", "max": 3, "mana": [100, 120, 140], "cd": [45.0, 40.0, 35.0],
+		"aim": "self", "range": 16.0,
+		"desc": "Mark up to 4/5/6 foes (bosses first), then fire a piercing shot at each. Refills the magazine."},
+	# --- Sunspeaker ---
+	"sunbeam": {"name": "Sunbeam", "max": 4, "mana": [50, 55, 60, 65], "cd": [7.0, 6.5, 6.0, 5.5],
+		"aim": "direction", "range": 11.0, "width": 1.4,
+		"desc": "Channel a beam for up to 3 s that slowly tracks foes. Moving ends it. Damage grows with Radiance."},
+	"solar_flare": {"name": "Solar Flare", "max": 4, "mana": [60, 65, 70, 75], "cd": [8.0, 7.5, 7.0, 6.5],
+		"aim": "point", "range": 12.0, "radius": 3.0,
+		"desc": "Call down a burst of sunfire after a moment. Damage grows with Radiance."},
+	"sanctum": {"name": "Sanctum", "max": 4, "mana": [70, 70, 75, 75], "cd": [16.0, 15.0, 14.0, 13.0],
+		"aim": "self", "range": 0.0, "radius": 3.5,
+		"desc": "Consecrate the ground for 6 s: inside it you heal, gain Radiance twice as fast, and foes are slowed."},
+	"dawn_lance": {"name": "Dawn Lance", "max": 3, "mana": [140, 160, 180], "cd": [60.0, 52.0, 45.0],
+		"aim": "direction", "range": 26.0, "width": 3.0,
+		"desc": "Channel for 1.2 s, then fire a lance of dawn across the arena. Spends all Radiance for more damage."},
+	# --- Duelist ---
+	"riposte": {"name": "Riposte", "max": 4, "mana": [25, 25, 25, 25], "cd": [5.0, 4.5, 4.0, 3.5],
+		"aim": "self", "range": 0.0,
+		"desc": "Raise your blade for 0.7 s. Any hit in that window is parried: no damage, a heavy counter on the attacker, the cooldown refunded and +1 Poise (max 5)."},
+	"lunge": {"name": "Lunge", "max": 4, "mana": [40, 45, 50, 55], "cd": [7.0, 6.5, 6.0, 5.5],
+		"aim": "direction", "range": 6.0, "width": 1.5,
+		"desc": "Dash forward, piercing every foe on the way. Exposed foes take a critical hit, and hitting one refunds half the cooldown."},
+	"feint": {"name": "Feint", "max": 4, "mana": [45, 50, 55, 60], "cd": [10.0, 9.0, 8.0, 7.0],
+		"aim": "direction", "range": 3.6, "width": 3.2,
+		"desc": "Feint at the foes in front: for 4 s they are Exposed, dealing 40% less damage and taking 25% more from you."},
+	"blade_dance": {"name": "Blade Dance", "max": 3, "mana": [100, 120, 140], "cd": [55.0, 48.0, 42.0],
+		"aim": "self", "range": 0.0,
+		"desc": "For 5/6/7 s every melee hit on you is parried automatically and each counter strikes twice."},
+	# --- Vanguard (no mana: "rage" is the Rage each cast costs) ---
+	"shield_bash": {"name": "Shield Bash", "max": 4, "mana": [0, 0, 0, 0], "rage": 20, "cd": [6.0, 5.5, 5.0, 4.5],
+		"aim": "direction", "range": 3.4, "width": 3.0,
+		"desc": "Costs 20 Rage. Bash the foes in front: damage that grows with your armor and a 1.2 s stun."},
+	"war_cry": {"name": "War Cry", "max": 4, "mana": [0, 0, 0, 0], "rage": 15, "cd": [12.0, 11.0, 10.0, 9.0],
+		"aim": "self", "range": 0.0, "radius": 5.5,
+		"desc": "Costs 15 Rage. Roar: foes within 5.5 m must attack you for 3 s, and you take 15/20/25/30% less damage for 5 s."},
+	"iron_will": {"name": "Iron Will", "max": 4, "mana": [0, 0, 0, 0], "rage": 10, "cd": [14.0, 13.0, 12.0, 11.0],
+		"aim": "self", "range": 0.0, "radius": 3.5,
+		"desc": "Spend all your Rage (at least 10) for a shield of 4/5/6/7 HP per point for 6 s. When it breaks or fades it bursts, hurting foes around you."},
+	"juggernaut": {"name": "Juggernaut", "max": 3, "mana": [0, 0, 0], "rage": 0, "cd": [60.0, 52.0, 45.0],
+		"aim": "self", "range": 0.0,
+		"desc": "For 8/9/10 s your Rage stays full, your swings cleave everything around you and you take 25% less damage."},
+	# --- Nightblade ---
+	"shadowstep": {"name": "Shadowstep", "max": 4, "mana": [40, 40, 45, 45], "cd": [7.0, 6.0, 5.0, 4.0],
+		"aim": "direction", "range": 8.0, "width": 2.5,
+		"desc": "Step through the shadows to the back of the nearest foe in that direction and stab it there for a critical backstab."},
+	"fan_of_knives": {"name": "Fan of Knives", "max": 4, "mana": [50, 55, 60, 65], "cd": [8.0, 7.5, 7.0, 6.5],
+		"aim": "self", "range": 0.0, "radius": 4.0,
+		"desc": "Throw knives all around you: damage and a 35% slow for 2 s. Foes facing away take the backstab bonus."},
+	"vanish": {"name": "Vanish", "max": 4, "mana": [60, 60, 60, 60], "cd": [16.0, 14.0, 12.0, 10.0],
+		"aim": "self", "range": 0.0,
+		"desc": "Vanish for 2.5/3/3.5/4 s: foes lose you and swarm the spot where you vanished, you move 40% faster, and your next hit is a backstab for triple damage. You heal 15% of your max HP as you vanish."},
+	"death_mark": {"name": "Death Mark", "max": 3, "mana": [100, 120, 140], "cd": [50.0, 44.0, 38.0],
+		"aim": "self", "range": 12.0,
+		"desc": "Mark the toughest foe nearby (bosses first) for 4 s. When it ends it takes 50% of the damage you dealt it plus a burst, and a normal foe below 25% HP dies."},
+	# --- Skyspear ---
+	"hurl_spear": {"name": "Hurl Spear", "max": 4, "mana": [35, 40, 45, 50], "cd": [5.0, 4.5, 4.0, 3.5],
+		"aim": "direction", "range": 11.0, "width": 1.4,
+		"desc": "Throw your spear: it pierces every foe in a line and stays where it lands. Until you get it back you fight with fists."},
+	"recall": {"name": "Recall", "max": 4, "mana": [20, 20, 25, 25], "cd": [3.0, 2.8, 2.6, 2.4],
+		"aim": "self", "range": 0.0,
+		"desc": "Call your spear back: it flies to you, cutting foes in its path and dragging them along. With the spear in hand, spin it to hit everyone around you."},
+	"vault": {"name": "Vault", "max": 4, "mana": [50, 50, 55, 55], "cd": [10.0, 9.0, 8.0, 7.0],
+		"aim": "point", "range": 9.0, "radius": 2.5,
+		"desc": "Leap to the aimed spot (or straight to your spear if it is out, picking it up) and slam: damage and a 1 s stun where you land."},
+	"skyfall": {"name": "Skyfall", "max": 3, "mana": [110, 130, 150], "cd": [50.0, 44.0, 38.0],
+		"aim": "point", "range": 11.0, "radius": 4.0,
+		"desc": "Hurl 6/8/10 spears that rain down on an area. They stay planted for 8 s, and Recall pulls every one of them back through the pack."},
+	# --- Frostweaver ---
+	"ice_shard": {"name": "Ice Shard", "max": 4, "mana": [45, 50, 55, 60], "cd": [5.0, 4.5, 4.0, 3.5],
+		"aim": "direction", "range": 11.0, "width": 1.4,
+		"desc": "Fire a shard that pierces every foe in a line: damage and 2 Chill."},
+	"frost_nova": {"name": "Frost Nova", "max": 4, "mana": [65, 70, 75, 80], "cd": [11.0, 10.0, 9.0, 8.0],
+		"aim": "self", "range": 0.0, "radius": 4.0,
+		"desc": "Blast cold around you: damage, 2 Chill and a 1 s root on every foe within 4 m."},
+	"shatter": {"name": "Shatter", "max": 4, "mana": [55, 60, 65, 70], "cd": [8.0, 7.5, 7.0, 6.5],
+		"aim": "point", "range": 10.0, "radius": 4.0,
+		"desc": "Shatter the foes in an area: frozen foes take heavy damage and spray 2 Chill onto those around them; the others take 15% more per Chill stack."},
+	"blizzard": {"name": "Blizzard", "max": 3, "mana": [130, 150, 170], "cd": [60.0, 52.0, 45.0],
+		"aim": "point", "range": 12.0, "radius": 4.5,
+		"desc": "Call a blizzard for 6 s: foes inside take damage and gain 1 Chill every second, and are slowed 30%."},
+	# --- Stormcaller ---
+	"chain_lightning": {"name": "Chain Lightning", "max": 4, "mana": [50, 55, 60, 65], "cd": [5.0, 4.5, 4.0, 3.5],
+		"aim": "direction", "range": 9.0, "width": 3.0,
+		"desc": "A bolt that jumps between up to 4/5/6/7 foes, hitting 8% harder with every jump. At full Static it overloads: twice the jumps and +50% damage."},
+	"ball_lightning": {"name": "Ball Lightning", "max": 4, "mana": [65, 70, 75, 80], "cd": [10.0, 9.5, 9.0, 8.5],
+		"aim": "direction", "range": 12.0, "width": 2.5,
+		"desc": "Send a slow ball of lightning that zaps every foe near it as it rolls, then bursts."},
+	"storm_step": {"name": "Storm Step", "max": 4, "mana": [50, 55, 60, 65], "cd": [12.0, 11.0, 10.0, 9.0],
+		"aim": "point", "range": 7.0, "radius": 2.5,
+		"desc": "Become lightning and strike the aimed spot: foes along the path take damage and foes where you land are stunned for 0.8 s."},
+	"thunderstorm": {"name": "Thunderstorm", "max": 3, "mana": [140, 160, 180], "cd": [65.0, 56.0, 48.0],
+		"aim": "self", "range": 11.0,
+		"desc": "For 8 s lightning strikes a foe within 11 m twice a second and chains to 2 more."},
+	# --- Alchemist ---
+	"acid_flask": {"name": "Acid Flask", "max": 4, "mana": [45, 45, 50, 50], "cd": [6.0, 5.5, 5.0, 4.5],
+		"aim": "point", "range": 10.0, "radius": 2.8,
+		"desc": "Shatter a flask of acid for 4 s: foes inside burn and are Corroded, losing 4/5/6/7 armor, so physical hits land harder."},
+	"gilded_bomb": {"name": "Gilded Bomb", "max": 4, "mana": [55, 60, 65, 70], "cd": [8.0, 7.5, 7.0, 6.5],
+		"aim": "point", "range": 11.0, "radius": 3.0,
+		"desc": "Lob a bomb. If you have 25 gold it burns it for +60% damage, and foes it kills drop 3 extra gold."},
+	"elixir": {"name": "Elixir", "max": 4, "mana": [60, 60, 65, 65], "cd": [16.0, 15.0, 14.0, 13.0],
+		"aim": "self", "range": 0.0,
+		"desc": "Drink an elixir: heal 20/25/30/35% of your max HP over 4 s and attack 40% faster for 6 s."},
+	"golden_touch": {"name": "Golden Touch", "max": 3, "mana": [100, 120, 140], "cd": [55.0, 48.0, 42.0],
+		"aim": "point", "range": 10.0, "radius": 4.0,
+		"desc": "Spend 10% of your gold (at least 50 if you have it): foes in the area turn to gold for 3 s, then crumble for damage that grows with the gold spent."},
+	# --- Chronomancer ---
+	"time_bolt": {"name": "Time Bolt", "max": 4, "mana": [35, 40, 45, 50], "cd": [4.5, 4.0, 3.5, 3.0],
+		"aim": "direction", "range": 11.0, "width": 1.2,
+		"desc": "A bolt that slows its target 50% for 2 s. Foes that are already slowed take 30% more."},
+	"stasis_field": {"name": "Stasis Field", "max": 4, "mana": [65, 70, 75, 80], "cd": [13.0, 12.0, 11.0, 10.0],
+		"aim": "point", "range": 10.0, "radius": 3.5,
+		"desc": "Slow time in an area for 5 s: foes inside move 60% slower, attack slower and wither."},
+	"rewind": {"name": "Rewind", "max": 4, "mana": [50, 50, 50, 50], "cd": [18.0, 16.0, 14.0, 12.0],
+		"aim": "self", "range": 0.0,
+		"desc": "Snap back to where you stood 3 s ago, with the HP you had then if it was more. Resets Time Bolt."},
+	"time_stop": {"name": "Time Stop", "max": 3, "mana": [150, 170, 190], "cd": [70.0, 60.0, 50.0],
+		"aim": "self", "range": 10.0,
+		"desc": "Stop time for foes within 10 m for 2.5/3/3.5 s (bosses shrug most of it off). Your damage to them is held and lands all at once, 25% harder."},
 }
 
 ## Items. kind: basic / advanced / consumable. "from" = recipe components.
+## "only": "melee" / "ranged": anyone can buy the item, but its special effect only works on attacks of that kind
+## (like a cleave that only melee swings carry). The shop marks them; a hero of the other kind gets just the stats.
 const ITEM_ORDER := ["iron_knuckles", "swift_gloves", "hide_vest", "vigor_charm", "focus_pendant", "runners_boots", "stout_belt", "sage_circlet",
+	"brawlers_wraps", "fletchers_quiver", "hooded_lantern", "oilskin_cloak",
 	"emberbrand", "bulwark_plate", "wayfarer_treads", "hivecore_sigil", "bloodthirst_fang", "wardens_aegis",
+	"cleaving_axe", "skullcrusher", "berserkers_torc", "hawkeye_lens", "splinter_quiver", "skirmisher_cloak",
+	"sundering_pick", "null_shard", "spellward_mantle", "armorbreaker", "voidglass_focus",
 	"healing_draught", "mana_draught", "tome_of_might", "phoenix_feather"]
 
 const ITEMS := {
@@ -106,30 +482,227 @@ const ITEMS := {
 	"wardens_aegis": {"name": "Warden's Aegis", "kind": "advanced", "cost": 900, "from": ["bulwark_plate", "stout_belt"],
 		"stats": {"armor": 10.0, "hp": 550.0, "str": 6.0, "reflect": 0.15, "aegis": 1.0},
 		"desc": "Bulwark stats. Once per wave, lethal damage leaves you at 1 HP, invulnerable 2 s"},
+	# melee / ranged / weather items
+	"brawlers_wraps": {"name": "Brawler's Wraps", "kind": "basic", "cost": 300,
+		"stats": {"as": 0.12, "armor": 3.0, "hit_heal": 6.0}, "desc": "+12% attack speed, +3 armor. Every hit you land heals you 6 HP"},
+	"fletchers_quiver": {"name": "Fletcher's Quiver", "kind": "basic", "cost": 300,
+		"stats": {"dmg": 8.0, "range": 1.0}, "desc": "+8 damage. Ranged heroes also get +1 m attack range"},
+	"hooded_lantern": {"name": "Hooded Lantern", "kind": "basic", "cost": 250,
+		"stats": {"hp": 120.0, "lantern": 1.0}, "desc": "+120 HP. Fog doesn't shorten your range, and in Fog or under a Blood Moon you deal +10% damage"},
+	"oilskin_cloak": {"name": "Oilskin Cloak", "kind": "basic", "cost": 250,
+		"stats": {"armor": 3.0, "weatherproof": 1.0}, "desc": "+3 armor. Rain doesn't slow you, wind doesn't push you, lightning and embers hurt you half as much"},
+	"cleaving_axe": {"name": "Cleaving Axe", "kind": "advanced", "cost": 400, "only": "melee", "from": ["iron_knuckles", "brawlers_wraps"],
+		"stats": {"dmg": 18.0, "as": 0.12, "armor": 3.0, "hit_heal": 6.0, "cleave": 0.4},
+		"desc": "+18 damage, Wraps stats. Melee hits splash 40% damage on foes around the target"},
+	"skullcrusher": {"name": "Skullcrusher", "kind": "advanced", "cost": 450, "from": ["iron_knuckles", "stout_belt"],
+		"stats": {"dmg": 14.0, "str": 6.0, "bash": 1.0}, "desc": "+14 damage, +6 Strength. Every 4th hit stuns for 0.8 s and deals 60% extra"},
+	"berserkers_torc": {"name": "Berserker's Torc", "kind": "advanced", "cost": 400, "from": ["vigor_charm", "swift_gloves"],
+		"stats": {"hp": 250.0, "as": 0.15, "berserk": 1.0}, "desc": "+250 HP, +15% attack speed. Below 40% HP: +40% attack speed and 15% lifesteal"},
+	"hawkeye_lens": {"name": "Hawkeye Lens", "kind": "advanced", "cost": 400, "from": ["fletchers_quiver", "focus_pendant"],
+		"stats": {"dmg": 16.0, "range": 2.0, "mana": 150.0, "mana_regen": 1.0, "far_shot": 0.25},
+		"desc": "+16 damage, +150 mana. Attacks on foes 6 m or more away deal +25%. Ranged heroes also get +2 m range"},
+	"splinter_quiver": {"name": "Splinter Quiver", "kind": "advanced", "cost": 450, "only": "ranged", "from": ["fletchers_quiver", "swift_gloves"],
+		"stats": {"dmg": 10.0, "range": 1.0, "as": 0.2, "split": 0.45},
+		"desc": "+10 damage, +20% attack speed. Every shot ricochets to 2 nearby foes for 45% damage"},
+	"skirmisher_cloak": {"name": "Skirmisher's Cloak", "kind": "advanced", "cost": 400, "from": ["hide_vest", "fletchers_quiver"],
+		"stats": {"armor": 5.0, "dmg": 8.0, "range": 1.0, "ms": 0.08, "chill": 0.25},
+		"desc": "+5 armor, +8% move speed. Attacks slow foes by 25% for 1.5 s"},
+	# damage-type items: cut through a foe's armor or magic resist, or resist magic yourself
+	"sundering_pick": {"name": "Sundering Pick", "kind": "basic", "cost": 300,
+		"stats": {"dmg": 6.0, "armor_pen": 6.0}, "desc": "+6 damage. Your physical damage ignores 6 armor"},
+	"null_shard": {"name": "Null Shard", "kind": "basic", "cost": 300,
+		"stats": {"mana": 100.0, "mres_pen": 0.3}, "desc": "+100 mana. Your magic ignores 30% of a foe's magic resist"},
+	"spellward_mantle": {"name": "Spellward Mantle", "kind": "basic", "cost": 300,
+		"stats": {"hp": 150.0, "mres": 0.25}, "desc": "+150 HP. You take 25% less magic damage (bolts, beams, wraiths)"},
+	"armorbreaker": {"name": "Armorbreaker", "kind": "advanced", "cost": 400, "from": ["sundering_pick", "iron_knuckles"],
+		"stats": {"dmg": 22.0, "armor_pen": 14.0}, "desc": "+22 damage. Your physical damage ignores 14 armor: Iron Hulks stop shrugging it off"},
+	"voidglass_focus": {"name": "Voidglass Focus", "kind": "advanced", "cost": 450, "from": ["null_shard", "focus_pendant"],
+		"stats": {"mana": 300.0, "mana_regen": 1.5, "cdr": 0.08, "mres_pen": 0.7},
+		"desc": "+300 mana, -8% cooldowns. Your magic ignores 70% of magic resist: Veilwraiths and Spellwarded foes too"},
 	"healing_draught": {"name": "Healing Draught", "kind": "consumable", "cost": 90, "stack": 5, "active": "heal_potion", "active_cd": 1.0,
 		"desc": "Heal 400 HP over 8 s. Stacks to 5"},
 	"mana_draught": {"name": "Mana Draught", "kind": "consumable", "cost": 90, "stack": 5, "active": "mana_potion", "active_cd": 1.0,
 		"desc": "Restore 250 mana over 6 s. Stacks to 5"},
 	"tome_of_might": {"name": "Tome of Might", "kind": "consumable", "cost": 500, "noslot": true,
-		"desc": "+2 primary attribute permanently (no slot)"},
+		"desc": "+5 primary attribute permanently (no slot)"},
 	"phoenix_feather": {"name": "Phoenix Feather", "kind": "consumable", "cost": 1500, "noslot": true, "max_per_run": 1,
 		"desc": "+1 life (once per run, no slot)"},
 }
 
+## Training Grounds (the shop's Upgrades tab), like Life in Arena's stat shop: permanent stat ranks for gold, no slot.
+## Ranks never run out ("max" caps the few that would break the game); each rank costs "step" more than the last,
+## so late-game gold always has somewhere to go. "wave": the first wave whose camp offers it. "stats" per rank use
+## the item stat keys (hero.recalc adds them like item stats).
+const UPGRADE_ORDER := ["train_str", "train_agi", "train_int", "train_regen", "train_meditate",
+	"train_dmg", "train_armor", "train_haste", "train_vigor", "train_focus"]
+
+const UPGRADES := {
+	"train_str": {"name": "Strength", "wave": 3, "cost": 200, "step": 40, "stats": {"str": 3.0},
+		"desc": "+3 Strength (more HP and HP regen)"},
+	"train_agi": {"name": "Agility", "wave": 3, "cost": 200, "step": 40, "stats": {"agi": 3.0},
+		"desc": "+3 Agility (more armor and attack speed)"},
+	"train_int": {"name": "Intellect", "wave": 3, "cost": 200, "step": 40, "stats": {"int": 3.0},
+		"desc": "+3 Intellect (more mana and mana regen)"},
+	"train_regen": {"name": "Troll Blood", "wave": 3, "cost": 150, "step": 35, "stats": {"hp_regen": 1.5},
+		"desc": "+1.5 HP regen per second"},
+	"train_meditate": {"name": "Meditation", "wave": 3, "cost": 150, "step": 35, "stats": {"mana_regen": 0.75},
+		"desc": "+0.75 mana regen per second"},
+	"train_dmg": {"name": "Weapon Drills", "wave": 5, "cost": 250, "step": 50, "stats": {"dmg": 6.0},
+		"desc": "+6 attack damage"},
+	"train_armor": {"name": "Plating", "wave": 5, "cost": 250, "step": 50, "stats": {"armor": 1.5},
+		"desc": "+1.5 armor"},
+	"train_haste": {"name": "Battle Rhythm", "wave": 5, "cost": 250, "step": 50, "stats": {"as": 0.05},
+		"desc": "+5% attack speed"},
+	"train_vigor": {"name": "Vigor", "wave": 10, "cost": 300, "step": 60, "stats": {"hp": 150.0},
+		"desc": "+150 max HP"},
+	"train_focus": {"name": "Focus", "wave": 10, "cost": 400, "step": 150, "max": 5, "stats": {"cdr": 0.03},
+		"desc": "-3% skill cooldowns (up to 5 ranks)"},
+}
+
+
+static func upgrade_cost(id: String, rank: int) -> int:
+	var d: Dictionary = UPGRADES.get(id, {})
+	return int(d.get("cost", 0)) + int(d.get("step", 0)) * rank
+
+## Weather: rolled for every wave (it is already falling in camp, so the shop visit can answer it) and sometimes
+## turning mid-wave. speed: everyone's move speed; fire: damage of FIRE_TAGS and burns; range: shot range (hero and foes);
+## wind: shots with the wind deal up to +wind share, shots into it as much less, and everyone drifts downwind;
+## foe_dmg / foe_speed: Blood Moon. lightning / embers: telegraphed strikes / burning patches during waves.
+const WEATHER := {
+	"clear": {"name": "Clear Skies", "color": Color(1.0, 0.88, 0.6), "desc": "Calm air. Nothing changes."},
+	"rain": {"name": "Rain", "color": Color(0.55, 0.75, 1.0), "speed": 0.9, "fire": 0.6,
+		"desc": "Everyone moves 10% slower. Fire and burns deal 40% less."},
+	"storm": {"name": "Thunderstorm", "color": Color(0.7, 0.8, 1.2), "speed": 0.9, "fire": 0.6, "lightning": true,
+		"desc": "Rain, and lightning strikes the glowing rings. It hurts foes and you alike."},
+	"fog": {"name": "Fog", "color": Color(0.8, 0.85, 0.9), "range": 0.7,
+		"desc": "Shots reach 30% less far, yours and theirs. A good day for melee."},
+	"gale": {"name": "Gale", "color": Color(0.85, 0.95, 0.75), "wind": 0.3,
+		"desc": "Wind pushes everyone. Shots with the wind hit 30% harder, shots into it 30% softer."},
+	"emberfall": {"name": "Emberfall", "color": Color(1.0, 0.55, 0.25), "fire": 1.5, "embers": true,
+		"desc": "Fire and burns deal 50% more. Falling embers set patches of sand alight."},
+	"bloodmoon": {"name": "Blood Moon", "color": Color(1.0, 0.35, 0.35), "foe_dmg": 1.15, "foe_speed": 1.1,
+		"desc": "Foes hit 15% harder and move 10% faster."},
+}
+const FIRE_TAGS := ["Emberbrand Burn", "Ember Totem", "Ash Wall", "Mortar", "Ember Patch"]
+const WIND_DRIFT := 1.1           # m/s everyone drifts downwind in a Gale
+const WEATHER_SHIFT_CHANCE := 0.4 # a regular wave from wave 3 on turns mid-fight this often
+const LIGHTNING_R := 2.3
+const LIGHTNING_TELE := 1.3
+const LIGHTNING_HERO := 0.16      # share of the hero's max HP a strike takes
+const EMBER_R := 1.9
+const EMBER_TIME := 6.0
+const EMBER_HERO := 0.04          # share of the hero's max HP per second in a patch
+
+
+## Weather that can roll on wave `w`, with weights. Wave 1 is always clear.
+static func weather_pool(w: int) -> Dictionary:
+	if w <= 1:
+		return {"clear": 1}
+	var pool := {"clear": 4, "rain": 3, "fog": 2, "gale": 2}
+	if w >= 4:
+		pool["storm"] = 2
+		pool["emberfall"] = 2
+	if w >= 8:
+		pool["bloodmoon"] = 1
+	return pool
+
+
 ## Enemy base stats at wave 1.
 const ENEMIES := {
-	"gnawer": {"name": "Gnawer", "hp": 55.0, "dmg": 7.0, "atk_time": 1.0, "range": 1.0, "speed": 5.0, "armor": 0.0, "radius": 0.45, "xp": 9.0, "gold": 4.0},
-	"shieldbearer": {"name": "Shieldbearer", "hp": 230.0, "dmg": 15.0, "atk_time": 1.5, "range": 1.3, "speed": 2.8, "armor": 5.0, "radius": 0.75, "xp": 24.0, "gold": 10.0},
-	"hexcaster": {"name": "Hexcaster", "hp": 90.0, "dmg": 11.0, "atk_time": 2.2, "range": 9.0, "speed": 3.4, "armor": 0.0, "radius": 0.5, "xp": 20.0, "gold": 9.0},
-	"burrower": {"name": "Burrower", "hp": 140.0, "dmg": 13.0, "atk_time": 1.2, "range": 1.2, "speed": 4.0, "armor": 2.0, "radius": 0.55, "xp": 20.0, "gold": 9.0},
-	"bloater": {"name": "Bloater", "hp": 170.0, "dmg": 9.0, "atk_time": 1.4, "range": 1.2, "speed": 2.4, "armor": 0.0, "radius": 0.8, "xp": 20.0, "gold": 9.0},
-	"choir_add": {"name": "Choir Voice", "hp": 240.0, "dmg": 13.0, "atk_time": 1.3, "range": 1.2, "speed": 4.0, "armor": 1.0, "radius": 0.5, "xp": 10.0, "gold": 4.0},
+	"gnawer": {"name": "Gnawer", "hp": 55.0, "dmg": 7.0, "atk_time": 1.0, "range": 1.0, "speed": 5.0, "armor": 0.0, "mres": 0.0, "radius": 0.45, "xp": 9.0, "gold": 4.0},
+	"shieldbearer": {"name": "Shieldbearer", "hp": 230.0, "dmg": 15.0, "atk_time": 1.5, "range": 1.3, "speed": 2.8, "armor": 6.0, "mres": -0.25, "radius": 0.75, "xp": 24.0, "gold": 10.0},
+	"hexcaster": {"name": "Hexcaster", "hp": 90.0, "dmg": 11.0, "atk_time": 2.2, "range": 9.0, "speed": 3.4, "armor": -3.0, "mres": 0.3, "radius": 0.5, "xp": 20.0, "gold": 9.0},
+	"burrower": {"name": "Burrower", "hp": 140.0, "dmg": 13.0, "atk_time": 1.2, "range": 1.2, "speed": 4.0, "armor": 4.0, "mres": -0.15, "radius": 0.55, "xp": 20.0, "gold": 9.0},
+	"bloater": {"name": "Bloater", "hp": 170.0, "dmg": 9.0, "atk_time": 1.4, "range": 1.2, "speed": 2.4, "armor": 0.0, "mres": 0.0, "radius": 0.8, "xp": 20.0, "gold": 9.0},
+	# Buffers (wave 7+): weak on their own, but they make the pack around them dangerous. Kill them first.
+	"chanter": {"name": "Ward Chanter", "hp": 150.0, "dmg": 6.0, "atk_time": 1.6, "range": 1.2, "speed": 3.3, "armor": -2.0, "mres": 0.45, "radius": 0.5, "xp": 30.0, "gold": 14.0, "support": true},
+	"drummer": {"name": "War Drummer", "hp": 175.0, "dmg": 8.0, "atk_time": 1.5, "range": 1.2, "speed": 3.5, "armor": 4.0, "mres": -0.2, "radius": 0.55, "xp": 30.0, "gold": 14.0, "support": true},
+	"choir_add": {"name": "Choir Voice", "hp": 240.0, "dmg": 13.0, "atk_time": 1.3, "range": 1.2, "speed": 4.0, "armor": 1.0, "mres": 0.0, "radius": 0.5, "xp": 10.0, "gold": 4.0},
+	# Damage-type foes (wave 6+): each one shrugs off one kind of damage and takes extra from the other (see MATCHUPS).
+	"ironhulk": {"name": "Iron Hulk", "hp": 300.0, "dmg": 20.0, "atk_time": 1.7, "range": 1.4, "speed": 2.9, "armor": 16.0, "mres": -0.5, "radius": 0.7, "xp": 30.0, "gold": 13.0},
+	"veilwraith": {"name": "Veilwraith", "hp": 130.0, "dmg": 12.0, "atk_time": 1.2, "range": 1.3, "speed": 4.6, "armor": -8.0, "mres": 0.55, "radius": 0.5, "xp": 24.0, "gold": 11.0, "magic_hits": true},
 	# Bosses (absolute numbers; only lightly scaled)
-	"pit_brute": {"name": "Pit Brute", "hp": 3400.0, "dmg": 38.0, "atk_time": 1.6, "range": 2.2, "speed": 3.6, "armor": 4.0, "radius": 1.5, "xp": 400.0, "gold": 0.0, "boss": true},
-	"matron": {"name": "Twin Matron", "hp": 3600.0, "dmg": 34.0, "atk_time": 1.5, "range": 2.0, "speed": 3.4, "armor": 4.0, "radius": 1.3, "xp": 350.0, "gold": 0.0, "boss": true},
-	"hollow_choir": {"name": "The Hollow Choir", "hp": 12000.0, "dmg": 50.0, "atk_time": 2.0, "range": 2.5, "speed": 1.6, "armor": 5.0, "radius": 1.8, "xp": 900.0, "gold": 0.0, "boss": true},
-	"warden": {"name": "The Warden of the Pit", "hp": 26000.0, "dmg": 70.0, "atk_time": 1.5, "range": 2.6, "speed": 3.6, "armor": 8.0, "radius": 1.9, "xp": 0.0, "gold": 0.0, "boss": true},
+	"pit_brute": {"name": "Pit Brute", "hp": 3400.0, "dmg": 38.0, "atk_time": 1.6, "range": 2.2, "speed": 3.6, "armor": 6.0, "mres": -0.15, "radius": 1.5, "xp": 400.0, "gold": 0.0, "boss": true},
+	"matron": {"name": "Twin Matron", "hp": 3600.0, "dmg": 34.0, "atk_time": 1.5, "range": 2.0, "speed": 3.4, "armor": 3.0, "mres": 0.15, "radius": 1.3, "xp": 350.0, "gold": 0.0, "boss": true},
+	"hollow_choir": {"name": "The Hollow Choir", "hp": 12000.0, "dmg": 50.0, "atk_time": 2.0, "range": 2.5, "speed": 1.6, "armor": 2.0, "mres": 0.25, "radius": 1.8, "xp": 900.0, "gold": 0.0, "boss": true},
+	"warden": {"name": "The Warden of the Pit", "hp": 23000.0, "dmg": 70.0, "atk_time": 1.5, "range": 2.6, "speed": 3.6, "armor": 8.0, "mres": 0.1, "radius": 1.9, "xp": 0.0, "gold": 0.0, "boss": true},
 }
+
+## Elite affixes (wave 4+). Elites are tinted, tougher and pay more; each affix asks for a different answer.
+const ELITE_AFFIXES := {
+	"frenzied": {"name": "Frenzied", "from_wave": 4, "tint": Color(1.45, 0.55, 0.45),
+		"hint": "Frenzied elites: fast and furious. Don't let them catch you in a crowd!"},
+	"volatile": {"name": "Volatile", "from_wave": 6, "tint": Color(1.5, 1.05, 0.35),
+		"hint": "Volatile elites explode when they die. Step out of the glow!"},
+	"warding": {"name": "Warding", "from_wave": 8, "tint": Color(0.5, 0.85, 1.55),
+		"hint": "Warding elites shield nearby foes. Kill the warder first!"},
+}
+const ELITE_HP_MULT := 1.9
+const ELITE_DMG_MULT := 1.2
+const ELITE_REWARD_MULT := 2.5
+const WARD_RADIUS := 5.0
+const WARD_DAMAGE_TAKEN := 0.6
+const VOLATILE_RADIUS := 3.2
+const VOLATILE_DELAY := 1.1
+
+## Buffer auras. A Chanter makes nearby foes immune to damage; a Drummer doubles their damage.
+## Neither affects bosses or its own kind (two Chanters can't shield each other).
+const AURAS := {
+	"chanter": {"radius": 3.8, "color": Color(1.0, 0.85, 0.35), "from_wave": 9,
+		"hint": "Ward Chanter! Foes near it can't be hurt. Tap it and kill it first."},
+	"drummer": {"radius": 5.0, "color": Color(1.0, 0.3, 0.2), "from_wave": 7,
+		"hint": "War Drummer! Foes near it hit twice as hard. Take it out first."},
+}
+const DRUM_DMG := 2.0
+
+## Damage types. Every hit is "phys", "magic" or "pure". Armor cuts physical damage (Run.armor_factor; negative armor
+## means it takes extra), "mres" cuts magic damage by that share (negative = takes extra). Pure ignores both.
+## Foes with a clear matchup show it: a "Resisted" or "Weak!" pop on the hits, a hint the first time, the wave preview.
+## Positive armor grows +0.2 per wave; a foe built to be soft (armor below 0) stays soft.
+const MATCHUP_RESIST := 0.62      # a hit that keeps less than this share after armor / resist shows "Resisted"
+const MATCHUP_WEAK := 1.18        # ... more than this shows "Weak!"
+const MATCHUPS := {
+	"ironhulk": {"weak": "magic", "hint": "Iron Hulk! Plate armor turns weapons aside, but spells melt it. Magic heroes, take this one."},
+	"veilwraith": {"weak": "phys", "hint": "Veilwraith! Spells mostly pass through it, but steel cuts it apart. Its touch ignores armor."},
+	"shieldbearer": {"weak": "magic"},
+	"hexcaster": {"weak": "phys"},
+	"chanter": {"weak": "phys"},
+}
+
+## Barrels, laid out like Life in Arena: big solid barrel stacks filling three corners of the arena. Smash your way
+## in to dig a corridor (tap a barrel, or push into it) and fight from the end of it: foes can only follow you single
+## file. Barrels sit on a square grid (BARREL_GRID apart), so a corridor one barrel wide (1.3 m of room) lets every hero and regular foes through
+## but not wide ones (Shieldbearers, Bloaters), which have to smash it wider. Powder kegs are packed into the stacks.
+## A stack is every grid cell past the corner lines (sx * x >= t and sz * z >= t) inside the arena wall.
+const STACKS := [
+	{"sx": 1, "sz": 1, "t": 7.5, "kegs": [Vector3(9.6, 0, 17.5), Vector3(14.0, 0, 9.6)]},
+	{"sx": -1, "sz": 1, "t": 7.5, "kegs": [Vector3(-9.6, 0, 17.5), Vector3(-14.0, 0, 9.6)]},
+	{"sx": -1, "sz": -1, "t": 10.0, "kegs": [Vector3(-10.6, 0, -18.0), Vector3(-15.0, 0, -10.6)]},
+]
+const BARREL_GRID := 1.15          # barrel spacing
+const STACK_R := 21.6              # cells out to here are filled (the outer ones tuck against the wall)
+const KEGS := [Vector3(-4.5, 0, -17.0), Vector3(10.5, 0, -13.0)]   # loose kegs out in the open
+const BARREL_R := 0.5
+const BARREL_HP := 8.0          # hero swings deal BARREL_HERO_HIT, enemy swings 1 (big ones 2)
+const BARREL_HERO_HIT := 5.0
+const KEG_RADIUS := 3.6
+const KEG_FUSE := 0.9
+const KEG_CHAIN_FUSE := 0.25
+
+## Pit pressure: a wave that drags on enrages the enemies still alive (more damage, faster).
+const BOSS_ENRAGE_TIME := {5: 100.0, 10: 120.0, 15: 150.0, 20: 300.0}
+const ENRAGE_DMG := 1.3
+const ENRAGE_SPEED := 1.2
+
+## Hexcaster bolts hex the hero: healing received is reduced while hexed.
+const HEX_TIME := 4.0
+const HEX_HEAL_MULT := 0.5
+## Hex bolts are dodgeable: slow, they only turn a little after the hero (rad/s), and pillars and barrels stop them.
+## The caster glows and holds its cast for HEX_WINDUP seconds before it lets go.
+const HEX_BOLT_SPEED := 7.0
+const HEX_BOLT_TURN := 0.35
+const HEX_BOLT_LIFE := 2.6
+const HEX_WINDUP := 0.5
 
 const BOSS_WAVES := {5: "pit_brute", 10: "matron", 15: "hollow_choir", 20: "warden"}
 const BOSS_TITLES := {5: "Pit Brute", 10: "Twin Matrons", 15: "The Hollow Choir", 20: "The Warden of the Pit"}
@@ -138,11 +711,113 @@ const BOSS_HINTS := {5: "Glowing ground means a slam or a charge is coming. Step
 	15: "The Choir's beam sweeps the arena. Keep moving around it.",
 	20: "The Warden uses every trick in the Pit. Stay sharp!"}
 
+## Every wave has a name and a gimmick, previewed in camp so the prep phase is a build decision.
+## mods: extra units per kind (added to the base mix); rule: the wave's twist (see WAVE_RULES);
+## captain: the kind that leads the wave as a tougher, named captain ("" on boss waves).
+const WAVES := {
+	1: {"name": "The Hungry Pack", "captain": "gnawer", "rule": "", "mods": {},
+		"desc": "Gnawers and their alpha. Kill the captain for a bounty."},
+	2: {"name": "Shield Wall", "captain": "shieldbearer", "rule": "", "mods": {"shieldbearer": 2},
+		"desc": "Shieldbearers block hits from the front. Flank them."},
+	3: {"name": "The Hexwood", "captain": "hexcaster", "rule": "", "mods": {"hexcaster": 2},
+		"desc": "Hexcasters from range. Their bolts halve your healing: sidestep them or hide behind a pillar."},
+	4: {"name": "Bloodthirsty", "captain": "gnawer", "rule": "bloodthirsty", "mods": {"gnawer": 4},
+		"desc": "Every hit they land heals them. Don't trade blows bare-handed."},
+	5: {"name": "The Pit Brute", "captain": "", "rule": "", "mods": {}, "desc": "Boss. Glowing ground means a slam or a charge."},
+	6: {"name": "Ambush", "captain": "burrower", "rule": "", "mods": {"burrower": 2, "ironhulk": 1},
+		"desc": "Burrowers burst up beside you, and the first Iron Hulks march in: spells melt their plate."},
+	7: {"name": "Powder Keg", "captain": "bloater", "rule": "explosive", "mods": {"bloater": 1},
+		"desc": "Many elites, and every elite explodes when it dies."},
+	8: {"name": "Phantoms", "captain": "veilwraith", "rule": "evasive", "mods": {"gnawer": 3, "veilwraith": 2},
+		"desc": "Gnawers dodge a third of weapon attacks, Veilwraiths shrug off spells. Mix your damage."},
+	9: {"name": "The Choir Gate", "captain": "chanter", "rule": "", "mods": {},
+		"desc": "Ward Chanters make their pack immune. Cut through to them."},
+	10: {"name": "Twin Matrons", "captain": "", "rule": "", "mods": {}, "desc": "Boss. The Matrons heal each other while close."},
+	11: {"name": "Stunners", "captain": "shieldbearer", "rule": "stunning", "mods": {"shieldbearer": 2},
+		"desc": "Shieldbearers bash every second swing. Armor up."},
+	12: {"name": "Iron Tide", "captain": "ironhulk", "rule": "ironhide", "mods": {"ironhulk": 2, "drummer": 1},
+		"desc": "Every foe wears thicker plate and Drummers double their damage. Bring spells or armor-breakers."},
+	13: {"name": "Spellwarded", "captain": "shieldbearer", "rule": "spellward", "mods": {"shieldbearer": 1},
+		"desc": "They shrug off half of all magic damage. Bring weapons, not spells."},
+	14: {"name": "Hexstorm", "captain": "hexcaster", "rule": "warded", "mods": {"hexcaster": 3},
+		"desc": "Hexcasters behind Warding elites. Kill the warders first."},
+	15: {"name": "The Hollow Choir", "captain": "", "rule": "", "mods": {}, "desc": "Boss. The beam sweeps the arena. Keep moving."},
+	16: {"name": "Frenzy", "captain": "veilwraith", "rule": "frenzy", "mods": {"gnawer": 3, "veilwraith": 2},
+		"desc": "Everything moves 20% faster and attacks faster."},
+	17: {"name": "Silent Wall", "captain": "shieldbearer", "rule": "spellward", "mods": {"chanter": 1, "shieldbearer": 1},
+		"desc": "Spellwarded shields and Chanters. Weapons win this one."},
+	18: {"name": "Chain Reaction", "captain": "bloater", "rule": "explosive", "mods": {"bloater": 2},
+		"desc": "Bloaters and exploding elites. Don't fight in a crowd."},
+	19: {"name": "Mutants", "captain": "burrower", "rule": "mutants", "mods": {},
+		"desc": "Half of them are elites with random affixes."},
+	20: {"name": "The Warden's Gauntlet", "captain": "", "rule": "", "mods": {},
+		"desc": "Final boss. As he weakens, the Pit's earlier bosses come back."},
+}
+const WAVE_RULES := {
+	"bloodthirsty": {"name": "Bloodthirsty", "color": Color(1.0, 0.35, 0.35)},
+	"explosive": {"name": "Explosive", "color": Color(1.0, 0.7, 0.3)},
+	"spellward": {"name": "Spellwarded", "color": Color(0.55, 0.8, 1.0)},
+	"ironhide": {"name": "Ironhide", "color": Color(0.8, 0.82, 0.88)},
+	"stunning": {"name": "Stunning", "color": Color(0.75, 0.8, 1.0)},
+	"evasive": {"name": "Evasive", "color": Color(0.8, 0.7, 1.0)},
+	"warded": {"name": "Warded", "color": Color(0.5, 0.85, 1.55)},
+	"frenzy": {"name": "Frenzied", "color": Color(1.0, 0.5, 0.4)},
+	"mutants": {"name": "Mutants", "color": Color(0.7, 1.0, 0.5)},
+}
+const BLOODTHIRST_HEAL := 0.4     # share of damage dealt that a Bloodthirsty enemy heals
+const SPELLWARD_MAGIC := 0.5      # at most this share of magic damage lands on Spellwarded waves (doesn't stack with resist)
+const IRONHIDE_ARMOR := 6.0       # extra armor on Ironhide waves (the hero's spells hit as usual)
+const EVADE_CHANCE := 0.33
+const FRENZY_SPEED := 1.2
+
+## Captains: every regular wave is led by a named, tougher version of its signature enemy.
+const CAPTAIN_NAMES := {"gnawer": "Alpha Gnawer", "shieldbearer": "Shield Sergeant", "hexcaster": "Hex Matriarch",
+	"burrower": "Tunnel King", "bloater": "Plague Belly", "chanter": "High Chanter", "drummer": "Drum Major",
+	"ironhulk": "Iron Marshal", "veilwraith": "Veil Mother"}
+const CAPTAIN_HP := 650.0         # wave-1 captain HP, scaled by hp_mult
+const CAPTAIN_DMG_MULT := 1.9
+const CAPTAIN_SCALE := 1.5
+
+
+static func wave_info(w: int) -> Dictionary:
+	return WAVES.get(w, {"name": L.f("Wave %d", [w]), "captain": "gnawer", "rule": "", "mods": {}, "desc": ""})
+
+
+static func wave_rule(w: int) -> String:
+	return wave_info(w).get("rule", "")
+
+
+static func captain_hp(w: int) -> float:
+	return CAPTAIN_HP * pow(hp_mult(w), 0.8)
+
+
+static func captain_gold(w: int) -> int:
+	return 45 + 15 * w
+
+
+## Final gauntlet: below each HP threshold the Warden withdraws and an echo of an earlier boss returns.
+const GAUNTLET := [
+	{"at": 0.75, "boss": "pit_brute", "hp": 0.45, "title": "Echo of the Pit Brute"},
+	{"at": 0.5, "boss": "matron", "hp": 0.35, "title": "Echoes of the Twin Matrons"},
+	{"at": 0.25, "boss": "hollow_choir", "hp": 0.25, "title": "Echo of the Hollow Choir"},
+]
+
 const GATES := {"N": Vector3(0, 0, -21.0), "E": Vector3(21.0, 0, 0), "W": Vector3(-21.0, 0, 0), "NE": Vector3(14.8, 0, -14.8)}
 const GATE_NAMES := ["N", "E", "W", "NE"]
 const PILLARS := [Vector3(-9, 0, -6), Vector3(9, 0, -6), Vector3(0, 0, 10)]
 const PILLAR_R := 1.6
 const ARENA_R := 22.0
+# Arena changes in boss fights (scripts/arena.gd)
+const RUBBLE_W := 1.3          # half-width of a fallen pillar
+const RUBBLE_LEN := 7.0        # how far a fallen pillar reaches from its base
+const TOPPLE_TIME := 0.75      # fall time (telegraphed)
+const TOPPLE_STUN := 3.0       # a boss that charges into a pillar is stunned this long
+const CRUSH_BOSS := 0.04       # max-hp share a falling pillar takes off a boss
+const CRUSH_FOE := 0.6         # ... off other foes
+const CRUSH_HERO := 0.25       # ... off the hero
+const RIM_STEPS := [18.0, 15.0]  # walkable radius after each Warden phase change
+const RIM_WARN := 3.0          # seconds of cracking before the rim falls
+const RIM_HERO := 0.2          # max-hp share the hero loses scrambling off a falling rim
 const CAMP_CENTER := Vector3(0, 0, 40)
 const CAMP_R := 9.0
 const SHOP_POS := Vector3(-4, 0, 42)
@@ -151,7 +826,13 @@ const CAMP_SPAWN := Vector3(0, 0, 37)
 const ARENA_SPAWN := Vector3(0, 0, 15)
 
 const TOTAL_WAVES := 20
-const START_GOLD := 300
+const START_GOLD := 400
+## Wave foes get this much more HP for every AI ally hero in the run.
+const ALLY_FOE_HP := 0.85
+## ...and deal this much more damage.
+const ALLY_FOE_DMG := 0.3
+## Share of the gold the team earns that each AI ally gets to spend on its own items.
+const ALLY_GOLD_SHARE := 0.6
 const START_LIVES := 3
 const PREP_TIME := 20.0
 const FIRST_PREP_TIME := 30.0
@@ -159,17 +840,55 @@ const FIRST_PREP_TIME := 30.0
 
 static func hp_mult(w: int) -> float:
 	var x := float(w - 1)
-	# gentle early (waves 4-6), steeper late (12-20)
-	return 1.0 + 0.10 * x + 0.014 * x * x + 0.0009 * x * x * x
+	# steeper late (12-20); the early bump is in early_pressure()
+	return (1.0 + 0.10 * x + 0.014 * x * x + 0.0009 * x * x * x) * (1.0 + EARLY_HP * early_pressure(w))
+
+
+## 0..1: how hard the early waves lean on you. Peaks on waves 4-9, when the shop should already be paying off,
+## and fades out by wave 13 where the regular curve takes over. Skills and dodging alone can't keep up.
+static func early_pressure(w: int) -> float:
+	if w <= 9:
+		return minf(1.0, float(w) / 4.0)
+	return clampf(float(13 - w) / 4.0, 0.0, 1.0)
+
+
+const EARLY_HP := 0.3
+const EARLY_DMG := 0.4
+
+
+## Enemy damage is a notch higher since barrel stacks let you fight the pack one at a time.
+const DMG_BASE := 1.1
+const BOSS_DMG_BASE := 1.1
 
 
 static func dmg_mult(w: int) -> float:
 	var x := float(w - 1)
-	return 1.0 + 0.04 * x + 0.005 * x * x + 0.00012 * x * x * x
+	return DMG_BASE * (1.0 + 0.05 * x + 0.006 * x * x + 0.0001 * x * x * x) * (1.0 + EARLY_DMG * early_pressure(w))
+
+
+## Seconds into wave w before the survivors enrage.
+static func enrage_time(w: int) -> float:
+	return BOSS_ENRAGE_TIME.get(w, 55.0 + 3.0 * float(w))
+
+
+## Chance that a regular enemy spawns as an elite.
+static func elite_chance(w: int) -> float:
+	if w < 4:
+		return 0.0
+	return minf(0.26, 0.05 + 0.012 * float(w - 4))
+
+
+## Affixes that can roll on wave w.
+static func elite_affixes(w: int) -> Array:
+	var out := []
+	for k in ELITE_AFFIXES:
+		if w >= int(ELITE_AFFIXES[k]["from_wave"]):
+			out.append(k)
+	return out
 
 
 static func gold_mult(w: int) -> float:
-	return 1.0 + 0.09 * float(w - 1)
+	return 1.2 + 0.09 * float(w - 1)
 
 
 static func xp_mult(w: int) -> float:
@@ -181,7 +900,7 @@ static func xp_to_next(level: int) -> float:
 
 
 static func wave_clear_gold(w: int) -> int:
-	return 70 + 18 * w
+	return 100 + 20 * w
 
 
 static func boss_gold(w: int) -> int:
@@ -200,6 +919,17 @@ static func wave_bursts(w: int) -> Array:
 		counts["burrower"] = int(1 + (w - 4) / 5.0)
 	if w >= 6:
 		counts["bloater"] = int(1 + (w - 6) / 4.0)
+	if w >= 6:
+		counts["ironhulk"] = int(1 + (w - 6) / 5.0)
+	if w >= 8:
+		counts["veilwraith"] = int(1 + (w - 8) / 3.0)
+	if w >= AURAS["drummer"]["from_wave"]:
+		counts["drummer"] = 1 + int(w >= 16)
+	if w >= AURAS["chanter"]["from_wave"]:
+		counts["chanter"] = 1 + int(w >= 18)
+	var mods: Dictionary = wave_info(w).get("mods", {})
+	for k in mods:
+		counts[k] = int(counts.get(k, 0)) + int(mods[k])
 	if BOSS_WAVES.has(w):
 		# boss waves: lighter escort
 		for k in counts.keys():
@@ -210,7 +940,7 @@ static func wave_bursts(w: int) -> Array:
 		bursts.append({"delay": 0.0 if i == 0 else 7.0 + 1.0 * i, "gate": "", "units": []})
 	# distribute
 	var idx := 0
-	for kind in ["shieldbearer", "hexcaster", "burrower", "bloater", "gnawer"]:
+	for kind in ["drummer", "chanter", "ironhulk", "shieldbearer", "hexcaster", "veilwraith", "burrower", "bloater", "gnawer"]:
 		var c: int = counts.get(kind, 0)
 		for j in c:
 			bursts[idx % n_bursts]["units"].append(kind)
@@ -219,6 +949,26 @@ static func wave_bursts(w: int) -> Array:
 	for i in n_bursts:
 		bursts[i]["gate"] = gate_cycle[(w + i) % gate_cycle.size()]
 	return bursts
+
+
+## Wave-preview line naming the foes of wave w that take extra from one damage type, e.g.
+## "Magic beats Iron Hulk, Shieldbearer · Physical beats Veilwraith". "" if none.
+static func matchup_line(w: int) -> String:
+	if BOSS_WAVES.has(w):
+		return ""
+	var by := {"magic": [], "phys": []}
+	for b in wave_bursts(w):
+		for k in b["units"]:
+			var m: Dictionary = MATCHUPS.get(k, {})
+			var nm: String = L.t(ENEMIES[k]["name"])
+			if m.has("weak") and not by[m["weak"]].has(nm):
+				by[m["weak"]].append(nm)
+	var parts := []
+	if not by["magic"].is_empty():
+		parts.append(L.f("Magic beats %s", [", ".join(by["magic"])]))
+	if not by["phys"].is_empty():
+		parts.append(L.f("Physical beats %s", [", ".join(by["phys"])]))
+	return "\n".join(parts)
 
 
 static func skill_aim(skill_id: String) -> String:

@@ -152,11 +152,7 @@ func _cast_slip(aim: Dictionary) -> bool:
 	# don't dash through pillars: stop at the first pillar contact
 	for i in range(1, 14):
 		var p := from + (to - from) * (i / 13.0)
-		var hit := false
-		for pl in DB.PILLARS:
-			if Vector2(p.x - pl.x, p.z - pl.z).length() < DB.PILLAR_R + hero.radius:
-				hit = true
-		if hit:
+		if run.arena.solid_at(p, hero.radius):
 			to = from + (to - from) * ((i - 1) / 13.0)
 			break
 	dash = {"from": from, "to": to, "t": 0.0, "dur": 0.16, "hit": {}}

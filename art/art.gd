@@ -9,6 +9,9 @@ const World := preload("res://art/world.gd")
 const Fx := preload("res://art/fx.gd")
 const Icons := preload("res://art/icons.gd")
 const UiTheme := preload("res://art/ui_theme.gd")
+const WeatherFx := preload("res://art/weather_fx.gd")
+const ArenaFx := preload("res://art/arena_fx.gd")
+const Dungeon := preload("res://art/dungeon.gd")
 
 var palette := {
 	"ember": Color("ff7a2f"), "gold": Color("f2c14e"), "hp": Color("d83a3a"), "mana": Color("3a7bd8"),
@@ -17,6 +20,9 @@ var palette := {
 	# extras (safe to ignore)
 	"flow": Color("3ff0dc"), "heal": Color("6cff7a"), "bronze": Color("b0773a"), "bronze_dark": Color("4a3020"),
 	"ashwarden": Color("ff7a2f"), "riftdancer": Color("3ff0dc"), "hivemother": Color("9cff3a"),
+	"sanguine": Color("e0263c"), "snarewright": Color("c8d24a"), "twinhide": Color("c86bff"), "twinhide_beast": Color("c86bff"),
+	"gravekeeper": Color("8affc8"), "stoneshaper": Color("d9a066"), "gunsmith": Color("4fb8ff"), "sunspeaker": Color("ffe680"),
+	"duelist": Color("ffd25a"), "vanguard": Color("ff5a33"), "nightblade": Color("9a6bff"), "skyspear": Color("7fd4ff"), "frostweaver": Color("9ae8ff"), "stormcaller": Color("b0a0ff"), "alchemist": Color("9cff4a"), "chronomancer": Color("f0d890"),
 }
 
 var _fx_root: Node3D
@@ -81,15 +87,51 @@ func _update_occluders(delta: float) -> void:
 
 # ------------------------------------------------------------------ environment / world
 
-func setup_environment(world_env_parent: Node) -> void:
+func setup_environment(world_env_parent: Node, theme := "ember") -> void:
 	if world_env_parent == null:
 		return
-	World.setup_environment(world_env_parent)
+	World.setup_environment(world_env_parent, theme)
 
 func build_world(parent: Node3D) -> Dictionary:
 	if parent == null:
 		return {"shop": null, "fountain": null}
 	return World.build(parent)
+
+## Delve mode: the depth's dungeon (art/dungeon.gd), built from the Delve node's grid and added under it.
+func build_dungeon(delve: Node3D) -> Node3D:
+	if delve == null:
+		return null
+	return Dungeon.build(delve)
+
+## Title-screen campsite (ledge, bench, tent, props) with the bonfire at `pos`.
+func menu_camp(parent: Node3D, pos: Vector3) -> Node3D:
+	if parent == null:
+		return null
+	return World.menu_camp(parent, pos)
+
+## Title-screen bonfire (stone ring, log teepee, flames, sparks, smoke, flickering light) at `pos`.
+func bonfire(parent: Node3D, pos: Vector3) -> Node3D:
+	if parent == null:
+		return null
+	return World.bonfire(parent, pos)
+
+## Weather visuals for a run (rain, mist, dust, embers, lightning, sky mood); see art/weather_fx.gd.
+func arena_fx(run_node: Node) -> Node:
+	if run_node == null:
+		return null
+	var a: Node3D = ArenaFx.new()
+	run_node.add_child(a)
+	a.setup(run_node)
+	return a
+
+
+func weather_fx(run_node: Node) -> Node:
+	if run_node == null:
+		return null
+	var w: Node3D = WeatherFx.new()
+	run_node.add_child(w)
+	w.setup(run_node)
+	return w
 
 # ------------------------------------------------------------------ units
 

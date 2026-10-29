@@ -322,6 +322,27 @@ func projectile(kind: String) -> Node3D:
 			n.spin = Vector3(0.0, 3.0, 0.0)
 		"hero_bolt":
 			c = Color(0.35, 0.95, 1.0); c2 = Color(1.0, 1.0, 0.85); size = 0.28; trail = Color(0.5, 1.0, 1.0, 1.0)
+		"bullet":
+			c = Color(0.45, 0.8, 1.0); c2 = Color(1.0, 1.0, 1.0); size = 0.13; trail = Color(0.6, 0.88, 1.0, 1.0); tamount = 10
+		"crossbow_bolt":
+			c = Color(0.78, 0.86, 0.28); c2 = Color(1.0, 1.0, 0.75); size = 0.12; trail = Color(0.82, 0.9, 0.35, 0.8); tamount = 8
+		"spirit_lance":
+			c = Color(0.72, 0.36, 1.0); c2 = Color(1.0, 0.9, 1.0); size = 0.24; trail = Color(0.78, 0.45, 1.0, 1.0); tamount = 20
+		"grave_bolt":
+			c = Color(0.4, 1.0, 0.72); c2 = Color(0.9, 1.0, 0.95); size = 0.26; trail = Color(0.5, 1.0, 0.78, 0.9); tgrav = Vector3(0, 1.2, 0)
+		"blood_bolt":
+			c = Color(0.9, 0.06, 0.16); c2 = Color(1.0, 0.65, 0.6); size = 0.3; trail = Color(0.85, 0.05, 0.12, 1.0); tgrav = Vector3(0, -3.0, 0)
+		"dagger":
+			c = Color(0.82, 0.86, 0.95); c2 = Color(1.0, 1.0, 1.0); size = 0.14; trail = Color(0.62, 0.42, 1.0, 0.8); mesh_key = "shard"; tamount = 8
+		"frost_bolt":
+			c = Color(0.55, 0.88, 1.0); c2 = Color(0.95, 1.0, 1.0); size = 0.26; trail = Color(0.7, 0.95, 1.0, 1.0); mesh_key = "shard"
+			n.spin = Vector3(0.0, 0.0, 9.0)
+		"vial":
+			c = Color(0.55, 1.0, 0.25); c2 = Color(1.0, 0.95, 0.6); size = 0.24; trail = Color(0.6, 1.0, 0.3, 0.9); tgrav = Vector3(0, -3.0, 0); tamount = 12
+			n.spin = Vector3(6.0, 0.0, 4.0)
+		"time_bolt":
+			c = Color(0.95, 0.8, 0.4); c2 = Color(1.0, 1.0, 0.9); size = 0.26; trail = Color(0.55, 0.75, 1.0, 1.0); mesh_key = "hex"
+			n.spin = Vector3(0.0, 5.0, 0.0)
 		_:
 			pass
 	var core := MeshInstance3D.new()
@@ -341,6 +362,39 @@ func projectile(kind: String) -> Node3D:
 		ring.scale = Vector3.ONE * 1.7
 	if kind == "hero_bolt":
 		core.scale = Vector3(size, size, size * 2.4)
+	elif kind == "bullet":
+		core.scale = Vector3(size, size, size * 7.0)
+		core.position.z = size * 2.0
+	elif kind == "spirit_lance":
+		core.scale = Vector3(size * 0.6, size * 0.6, size * 6.0)
+		var tip := MeshInstance3D.new()
+		tip.mesh = _mesh("shard")
+		tip.material_override = SH.add_mat_shared(c2, Color(1, 1, 1), 1, 2.8)
+		tip.rotation_degrees = Vector3(-90, 0, 0)
+		tip.scale = Vector3(0.5, 0.7, 0.3)
+		tip.position = Vector3(0, 0, -size * 3.2)
+		n.add_child(tip)
+		var ring := MeshInstance3D.new()
+		ring.mesh = _mesh("ring")
+		ring.material_override = SH.add_mat_shared(c, c2, 1, 2.2)
+		ring.scale = Vector3.ONE * size * 1.8
+		ring.rotation_degrees = Vector3(90, 0, 0)
+		core.add_child(ring)
+		ring.scale = Vector3(3.0, 3.0, 0.5)
+		n.spin = Vector3(0, 0, 6.0)
+	elif kind == "crossbow_bolt" or kind == "grave_bolt":
+		var bm := MeshInstance3D.new()
+		bm.mesh = _bolt_mesh(kind)
+		bm.material_override = _bolt_mat(kind)
+		bm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		n.add_child(bm)
+		if kind == "crossbow_bolt":
+			core.scale = Vector3.ONE * size * 0.8
+			core.position.z = -0.42
+		else:
+			core.scale = Vector3.ONE * size * 0.55
+			n.core = bm
+			n.spin = Vector3(0, 0, 0)
 	var halo := MeshInstance3D.new()
 	halo.mesh = _mesh("quad")
 	halo.material_override = SH.add_mat_shared(c, c2, 0, 1.8, true)
@@ -367,14 +421,54 @@ func projectile(kind: String) -> Node3D:
 	n.add_child(tr)
 	return n
 
+## Small solid meshes for the crossbow bolt (shaft, head, fletching) and the grave bolt (ghost skull). Cached.
+static func _bolt_mesh(kind: String) -> Mesh:
+	var key := "boltmesh_" + kind
+	if _res.has(key):
+		return _res[key]
+	var MK = load("res://art/mesh_kit.gd")
+	var k = MK.new()
+	if kind == "crossbow_bolt":
+		var wood := Color("8a6034"); var metal := Color("c8c4b0"); var olive := Color("c8d24a")
+		k.box(Vector3(0.035, 0.035, 0.8), Vector3(0, 0, 0), wood)
+		k.spike(Vector3(0, 0, -0.38), Vector3(0, 0, -0.52), 0.05, metal, 0.4, 4)
+		for r in [0.0, 90.0]:
+			k.prism(Vector3(0.16, 0.14, 0.012), Vector3(0, 0, 0.34), olive, Vector3(90, 0, r), 1.4)
+	else:
+		var bone := Color("c8fff0"); var dark := Color("0a2a20"); var mint := Color("8affc8")
+		k.ball(0.17, Vector3.ZERO, bone, Vector3(1, 0.95, 1.1), Vector3.ZERO, 1.2, 8, 5)
+		k.box(Vector3(0.18, 0.08, 0.12), Vector3(0, -0.13, -0.06), bone, Vector3.ZERO, 1.2)
+		for s in [-1.0, 1.0]:
+			k.ball(0.05, Vector3(s * 0.065, 0.02, -0.15), dark, Vector3.ONE, Vector3.ZERO, -1, 6, 4)
+			k.ball(0.025, Vector3(s * 0.065, 0.02, -0.18), mint, Vector3.ONE, Vector3.ZERO, 3.5, 6, 4)
+	var m: Mesh = k.build()
+	_res[key] = m
+	return m
+
+static func _bolt_mat(kind: String) -> Material:
+	var key := "boltmat_" + kind
+	if _res.has(key):
+		return _res[key]
+	var m: ShaderMaterial
+	if kind == "grave_bolt":
+		m = SH.new_ghost_mat(Color(0.5, 1.0, 0.78), 0.75, 1.0)
+		m.set_shader_parameter("glow_strength", 1.4)
+	else:
+		m = SH.new_unit_mat(Color(0.8, 0.9, 0.3), 1.0)
+		m.set_shader_parameter("rim_color", Color(0.9, 1.0, 0.6))
+		m.set_shader_parameter("rim_strength", 0.8)
+	_res[key] = m
+	return m
+
 # ------------------------------------------------------------------ dispatcher
 
 const PERSISTENT := ["telegraph_circle", "telegraph_line", "aim_circle", "aim_line", "ash_wall", "foundry_aura",
-	"mark", "rally_marker", "carapace", "bloater_pool", "beam"]
+	"mark", "rally_marker", "carapace", "bloater_pool", "beam", "buff_aura", "zone", "stone_ridge", "grave_marker"]
 
 ## Concurrency budget for cosmetic one-shots (keeps draw calls bounded in big fights).
 ## Over budget: damage numbers recycle the oldest; others spawn a light variant or nothing visible.
-const FX_CAP := {"damage_number": 10, "hit": 6, "death_burst": 4, "gold": 4, "heal": 4, "slam": 3}
+const FX_CAP := {"damage_number": 10, "hit": 6, "death_burst": 4, "gold": 4, "heal": 4, "slam": 3,
+	"cone": 4, "ring_burst": 4, "blood_burst": 6, "trap_snap": 4, "explosion": 4, "soul_wisp": 8, "form_shift": 2, "grave_marker": 24}
 var _live := {}
 
 func _live_list(kind: String) -> Array:
@@ -410,6 +504,16 @@ func spawn(fx_name: String, o: Dictionary, root: Node) -> Node:
 		elif fx_name == "slam" and _live_list("slam_lite").size() < 6:
 			n = _slam_lite(o, root)
 			_live["slam_lite"].append(n)
+		elif fx_name == "explosion" and _live_list("explosion_lite").size() < 6:
+			n = _explosion_lite(o, root)
+			_live["explosion_lite"].append(n)
+		elif fx_name == "grave_marker":
+			# recycle the oldest marker instead of dropping the new one
+			var oldm = _live_list("grave_marker").pop_front()
+			if oldm is FxNode:
+				(oldm as FxNode).stop()
+			n = _grave_marker(o, root)
+			_live["grave_marker"].append(n)
 		else:
 			n = _null_fx(o, root, fx_name)
 		return n
@@ -435,6 +539,7 @@ func _spawn_kind(fx_name: String, o: Dictionary, root: Node) -> FxNode:
 		"ash_wall": n = _ash_wall(o, root)
 		"tether_pull": n = _tether_pull(o, root)
 		"foundry_aura": n = _foundry_aura(o, root)
+		"buff_aura": n = _buff_aura(o, root)
 		"slip_trail": n = _slip_trail(o, root)
 		"mark": n = _mark(o, root)
 		"shatter": n = _shatter(o, root)
@@ -447,6 +552,16 @@ func _spawn_kind(fx_name: String, o: Dictionary, root: Node) -> FxNode:
 		"beam": n = _beam(o, root)
 		"slam": n = _slam(o, root)
 		"fountain_heal": n = _fountain_heal(o, root)
+		"cone": n = _cone(o, root)
+		"zone": n = _zone(o, root)
+		"ring_burst": n = _ring_burst(o, root)
+		"stone_ridge": n = _stone_ridge(o, root)
+		"blood_burst": n = _blood_burst(o, root)
+		"trap_snap": n = _trap_snap(o, root)
+		"explosion": n = _explosion(o, root)
+		"soul_wisp": n = _soul_wisp(o, root)
+		"form_shift": n = _form_shift(o, root)
+		"grave_marker": n = _grave_marker(o, root)
 		_:
 			n = _hit(o, root)
 			if fx_name in PERSISTENT:
@@ -585,6 +700,8 @@ func _damage_number(o: Dictionary, root: Node) -> FxNode:
 	var txt := str(int(round(amount)))
 	if crit:
 		txt += "!"
+	if o.has("text"):
+		txt = L.t(str(o["text"]))
 	var l := _label(n, txt, c, 96 if crit else 64)
 	# constant on-screen size (~44 px tall at 1080p, crits ~66 px) regardless of camera zoom
 	l.fixed_size = true
@@ -608,7 +725,7 @@ func _teleport(o: Dictionary, root: Node) -> FxNode:
 	var p := _v(o, "pos"); p.y = 0.0
 	var n := _node(root, "teleport", p)
 	n.free_after = 1.1
-	var c := Color(0.55, 0.45, 1.0)
+	var c := _c(o, "color", Color(0.55, 0.45, 1.0))
 	var col := _column(n, c, Color(0.85, 0.95, 1.0), 0.8, 5.0, 2.8)
 	_particles(n, {"amount": 30, "life": 0.6, "radius": 2.2, "vmin": 0.0, "vmax": 0.3, "radial": -14.0, "smin": 0.1, "smax": 0.2,
 		"color": Color(0.7, 0.75, 1.0)}).position.y = 1.0
@@ -628,11 +745,12 @@ func _tether_pull(o: Dictionary, root: Node) -> FxNode:
 	var r := _f(o, "radius", 3.0)
 	var n := _node(root, "tether_pull", p)
 	n.free_after = 0.9
-	var c := Color(1.0, 0.5, 0.15)
-	var ring := _decal(n, 6, r * 2.0, r * 2.0, c, Color(1, 0.85, 0.5), true, 2.4)
-	var rune := _decal(n, 5, r * 2.0, r * 2.0, c, Color(1.0, 0.75, 0.4), true, 1.2)
+	var c := _c(o, "color", Color(1.0, 0.5, 0.15))
+	var tc := o.has("color")
+	var ring := _decal(n, 6, r * 2.0, r * 2.0, c, c.lerp(Color.WHITE, 0.6) if tc else Color(1, 0.85, 0.5), true, 2.4)
+	var rune := _decal(n, 5, r * 2.0, r * 2.0, c, c.lerp(Color.WHITE, 0.4) if tc else Color(1.0, 0.75, 0.4), true, 1.2)
 	_particles(n, {"amount": 32, "life": 0.55, "shape": "ring", "radius": r, "inner": r * 0.8, "vmin": 0.0, "vmax": 0.2, "radial": -r * 9.0,
-		"tangent": 6.0, "smin": 0.12, "smax": 0.24, "color": Color(1.0, 0.6, 0.25)}).position.y = 0.4
+		"tangent": 6.0, "smin": 0.12, "smax": 0.24, "color": c.lerp(Color.WHITE, 0.2) if tc else Color(1.0, 0.6, 0.25)}).position.y = 0.4
 	n.update = func(node: FxNode, _dt: float) -> void:
 		var k := clampf(node.t / 0.45, 0.0, 1.0)
 		(ring.material_override as ShaderMaterial).set_shader_parameter("fill", 1.0 - k * k)
@@ -645,10 +763,11 @@ func _slip_trail(o: Dictionary, root: Node) -> FxNode:
 	var n := _node(root, "slip_trail", Vector3.ZERO)
 	n.global_position = Vector3.ZERO
 	n.free_after = 0.75
-	var c := Color(0.25, 1.0, 0.9)
+	var c := _c(o, "color", Color(0.25, 1.0, 0.9))
+	var tc := o.has("color")
 	var rib := MeshInstance3D.new()
 	rib.mesh = _mesh("plane")
-	var m := SH.new_add_mat(c, Color(0.75, 0.6, 1.0), 2, 1.3)
+	var m := SH.new_add_mat(c, c.lerp(Color.WHITE, 0.5) if tc else Color(0.75, 0.6, 1.0), 2, 1.3)
 	m.set_shader_parameter("len", a.distance_to(b))
 	rib.material_override = m
 	rib.transform = _line_xform(a, b, 1.0, 0.9)
@@ -664,7 +783,7 @@ func _slip_trail(o: Dictionary, root: Node) -> FxNode:
 	var mid := (a + b) * 0.5
 	var d := Vector3(b.x - a.x, 0, b.z - a.z)
 	var pp := _particles(n, {"amount": 22, "life": 0.5, "shape": "box", "box": Vector3(0.3, 0.4, maxf(d.length() * 0.5, 0.1)), "vmin": 0.2, "vmax": 1.0,
-		"smin": 0.08, "smax": 0.18, "color": Color(0.6, 1.0, 1.0), "gravity": Vector3(0, 1.0, 0)})
+		"smin": 0.08, "smax": 0.18, "color": c.lerp(Color.WHITE, 0.3) if tc else Color(0.6, 1.0, 1.0), "gravity": Vector3(0, 1.0, 0)})
 	pp.global_transform = Transform3D(Basis.looking_at(d.normalized() if d.length() > 0.01 else Vector3.FORWARD, Vector3.UP), Vector3(mid.x, 0.9, mid.z))
 	n.update = func(node: FxNode, _dt: float) -> void:
 		m.set_shader_parameter("alpha", 1.0 - clampf(node.t / 0.6, 0.0, 1.0))
@@ -674,12 +793,13 @@ func _shatter(o: Dictionary, root: Node) -> FxNode:
 	var p := _v(o, "pos"); p.y = maxf(p.y, 1.0)
 	var n := _node(root, "shatter", p)
 	n.free_after = 1.0
-	var c := Color(0.75, 0.35, 1.0)
+	var c := _c(o, "color", Color(0.75, 0.35, 1.0))
+	var tc := o.has("color")
 	_particles(n, {"amount": 14, "life": 0.7, "mesh": "shard", "mat": "glow", "radius": 0.2, "vmin": 4.0, "vmax": 8.0, "gravity": Vector3(0, -10, 0),
-		"smin": 0.15, "smax": 0.3, "color": Color(0.7, 0.5, 1.0), "damp": 1.0})
-	_particles(n, {"amount": 16, "life": 0.4, "vmin": 3.0, "vmax": 6.0, "smin": 0.1, "smax": 0.2, "color": Color(0.4, 1.0, 0.95), "damp": 5.0})
+		"smin": 0.15, "smax": 0.3, "color": c.lerp(Color.WHITE, 0.2) if tc else Color(0.7, 0.5, 1.0), "damp": 1.0})
+	_particles(n, {"amount": 16, "life": 0.4, "vmin": 3.0, "vmax": 6.0, "smin": 0.1, "smax": 0.2, "color": c.lerp(Color.WHITE, 0.5) if tc else Color(0.4, 1.0, 0.95), "damp": 5.0})
 	var fl := _sprite(n, c, Color(1, 0.9, 1), 2.2, 2.6, 6)
-	var ring := _decal(n, 6, 3.4, 3.4, c, Color(0.6, 1.0, 1.0), true, 2.0)
+	var ring := _decal(n, 6, 3.4, 3.4, c, c.lerp(Color.WHITE, 0.5) if tc else Color(0.6, 1.0, 1.0), true, 2.0)
 	ring.position.y = 0.06 - p.y
 	n.update = func(node: FxNode, _dt: float) -> void:
 		var k := clampf(node.t / 0.3, 0.0, 1.0)
@@ -737,13 +857,14 @@ func _sacrifice(o: Dictionary, root: Node) -> FxNode:
 	var r := _f(o, "radius", 3.0)
 	var n := _node(root, "sacrifice_explosion", p)
 	n.free_after = 1.5
-	var g := Color(0.6, 1.0, 0.15)
-	var ring := _decal(n, 6, r * 2.0, r * 2.0, g, Color(1, 1, 0.6), true, 2.6)
-	var splat := _decal(n, 4, r * 1.6, r * 1.6, Color(0.25, 0.5, 0.05, 0.9), Color(0.7, 1.0, 0.2), false)
+	var g := _c(o, "color", Color(0.6, 1.0, 0.15))
+	var tc := o.has("color")
+	var ring := _decal(n, 6, r * 2.0, r * 2.0, g, g.lerp(Color.WHITE, 0.6) if tc else Color(1, 1, 0.6), true, 2.6)
+	var splat := _decal(n, 4, r * 1.6, r * 1.6, Color(g.r * 0.4, g.g * 0.4, g.b * 0.4, 0.9) if tc else Color(0.25, 0.5, 0.05, 0.9), g if tc else Color(0.7, 1.0, 0.2), false)
 	_particles(n, {"amount": 26, "life": 0.7, "radius": 0.4, "vmin": 3.0, "vmax": 3.0 + r * 2.0, "dir": Vector3.UP, "spread": 75.0,
-		"gravity": Vector3(0, -8, 0), "smin": 0.18, "smax": 0.35, "color": Color(0.7, 1.0, 0.3), "damp": 1.5}).position.y = 0.5
+		"gravity": Vector3(0, -8, 0), "smin": 0.18, "smax": 0.35, "color": g.lerp(Color.WHITE, 0.3) if tc else Color(0.7, 1.0, 0.3), "damp": 1.5}).position.y = 0.5
 	_particles(n, {"amount": 14, "life": 0.9, "mat": "mix", "radius": 0.5, "vmin": 3.0, "vmax": 6.0, "dir": Vector3.UP, "spread": 70.0,
-		"gravity": Vector3(0, -14, 0), "smin": 0.15, "smax": 0.3, "color": Color(0.35, 0.7, 0.08, 0.95)}).position.y = 0.4
+		"gravity": Vector3(0, -14, 0), "smin": 0.15, "smax": 0.3, "color": Color(g.r * 0.55, g.g * 0.55, g.b * 0.55, 0.95) if tc else Color(0.35, 0.7, 0.08, 0.95)}).position.y = 0.4
 	var fl := _sprite(n, g, Color(1, 1, 0.8), r * 1.6, 2.6, 0, 0.8)
 	n.update = func(node: FxNode, _dt: float) -> void:
 		var k := clampf(node.t / 0.4, 0.0, 1.0)
@@ -760,13 +881,14 @@ func _slam(o: Dictionary, root: Node) -> FxNode:
 	n.free_after = 1.7
 	var dust := Color(0.55, 0.46, 0.36, 0.85)
 	var ring := _decal(n, 6, r * 2.2, r * 2.2, dust, Color(0.8, 0.7, 0.55, 0.9), false)
-	var cracks := _decal(n, 7, r * 1.8, r * 1.8, Color(0.2, 0.1, 0.05), Color(1.0, 0.45, 0.1), false)
+	var sc := _c(o, "color", Color(1.0, 0.45, 0.1))
+	var cracks := _decal(n, 7, r * 1.8, r * 1.8, Color(0.2, 0.1, 0.05), sc, false)
 	(cracks.material_override as ShaderMaterial).set_shader_parameter("fill", 1.0)
 	_particles(n, {"amount": 14, "life": 1.0, "mesh": "box", "mat": "debris", "radius": r * 0.4, "vmin": 4.0, "vmax": 7.5, "dir": Vector3.UP, "spread": 40.0,
 		"gravity": Vector3(0, -16, 0), "smin": 0.15, "smax": 0.35, "shrink": false, "fade": false, "color": Color(0.42, 0.38, 0.4)}).position.y = 0.2
 	_particles(n, {"amount": 16, "life": 1.0, "mat": "mix", "shape": "ring", "radius": r * 0.7, "inner": r * 0.3, "vmin": 1.0, "vmax": 3.0, "radial": 3.0,
 		"dir": Vector3.UP, "spread": 50.0, "gravity": Vector3(0, 0.4, 0), "smin": 0.8, "smax": 1.5, "grow": true, "color": dust, "damp": 2.5}).position.y = 0.3
-	var fl := _sprite(n, Color(1.0, 0.55, 0.2), Color(1, 0.9, 0.7), r * 1.2, 2.0, 0, 0.5)
+	var fl := _sprite(n, _c(o, "color", Color(1.0, 0.55, 0.2)), Color(1, 0.9, 0.7), r * 1.2, 2.0, 0, 0.5)
 	n.update = func(node: FxNode, _dt: float) -> void:
 		var k := clampf(node.t / 0.45, 0.0, 1.0)
 		(ring.material_override as ShaderMaterial).set_shader_parameter("fill", sqrt(k))
@@ -811,12 +933,16 @@ func _telegraph_circle(o: Dictionary, root: Node) -> FxNode:
 	var n := _node(root, "telegraph_circle", p)
 	n.duration = _f(o, "duration", 1.0)
 	n.fade_time = 0.15
-	var d := _decal(n, 0, r * 2.0, r * 2.0, Color(1.0, 0.16, 0.08, 1.0), Color(1.0, 0.6, 0.2, 1.0), false, 1.4)
+	var tcol := _c(o, "color", Color(1.0, 0.16, 0.08, 1.0))
+	var d := _decal(n, 0, r * 2.0, r * 2.0, tcol, tcol.lerp(Color.WHITE, 0.45) if o.has("color") else Color(1.0, 0.6, 0.2, 1.0), false, 1.4)
 	var m: ShaderMaterial = d.material_override
 	n.mats.append(m)
 	n.update = func(node: FxNode, _dt: float) -> void:
 		m.set_shader_parameter("fill", clampf(node.t / maxf(node.duration, 0.01), 0.0, 1.0))
 	n.params_cb = func(node: FxNode, op: Dictionary) -> void:
+		if op.has("color"):
+			var cc := _c(op, "color", tcol)
+			m.set_shader_parameter("color", cc); m.set_shader_parameter("color2", cc.lerp(Color.WHITE, 0.45))
 		if op.has("pos"):
 			var q := _v(op, "pos"); node.global_position = Vector3(q.x, 0, q.z)
 		if op.has("radius"):
@@ -955,6 +1081,36 @@ func _foundry_aura(o: Dictionary, root: Node) -> FxNode:
 			(glow.material_override as ShaderMaterial).set_shader_parameter("alpha", 0.6 + 0.25 * sin(node.t * 5.0))
 	return n
 
+## Ground ring showing a buffer enemy's aura (Ward Chanter / War Drummer). Follows `target` until stop().
+func _buff_aura(o: Dictionary, root: Node) -> FxNode:
+	var tgt = o.get("target")
+	var p := _v(o, "pos")
+	if tgt is Node3D and is_instance_valid(tgt):
+		p = (tgt as Node3D).global_position
+	var n := _node(root, "buff_aura", p)
+	n.fade_time = 0.3
+	if tgt is Node3D:
+		n.target = tgt; n.follow = true
+	var r := _f(o, "radius", 4.5)
+	var c := _c(o, "color", Color(1.0, 0.85, 0.35))
+	var d := _decal(n, 5, r * 2.0, r * 2.0, c, c.lerp(Color.WHITE, 0.5), true, 0.9)
+	n.mats.append(d.material_override)
+	var pulse := _decal(n, 6, r * 2.0, r * 2.0, c, Color(1, 1, 1), true, 1.1)
+	n.mats.append(pulse.material_override)
+	var em := _particles(n, {"amount": 10, "life": 1.4, "one_shot": false, "shape": "ring", "radius": r * 0.95, "inner": r * 0.85, "vmin": 0.4, "vmax": 1.0,
+		"dir": Vector3.UP, "spread": 10.0, "smin": 0.08, "smax": 0.16, "color": c})
+	n.parts.append(em)
+	var glow := _sprite(n, c, c.lerp(Color.WHITE, 0.6), 1.4, 1.6, 0, 2.4)
+	n.mats.append(glow.material_override)
+	n.update = func(node: FxNode, _dt: float) -> void:
+		d.rotation.y = node.t * 0.4
+		var k := fmod(node.t * 0.7, 1.0)
+		(pulse.material_override as ShaderMaterial).set_shader_parameter("fill", k)
+		if not node.stopping:
+			(pulse.material_override as ShaderMaterial).set_shader_parameter("alpha", (1.0 - k) * 0.8)
+			(glow.material_override as ShaderMaterial).set_shader_parameter("alpha", 0.55 + 0.3 * sin(node.t * 4.0))
+	return n
+
 func _mark(o: Dictionary, root: Node) -> FxNode:
 	var tgt = o.get("target")
 	var p := _v(o, "pos")
@@ -968,9 +1124,10 @@ func _mark(o: Dictionary, root: Node) -> FxNode:
 	n.fade_time = 0.15
 	if tgt is Node3D:
 		n.target = tgt; n.follow = true
-	var s := _sprite(n, Color(0.7, 0.3, 1.0), Color(0.4, 1.0, 0.95), 0.75, 2.6, 6, h)
+	var mc := _c(o, "color", Color(0.7, 0.3, 1.0))
+	var s := _sprite(n, mc, mc.lerp(Color.WHITE, 0.5) if o.has("color") else Color(0.4, 1.0, 0.95), 0.75, 2.6, 6, h)
 	n.mats.append(s.material_override)
-	var ring := _decal(n, 2, 1.4, 1.4, Color(0.7, 0.35, 1.0), Color(1, 1, 1), true, 1.0)
+	var ring := _decal(n, 2, 1.4, 1.4, mc, Color(1, 1, 1), true, 1.0)
 	n.mats.append(ring.material_override)
 	n.update = func(node: FxNode, _dt: float) -> void:
 		var pulse := 1.0 + 0.12 * sin(node.t * 8.0)
@@ -985,8 +1142,8 @@ func _rally_marker(o: Dictionary, root: Node) -> FxNode:
 	n.duration = _f(o, "duration", 4.0)
 	n.fade_time = 0.3
 	n.linger = 1.0
-	var g := Color(0.6, 1.0, 0.2)
-	var d := _decal(n, 5, 2.6, 2.6, g, Color(0.95, 1.0, 0.6), true, 1.8)
+	var g := _c(o, "color", Color(0.6, 1.0, 0.2))
+	var d := _decal(n, 5, 2.6, 2.6, g, g.lerp(Color.WHITE, 0.6) if o.has("color") else Color(0.95, 1.0, 0.6), true, 1.8)
 	n.mats.append(d.material_override)
 	var pulse := _decal(n, 6, 3.4, 3.4, g, Color(1, 1, 0.7), true, 1.6)
 	n.mats.append(pulse.material_override)
@@ -998,7 +1155,7 @@ func _rally_marker(o: Dictionary, root: Node) -> FxNode:
 	n.add_child(stalk)
 	n.mats.append(stalk.material_override)
 	var ph := _particles(n, {"amount": 16, "life": 1.4, "one_shot": false, "shape": "ring", "radius": 1.1, "inner": 0.2, "vmin": 0.5, "vmax": 1.4,
-		"dir": Vector3.UP, "spread": 20.0, "tangent": 2.0, "smin": 0.1, "smax": 0.2, "color": Color(0.7, 1.0, 0.35)})
+		"dir": Vector3.UP, "spread": 20.0, "tangent": 2.0, "smin": 0.1, "smax": 0.2, "color": g.lerp(Color.WHITE, 0.25) if o.has("color") else Color(0.7, 1.0, 0.35)})
 	n.parts.append(ph)
 	n.update = func(node: FxNode, _dt: float) -> void:
 		var k := fmod(node.t, 1.0)
@@ -1072,17 +1229,18 @@ func _beam(o: Dictionary, root: Node) -> FxNode:
 	n.global_position = Vector3.ZERO
 	n.duration = _f(o, "duration", 3.0)
 	n.fade_time = 0.25
-	var c := Color(0.55, 0.85, 1.0)
-	var m := SH.new_add_mat(c, Color(0.75, 0.95, 1.0), 2, 1.7)
-	var mg := SH.new_add_mat(c * 0.8, Color(0.6, 0.85, 1.0), 2, 0.7)
+	var c := _c(o, "color", Color(0.55, 0.85, 1.0))
+	var c2 := c.lerp(Color.WHITE, 0.55) if o.has("color") else Color(0.75, 0.95, 1.0)
+	var m := SH.new_add_mat(c, c2, 2, 1.7)
+	var mg := SH.new_add_mat(c * 0.8, c2.lerp(c, 0.4), 2, 0.7)
 	n.mats.append(m); n.mats.append(mg)
 	var q1 := MeshInstance3D.new(); q1.mesh = _mesh("plane"); q1.material_override = m; n.add_child(q1)
 	var q2 := MeshInstance3D.new(); q2.mesh = _mesh("plane"); q2.material_override = m; n.add_child(q2)
 	var qg := MeshInstance3D.new(); qg.mesh = _mesh("plane"); qg.material_override = mg; n.add_child(qg)
-	var src := _sprite(n, c, Color(0.8, 0.95, 1), w * 1.4, 1.6)
-	var hit := _sprite(n, c, Color(0.8, 0.95, 1), w * 1.2, 1.4)
+	var src := _sprite(n, c, c2, w * 1.4, 1.6)
+	var hit := _sprite(n, c, c2, w * 1.2, 1.4)
 	n.mats.append(src.material_override); n.mats.append(hit.material_override)
-	var sparks := _particles(n, {"amount": 14, "life": 0.4, "one_shot": false, "vmin": 2.0, "vmax": 4.0, "smin": 0.08, "smax": 0.16, "color": Color(0.7, 0.95, 1.0), "gravity": Vector3(0, -4, 0)})
+	var sparks := _particles(n, {"amount": 14, "life": 0.4, "one_shot": false, "vmin": 2.0, "vmax": 4.0, "smin": 0.08, "smax": 0.16, "color": c.lerp(Color.WHITE, 0.4) if o.has("color") else Color(0.7, 0.95, 1.0), "gravity": Vector3(0, -4, 0)})
 	n.parts.append(sparks)
 	var place := func(aa: Vector3, bb: Vector3, ww: float) -> void:
 		var y := maxf(aa.y, 1.3)
@@ -1090,6 +1248,8 @@ func _beam(o: Dictionary, root: Node) -> FxNode:
 		var t1 := _line_xform(A, B, ww, y)
 		q1.transform = t1
 		var dir := (B - A); var L := maxf(dir.length(), 0.05); dir = dir / L
+		if dir.length_squared() < 0.0001:
+			dir = Vector3.FORWARD   # ends on top of each other (e.g. the Matrons overlapping): keep the basis invertible
 		var side := Vector3.UP.cross(dir).normalized()
 		# vertical strip: same along-axis, width along up
 		q2.transform = Transform3D(Basis(Vector3.UP * ww, side, dir * L), (A + B) * 0.5)
@@ -1105,8 +1265,334 @@ func _beam(o: Dictionary, root: Node) -> FxNode:
 		var aa := _v(op, "from", node.data["from"]); var bb := _v(op, "to", node.data["to"]); var ww := _f(op, "width", node.data["width"])
 		node.data["from"] = aa; node.data["to"] = bb; node.data["width"] = ww
 		place.call(aa, bb, ww)
+		if op.has("width"):
+			src.scale = Vector3.ONE * ww * 1.4; hit.scale = Vector3.ONE * ww * 1.2
+		if op.has("color"):
+			var cc := _c(op, "color", c)
+			var cc2 := cc.lerp(Color.WHITE, 0.55)
+			m.set_shader_parameter("color", cc); m.set_shader_parameter("color2", cc2)
+			mg.set_shader_parameter("color", cc * 0.8); mg.set_shader_parameter("color2", cc2.lerp(cc, 0.4))
+			for sm in [src.material_override, hit.material_override]:
+				(sm as ShaderMaterial).set_shader_parameter("color", cc); (sm as ShaderMaterial).set_shader_parameter("color2", cc2)
+			sparks.color_ramp = _ramp(cc.lerp(Color.WHITE, 0.4))
 	n.update = func(node: FxNode, _dt: float) -> void:
 		if not node.stopping:
 			var grow := clampf(node.t / 0.15, 0.0, 1.0)
 			m.set_shader_parameter("alpha", grow * (0.85 + 0.15 * sin(node.t * 30.0)))
+	return n
+
+# ------------------------------------------------------------------ wave-2 hero fx
+
+## Sweeping wedge on the ground (cleaves, shotgun blasts, shoves). Forward = dir.
+func _cone(o: Dictionary, root: Node) -> FxNode:
+	var p := _v(o, "pos"); p.y = 0.0
+	var r := maxf(_f(o, "range", 3.0), 0.3)
+	var ang := clampf(_f(o, "angle", 70.0), 5.0, 359.0)
+	var c := _c(o, "color", Color(1.0, 0.6, 0.25))
+	var d := _v(o, "dir", Vector3.FORWARD); d.y = 0.0
+	if d.length() < 0.01:
+		d = Vector3.FORWARD
+	d = d.normalized()
+	var n := _node(root, "cone", p)
+	n.free_after = 0.75
+	if n.is_inside_tree():
+		n.global_basis = Basis.looking_at(d, Vector3.UP)
+	else:
+		n.basis = Basis.looking_at(d, Vector3.UP)
+	var w := _decal(n, 10, r * 2.0, r * 2.0, c, c.lerp(Color.WHITE, 0.65), true, 1.9)
+	var m: ShaderMaterial = w.material_override
+	m.set_shader_parameter("arc", deg_to_rad(ang * 0.5))
+	var sp := _particles(n, {"amount": 16, "life": 0.4, "shape": "point", "dir": Vector3(0, 0.15, -1), "spread": minf(ang * 0.5, 90.0),
+		"vmin": r * 2.5, "vmax": r * 4.5, "damp": r * 6.0, "smin": 0.08, "smax": 0.17, "color": c.lerp(Color.WHITE, 0.3), "local": true})
+	sp.position.y = 0.6
+	n.update = func(node: FxNode, _dt: float) -> void:
+		var k := clampf(node.t / 0.16, 0.0, 1.0)
+		m.set_shader_parameter("fill", 1.0 - pow(1.0 - k, 2.0))
+		m.set_shader_parameter("alpha", 1.0 - smoothstep(0.2, 0.6, node.t))
+	return n
+
+## Soft glowing ground circle with a rim and slow motes (heal wells, curses, sanctums).
+func _zone(o: Dictionary, root: Node) -> FxNode:
+	var p := _v(o, "pos"); p.y = 0.0
+	var r := maxf(_f(o, "radius", 2.5), 0.2)
+	var c := _c(o, "color", Color(0.5, 1.0, 0.65))
+	var n := _node(root, "zone", p)
+	var dur := _f(o, "duration", 0.0)
+	n.duration = dur if dur > 0.0 else -1.0
+	n.fade_time = 0.4
+	n.linger = 0.9
+	var dc := _decal(n, 11, r * 2.0, r * 2.0, c, c.lerp(Color.WHITE, 0.55), true, 1.25)
+	var m: ShaderMaterial = dc.material_override
+	n.mats.append(m)
+	var motes := _particles(n, {"amount": int(clampf(r * 4.0, 6.0, 20.0)), "life": 1.6, "one_shot": false, "shape": "ring", "radius": r * 0.85, "inner": 0.0,
+		"vmin": 0.25, "vmax": 0.7, "dir": Vector3.UP, "spread": 12.0, "gravity": Vector3(0, 0.3, 0), "smin": 0.08, "smax": 0.16, "color": c.lerp(Color.WHITE, 0.25)})
+	n.parts.append(motes)
+	n.data = {"r": r}
+	n.update = func(node: FxNode, _dt: float) -> void:
+		var g := 1.0 - pow(1.0 - clampf(node.t / 0.3, 0.0, 1.0), 2.0)
+		var rr: float = node.data["r"]
+		dc.scale = Vector3(rr * 2.0 * g, 1, rr * 2.0 * g)
+	n.params_cb = func(node: FxNode, op: Dictionary) -> void:
+		if op.has("pos"):
+			var q := _v(op, "pos"); node.global_position = Vector3(q.x, 0, q.z)
+		if op.has("radius"):
+			var rr := maxf(_f(op, "radius", node.data["r"]), 0.2)
+			node.data["r"] = rr
+			m.set_shader_parameter("size", Vector2(rr * 2.0, rr * 2.0))
+			motes.emission_ring_radius = rr * 0.85
+		if op.has("color"):
+			var cc := _c(op, "color", c)
+			m.set_shader_parameter("color", cc); m.set_shader_parameter("color2", cc.lerp(Color.WHITE, 0.55))
+	return n
+
+## Expanding shockwave ring + dust and sparks.
+func _ring_burst(o: Dictionary, root: Node) -> FxNode:
+	var p := _v(o, "pos"); p.y = 0.0
+	var r := maxf(_f(o, "radius", 3.0), 0.3)
+	var c := _c(o, "color", Color(1.0, 0.8, 0.5))
+	var n := _node(root, "ring_burst", p)
+	n.free_after = 1.1
+	var r1 := _decal(n, 6, r * 2.0, r * 2.0, c, c.lerp(Color.WHITE, 0.6), true, 2.4)
+	var r2 := _decal(n, 6, r * 2.0, r * 2.0, c, Color(1, 1, 1), true, 1.4)
+	_particles(n, {"amount": 14, "life": 0.8, "mat": "mix", "shape": "ring", "radius": r * 0.3, "inner": r * 0.1, "vmin": r * 1.5, "vmax": r * 2.6, "dir": Vector3.UP,
+		"spread": 80.0, "damp": r * 1.5, "gravity": Vector3(0, 0.5, 0), "smin": 0.5, "smax": 1.0, "grow": true, "color": Color(0.5, 0.42, 0.34, 0.6)}).position.y = 0.25
+	_particles(n, {"amount": 18, "life": 0.5, "shape": "ring", "radius": r * 0.2, "inner": 0.0, "vmin": r * 3.0, "vmax": r * 5.0, "dir": Vector3.UP, "spread": 85.0,
+		"damp": r * 4.0, "gravity": Vector3(0, -4, 0), "smin": 0.08, "smax": 0.16, "color": c.lerp(Color.WHITE, 0.3)}).position.y = 0.4
+	n.update = func(node: FxNode, _dt: float) -> void:
+		var k := clampf(node.t / 0.42, 0.0, 1.0)
+		(r1.material_override as ShaderMaterial).set_shader_parameter("fill", sqrt(k))
+		_set_alpha(r1, 1.0 - k)
+		var k2 := clampf((node.t - 0.1) / 0.5, 0.0, 1.0)
+		(r2.material_override as ShaderMaterial).set_shader_parameter("fill", sqrt(k2) * 0.85)
+		_set_alpha(r2, (1.0 - k2) * (1.0 if node.t > 0.1 else 0.0))
+	return n
+
+## Jagged sandstone wall with amber cracks rising along a segment (Stoneshaper).
+func _stone_ridge(o: Dictionary, root: Node) -> FxNode:
+	var a := _v(o, "from"); var b := _v(o, "to", a + Vector3(4, 0, 0))
+	a.y = 0; b.y = 0
+	var n := _node(root, "stone_ridge", (a + b) * 0.5)
+	n.duration = _f(o, "duration", 4.0)
+	n.fade_time = 0.45
+	n.linger = 0.8
+	var d := b - a
+	var L := maxf(d.length(), 0.5)
+	n.global_transform = Transform3D(Basis.looking_at(d / L if d.length() > 0.01 else Vector3.FORWARD, Vector3.UP), (a + b) * 0.5)
+	var key := "ridge_%d" % int(round(L * 4.0))
+	var mesh: Mesh = _res.get(key)
+	if mesh == null:
+		var MK = load("res://art/mesh_kit.gd")
+		var k = MK.new()
+		var st := Color("a8906e"); var st2 := Color("7a6650"); var sand := Color("d0a26a"); var amber := Color("ffb040")
+		var cnt := int(ceil(L / 0.5)) + 1
+		var rng := RandomNumberGenerator.new(); rng.seed = cnt * 31
+		for i in cnt:
+			var z := -L * 0.5 + L * float(i) / maxf(cnt - 1, 1)
+			var h := 1.0 + rng.randf() * 0.9
+			var w := 0.5 + rng.randf() * 0.3
+			k.prism(Vector3(w, h, 0.6 + rng.randf() * 0.3), Vector3(rng.randf_range(-0.12, 0.12), h * 0.5, z), st if i % 2 == 0 else st2,
+				Vector3(rng.randf_range(-10, 10), rng.randf_range(-30, 30), rng.randf_range(-12, 12)))
+			k.box(Vector3(w * 0.8, h * 0.45, 0.5), Vector3(rng.randf_range(-0.1, 0.1), h * 0.22, z), sand if i % 3 == 0 else st2, Vector3(0, rng.randf_range(0, 90), rng.randf_range(-8, 8)))
+			k.box(Vector3(0.05, h * 0.55, 0.05), Vector3(rng.randf_range(-0.3, -0.24) if i % 2 == 0 else rng.randf_range(0.24, 0.3), h * 0.32, z + rng.randf_range(-0.1, 0.1)), amber,
+				Vector3(0, 0, rng.randf_range(-25, 25)), 2.4)
+		k.box(Vector3(1.1, 0.2, L + 0.5), Vector3(0, 0.06, 0), Color("5a4a3a"))
+		mesh = k.build()
+		_res[key] = mesh
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	var um := SH.new_unit_mat(Color(1.0, 0.7, 0.25), 2.0)
+	um.set_shader_parameter("rim_color", Color(1.0, 0.75, 0.45))
+	um.set_shader_parameter("rim_strength", 0.55)
+	mi.material_override = um
+	mi.position.y = -2.0
+	n.add_child(mi)
+	_particles(n, {"amount": int(clampf(L * 3.0, 6.0, 18.0)), "life": 0.9, "mat": "mix", "shape": "box", "box": Vector3(0.5, 0.1, L * 0.5), "vmin": 0.8, "vmax": 2.2,
+		"dir": Vector3.UP, "spread": 40.0, "gravity": Vector3(0, 0.3, 0), "damp": 1.5, "smin": 0.5, "smax": 1.0, "grow": true, "color": Color(0.55, 0.46, 0.34, 0.65)}).position.y = 0.2
+	_particles(n, {"amount": int(clampf(L * 2.0, 4.0, 12.0)), "life": 0.9, "mesh": "box", "mat": "debris", "shape": "box", "box": Vector3(0.4, 0.1, L * 0.5), "vmin": 3.0, "vmax": 5.5,
+		"dir": Vector3.UP, "spread": 30.0, "gravity": Vector3(0, -16, 0), "smin": 0.1, "smax": 0.22, "shrink": false, "fade": false, "color": Color(0.6, 0.5, 0.38)}).position.y = 0.3
+	n.update = func(node: FxNode, _dt: float) -> void:
+		if not node.stopping:
+			mi.position.y = lerpf(-2.0, 0.0, 1.0 - pow(1.0 - clampf(node.t / 0.25, 0.0, 1.0), 3.0))
+			um.set_shader_parameter("glow_boost", 0.35 + 0.15 * sin(node.t * 4.0))
+		else:
+			var k2 := clampf(node.stop_t / 0.45, 0.0, 1.0)
+			mi.position.y = -1.2 * k2 * k2
+			um.set_shader_parameter("dissolve", k2)
+	return n
+
+## Crimson splash.
+func _blood_burst(o: Dictionary, root: Node) -> FxNode:
+	var p := _v(o, "pos")
+	var s := clampf(_f(o, "size", 1.0), 0.3, 3.0)
+	var n := _node(root, "blood_burst", Vector3(p.x, 0, p.z))
+	n.free_after = 1.4
+	var hy := maxf(p.y, 1.0)
+	_particles(n, {"amount": 14, "life": 0.6, "mat": "mix", "radius": 0.15 * s, "vmin": 2.0 * s, "vmax": 4.5 * s, "dir": Vector3.UP, "spread": 75.0,
+		"gravity": Vector3(0, -16, 0), "smin": 0.1 * s, "smax": 0.22 * s, "color": Color(0.62, 0.02, 0.08, 0.95), "fade": false}).position.y = hy
+	_particles(n, {"amount": 8, "life": 0.35, "radius": 0.1 * s, "vmin": 1.5 * s, "vmax": 3.5 * s, "smin": 0.12 * s, "smax": 0.24 * s, "damp": 4.0,
+		"color": Color(1.0, 0.18, 0.25)}).position.y = hy
+	var fl := _sprite(n, Color(0.9, 0.08, 0.15), Color(1.0, 0.55, 0.55), 1.3 * s, 2.0, 0, hy)
+	var pool := _decal(n, 4, 1.4 * s, 1.4 * s, Color(0.35, 0.0, 0.04, 0.85), Color(0.7, 0.06, 0.12), false)
+	n.update = func(node: FxNode, _dt: float) -> void:
+		_set_alpha(fl, 1.0 - clampf(node.t / 0.2, 0.0, 1.0))
+		var g := clampf((node.t - 0.25) / 0.25, 0.0, 1.0)
+		pool.scale = Vector3(1.4 * s * g, 1, 1.4 * s * g)
+		_set_alpha(pool, 1.0 - clampf((node.t - 0.9) / 0.5, 0.0, 1.0))
+	return n
+
+## Bear-trap jaws snapping shut + sparks.
+func _trap_snap(o: Dictionary, root: Node) -> FxNode:
+	var p := _v(o, "pos"); p.y = 0.0
+	var n := _node(root, "trap_snap", p)
+	n.free_after = 0.8
+	var c := Color(0.85, 0.92, 0.3)
+	var jaws: Array = []
+	for i in 2:
+		var j := MeshInstance3D.new()
+		j.mesh = _mesh("quad")
+		j.material_override = SH.new_add_mat(Color(0.9, 0.9, 0.75), c, 4, 2.6)
+		j.scale = Vector3(1.1, 0.9, 1)
+		n.add_child(j)
+		jaws.append(j)
+	_particles(n, {"amount": 14, "life": 0.35, "vmin": 3.0, "vmax": 6.0, "dir": Vector3.UP, "spread": 70.0, "gravity": Vector3(0, -10, 0), "damp": 2.0,
+		"smin": 0.06, "smax": 0.13, "color": Color(1.0, 0.95, 0.55)}).position.y = 0.35
+	var ring := _decal(n, 6, 1.8, 1.8, c, Color(1, 1, 0.7), true, 2.0)
+	var fl := _sprite(n, c, Color(1, 1, 0.8), 1.2, 2.2, 0, 0.35)
+	n.update = func(node: FxNode, _dt: float) -> void:
+		var k := clampf(node.t / 0.1, 0.0, 1.0)
+		for i in 2:
+			var j: MeshInstance3D = jaws[i]
+			var sgn := 1.0 if i == 0 else -1.0
+			# two crescents closing like jaws
+			j.position = Vector3(0, 0.35, sgn * lerpf(0.4, 0.06, k))
+			j.rotation = Vector3(sgn * lerpf(1.3, 0.0, k), 0, PI if i == 1 else 0.0)
+			_set_alpha(j, 1.0 - clampf((node.t - 0.25) / 0.3, 0.0, 1.0))
+		(ring.material_override as ShaderMaterial).set_shader_parameter("fill", clampf(node.t / 0.3, 0.0, 1.0))
+		_set_alpha(ring, 1.0 - clampf(node.t / 0.4, 0.0, 1.0))
+		_set_alpha(fl, clampf(1.0 - absf(node.t - 0.1) / 0.12, 0.0, 1.0))
+	return n
+
+## Fiery blast (blast charges, mortar shells); bigger than hit.
+func _explosion(o: Dictionary, root: Node) -> FxNode:
+	var p := _v(o, "pos"); p.y = 0.0
+	var r := clampf(_f(o, "radius", 2.5), 0.4, 8.0)
+	var c := _c(o, "color", Color(1.0, 0.5, 0.12))
+	var n := _node(root, "explosion", p)
+	n.free_after = 1.8
+	var fire := _particles(n, {"amount": 26, "life": 0.6, "radius": r * 0.25, "vmin": r * 1.2, "vmax": r * 2.6, "dir": Vector3.UP, "spread": 80.0, "damp": r * 2.0,
+		"gravity": Vector3(0, 2.0, 0), "smin": r * 0.4, "smax": r * 0.7, "color": c.lerp(Color(1, 0.95, 0.6), 0.4), "mid": 0.35})
+	fire.position.y = 0.5
+	_particles(n, {"amount": 10, "life": 1.3, "mat": "mix", "radius": r * 0.3, "vmin": r * 0.5, "vmax": r * 1.2, "dir": Vector3.UP, "spread": 60.0, "damp": 1.5,
+		"gravity": Vector3(0, 1.0, 0), "smin": r * 0.35, "smax": r * 0.7, "grow": true, "color": Color(0.14, 0.11, 0.1, 0.6)}).position.y = 0.8
+	_particles(n, {"amount": 8, "life": 1.0, "mesh": "box", "mat": "debris", "radius": r * 0.2, "vmin": 4.0, "vmax": 7.0, "dir": Vector3.UP, "spread": 55.0,
+		"gravity": Vector3(0, -16, 0), "smin": 0.1, "smax": 0.2, "shrink": false, "fade": false, "color": Color(0.3, 0.24, 0.2)}).position.y = 0.4
+	var ring := _decal(n, 6, r * 2.2, r * 2.2, c, Color(1, 0.9, 0.6), true, 2.4)
+	var scorch := _decal(n, 7, r * 1.6, r * 1.6, Color(0.2, 0.1, 0.05), c, false)
+	(scorch.material_override as ShaderMaterial).set_shader_parameter("fill", 1.0)
+	var fl := _sprite(n, c, Color(1, 0.95, 0.75), r * 2.2, 2.8, 0, 0.9)
+	n.update = func(node: FxNode, _dt: float) -> void:
+		var k := clampf(node.t / 0.35, 0.0, 1.0)
+		(ring.material_override as ShaderMaterial).set_shader_parameter("fill", sqrt(k))
+		_set_alpha(ring, 1.0 - k)
+		fl.scale = Vector3.ONE * r * 2.2 * lerpf(0.6, 1.3, clampf(node.t / 0.15, 0.0, 1.0))
+		_set_alpha(fl, 1.0 - clampf(node.t / 0.3, 0.0, 1.0))
+		(scorch.material_override as ShaderMaterial).set_shader_parameter("fill", 1.0 - clampf(node.t / 1.6, 0.0, 1.0))
+		_set_alpha(scorch, 1.0 - clampf((node.t - 1.1) / 0.7, 0.0, 1.0))
+	return n
+
+func _explosion_lite(o: Dictionary, root: Node) -> FxNode:
+	var p := _v(o, "pos"); p.y = 0.0
+	var r := clampf(_f(o, "radius", 2.5), 0.4, 8.0)
+	var c := _c(o, "color", Color(1.0, 0.5, 0.12))
+	var n := _node(root, "explosion", p)
+	n.free_after = 0.5
+	var ring := _decal(n, 6, r * 2.2, r * 2.2, c, Color(1, 0.9, 0.6), true, 2.4)
+	var fl := _sprite(n, c, Color(1, 0.95, 0.75), r * 2.0, 2.6, 0, 0.9)
+	n.update = func(node: FxNode, _dt: float) -> void:
+		var k := clampf(node.t / 0.35, 0.0, 1.0)
+		(ring.material_override as ShaderMaterial).set_shader_parameter("fill", sqrt(k))
+		_set_alpha(ring, 1.0 - k)
+		_set_alpha(fl, 1.0 - clampf(node.t / 0.25, 0.0, 1.0))
+	return n
+
+## Mint wisp flying from a corpse to a point.
+func _soul_wisp(o: Dictionary, root: Node) -> FxNode:
+	var a := _v(o, "from"); var b := _v(o, "to", a + Vector3(0, 0, -3))
+	var n := _node(root, "soul_wisp", Vector3.ZERO)
+	n.global_position = Vector3.ZERO
+	n.free_after = 1.0
+	var c := Color(0.55, 1.0, 0.8)
+	var head := _sprite(n, c, Color(0.95, 1, 0.95), 0.7, 2.6, 0, 0.0)
+	var tr := _particles(n, {"amount": 14, "life": 0.4, "one_shot": false, "radius": 0.08, "vmin": 0.0, "vmax": 0.3, "gravity": Vector3(0, 0.6, 0),
+		"smin": 0.15, "smax": 0.28, "color": c})
+	n.parts.append(tr)
+	var dur := clampf(a.distance_to(b) / 9.0, 0.25, 0.6)
+	var y0 := maxf(a.y, 0.6); var y1 := maxf(b.y, 1.0)
+	var pos_at := func(k: float) -> Vector3:
+		var e := k * k * (3.0 - 2.0 * k)
+		var q := Vector3(a.x, y0, a.z).lerp(Vector3(b.x, y1, b.z), e)
+		q.y += sin(k * PI) * 1.1
+		q.x += sin(k * TAU * 1.5) * 0.15
+		return q
+	head.position = pos_at.call(0.0)
+	tr.position = head.position
+	n.update = func(node: FxNode, _dt: float) -> void:
+		var k := clampf(node.t / dur, 0.0, 1.0)
+		head.position = pos_at.call(k)
+		tr.position = head.position
+		if k >= 1.0:
+			tr.emitting = false
+			head.scale = Vector3.ONE * lerpf(0.7, 1.6, clampf((node.t - dur) / 0.15, 0.0, 1.0))
+			_set_alpha(head, 1.0 - clampf((node.t - dur) / 0.2, 0.0, 1.0))
+	return n
+
+## Violet swirl + leaves for Twinhide changing form.
+func _form_shift(o: Dictionary, root: Node) -> FxNode:
+	var p := _v(o, "pos"); p.y = 0.0
+	var n := _node(root, "form_shift", p)
+	n.free_after = 1.3
+	var v := Color(0.78, 0.42, 1.0)
+	var col := _column(n, v, Color(0.95, 0.85, 1.0), 0.9, 3.4, 2.4)
+	_particles(n, {"amount": 26, "life": 0.9, "shape": "ring", "radius": 1.0, "inner": 0.6, "vmin": 0.8, "vmax": 2.0, "dir": Vector3.UP, "spread": 15.0,
+		"tangent": 9.0, "radial": -1.5, "smin": 0.1, "smax": 0.2, "color": Color(0.85, 0.6, 1.0), "explode": 0.7})
+	_particles(n, {"amount": 12, "life": 1.1, "mesh": "shard", "mat": "glow", "shape": "ring", "radius": 0.5, "inner": 0.1, "vmin": 2.0, "vmax": 4.0, "dir": Vector3.UP,
+		"spread": 60.0, "tangent": 5.0, "gravity": Vector3(0, -3, 0), "damp": 1.5, "smin": 0.1, "smax": 0.18, "color": Color(0.5, 0.75, 0.3)}).position.y = 0.6
+	var ring := _decal(n, 6, 4.0, 4.0, v, Color(1, 0.85, 1), true, 2.2)
+	var rune := _decal(n, 5, 2.8, 2.8, v, Color(0.95, 0.8, 1.0), true, 1.6)
+	var fl := _sprite(n, v, Color(1, 0.9, 1), 2.6, 2.4, 0, 1.0)
+	n.update = func(node: FxNode, _dt: float) -> void:
+		var k := clampf(node.t / 1.0, 0.0, 1.0)
+		col.scale.x = lerpf(2.0, 0.3, k); col.scale.z = col.scale.x
+		_set_alpha(col, 1.0 - k)
+		rune.rotation.y = node.t * 3.0
+		_set_alpha(rune, 1.0 - k)
+		(ring.material_override as ShaderMaterial).set_shader_parameter("fill", clampf(node.t / 0.4, 0.0, 1.0))
+		_set_alpha(ring, 1.0 - clampf(node.t / 0.5, 0.0, 1.0))
+		_set_alpha(fl, clampf(1.0 - absf(node.t - 0.15) / 0.2, 0.0, 1.0))
+	return n
+
+## Small mint grave glyph where an enemy died (Gravekeeper's corpses). One decal, no particles.
+func _grave_marker(o: Dictionary, root: Node) -> FxNode:
+	var p := _v(o, "pos"); p.y = 0.0
+	var n := _node(root, "grave_marker", p)
+	var dur := _f(o, "duration", 8.0)
+	n.duration = dur if dur > 0.0 else -1.0
+	n.fade_time = 0.3
+	var sz := clampf(_f(o, "size", 0.95), 0.3, 3.0)
+	var c := _c(o, "color", Color(0.4, 1.0, 0.72))
+	var dc := _decal(n, 12, sz, sz, c, c.lerp(Color.WHITE, 0.6), true, 2.0)
+	dc.position.y = 0.05 + randf() * 0.01
+	var m: ShaderMaterial = dc.material_override
+	n.mats.append(m)
+	n.data = {"alpha": 1.0}
+	n.update = func(node: FxNode, _dt: float) -> void:
+		if node.stopping:
+			return
+		var pop := 1.0 + 0.5 * (1.0 - clampf(node.t / 0.2, 0.0, 1.0))
+		dc.scale = Vector3(sz * pop, 1, sz * pop)
+		var a := 0.85 + 0.15 * sin(node.t * 3.0)
+		if node.duration > 0.0:
+			a *= clampf((node.duration - node.t) / 1.5, 0.0, 1.0)
+		node.data["alpha"] = a
+		m.set_shader_parameter("alpha", a)
 	return n
