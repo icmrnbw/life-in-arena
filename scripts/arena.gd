@@ -13,7 +13,7 @@ var warn_r := -1.0              # radius the floor is about to shrink to (-1 = n
 var rim_step := 0               # how many rim collapses happened this wave
 var pillars: Array = []         # {pos, up, dir, a, b, node, flame}
 var vis: Node = null            # Art arena visual (rim ring; null without it)
-var _pillar_nodes: Array = []   # from Art.build_world: [{node, flame}] per DB.PILLARS entry
+var _pillar_nodes: Array = []   # from Art.build_world: [{node, flame}] per Maps.pillars() entry
 var _flames_mm: MultiMesh
 var _obs: Array = []            # obstacles() cache, cleared when the ground changes
 
@@ -22,9 +22,9 @@ func setup(r: Run, world_res: Dictionary) -> void:
 	run = r
 	_pillar_nodes = world_res.get("pillars", [])
 	_flames_mm = world_res.get("flames_mm", null)
-	for i in DB.PILLARS.size():
+	for i in Maps.pillars().size():
 		var pn: Dictionary = _pillar_nodes[i] if i < _pillar_nodes.size() else {}
-		pillars.append({"pos": DB.PILLARS[i], "up": true, "dir": Vector3.ZERO, "a": Vector3.ZERO, "b": Vector3.ZERO,
+		pillars.append({"pos": Maps.pillars()[i], "up": true, "dir": Vector3.ZERO, "a": Vector3.ZERO, "b": Vector3.ZERO,
 			"node": pn.get("node", null), "flame": int(pn.get("flame", -1)), "flame_xf": Transform3D()})
 		if _flames_mm and int(pn.get("flame", -1)) >= 0:
 			pillars[i]["flame_xf"] = _flames_mm.get_instance_transform(int(pn["flame"]))

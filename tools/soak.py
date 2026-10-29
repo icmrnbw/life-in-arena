@@ -37,6 +37,9 @@ SCENARIOS = {
     "daily": (["--mode=daily"], "Daily Run twists", 2),
     "allies": (["--wave=7", "--allies=3", "--duels"], "3 AI ally heroes and a camp duel (wave 8)", 8),
     "ladder": (["--mode=duels", "--tier=normal"], "Duel Ladder: rival heroes 1 on 1", 1),
+    "hollow": (["--wave=4", "--god", "--map=hollow"], "Rimefang Hollow arena: pillars, gates, Pit Brute", 5),
+    "delve": (["--mode=delve", "--wave=4"], "Delve: dungeon depths 2-3, packs waking, the Pit Brute's lair", 4),
+    "delve_end": (["--mode=delve", "--wave=18", "--god"], "Delve: depths 9-10, Hollow Choir lair and victory", 18),
 }
 
 # long boss fights get more time (multiplies --seconds)

@@ -42,6 +42,8 @@ var drummers: Array = []   # alive War Drummers (foes near them deal double dama
 var barrels: BarrelField
 var weather: Weather
 var arena: Arena
+var delve: Delve           # Delve mode's dungeon (null in the arena modes)
+var wave_step := 1         # Delve: 2 (a depth is fought at wave = 2 * depth)
 var immune_shown_t := -10.0
 var hints_shown := {}
 ## Mode and tier settings (Modes.config); the hot multipliers are copied into plain vars below.
@@ -119,6 +121,11 @@ func setup(id: String, start_wave := 1, run_cfg := {}) -> void:
 	hero_speed_mult = float(cfg.get("hero_speed", 1.0))
 	lives = int(cfg.get("lives", DB.START_LIVES))
 	gold = DB.START_GOLD + int(cfg.get("bonus_gold", 0))
+	Maps.use(String(cfg.get("map", "pit")))
+	if mode == "delve":
+		Maps.use("delve")
+		wave_step = 2
+		wave = clampi(wave + wave % 2, 2, DB.TOTAL_WAVES)
 
 
 func _ready() -> void:
@@ -132,7 +139,7 @@ func _ready() -> void:
 	env_parent.name = "Env"
 	add_child(env_parent)
 	if Art.has_method("setup_environment"):
-		Art.setup_environment(env_parent)
+		Art.setup_environment(env_parent, Maps.theme())
 	world = Node3D.new()
 	world.name = "World"
 	add_child(world)
@@ -147,6 +154,10 @@ func _ready() -> void:
 	barrels.setup(self)
 	arena = Arena.new()
 	arena.setup(self, res if res is Dictionary else {})
+	if mode == "delve":
+		delve = Delve.new()
+		world.add_child(delve)
+		delve.setup(self)
 	units_root = Node3D.new()
 	units_root.name = "Units"
 	add_child(units_root)
@@ -169,8 +180,10 @@ func _ready() -> void:
 	weather.setup(self)
 	duel = Duel.new()
 	duel.setup(self)
+	if delve:
+		weather.pin("clear")   # underground
 
-	if wave > 1:
+	if wave > wave_step:
 		_apply_start_wave(wave)
 	if mode == "practice":
 		gold = Modes.PRACTICE_GOLD
@@ -195,7 +208,7 @@ func _ready() -> void:
 		soak.setup(self)
 
 	phase = "prep"
-	prep_t = DB.FIRST_PREP_TIME if wave == 1 else DB.PREP_TIME
+	prep_t = DB.FIRST_PREP_TIME if wave == wave_step else DB.PREP_TIME
 	hero.in_camp = true
 	duel.on_prep()
 	Game.on_run_started(self)
@@ -207,16 +220,20 @@ func _ready() -> void:
 	elif cfg.has("resume"):
 		banner_requested.emit("Welcome back", "Wave %d begins soon. Your run was saved in camp." % wave)
 	else:
-		banner_requested.emit("Prepare", "Wave %d begins soon. Visit the shop and fountain." % wave)
+		banner_requested.emit("Prepare", ("Depth %d awaits. Visit the shop and fountain." % Delve.depth_of(wave)) if delve else ("Wave %d begins soon. Visit the shop and fountain." % wave))
 	_sync_state()
 
 
-## Boss kind on wave w ("" = regular wave), including Endless boss waves past 20.
+## Boss kind on wave w ("" = regular wave), including Endless boss waves past 20 and Delve's boss depths.
 func boss_kind(w := -1) -> String:
+	if mode == "delve":
+		return Delve.boss_kind(wave if w < 0 else w)
 	return Modes.boss_kind(wave if w < 0 else w)
 
 
 func wave_info(w := -1) -> Dictionary:
+	if mode == "delve":
+		return Delve.info(wave if w < 0 else w)
 	return Modes.wave_info(wave if w < 0 else w)
 
 
@@ -415,7 +432,7 @@ func nearest_enemy(p: Vector3, max_r: float) -> Unit:
 	var best: Unit = null
 	var bd := max_r * max_r
 	for e in enemies:
-		if not e.alive or e.untargetable:
+		if not e.alive or e.untargetable or e.dormant:
 			continue
 		var dx: float = e.pos.x - p.x
 		var dz: float = e.pos.z - p.z
@@ -581,6 +598,8 @@ func _rival_view() -> Array:
 ## or cfg "ally_ids" (exactly these).
 ## `saved`: their state from a saved run (snapshot()), in the same order.
 func _add_companions(saved: Array) -> void:
+	if delve:
+		return   # the Undercroft is a solo crawl
 	var ids: Array = cfg.get("ally_ids", [])
 	if ids.is_empty() and int(cfg.get("allies", 0)) > 0:
 		ids = pick_companions(hero_id, int(cfg["allies"]), rng)
@@ -751,6 +770,11 @@ func party_hp_mult() -> float:
 	return 1.0 + DB.ALLY_FOE_HP * companions.size()
 
 
+## ...and hit harder (a duel rival doesn't: it is a hero, not a wave foe).
+func party_dmg_mult() -> float:
+	return 1.0 + DB.ALLY_FOE_DMG * companions.size()
+
+
 ## Rolls whether a freshly spawned wave enemy becomes an elite.
 func _roll_elite(e: Enemy) -> void:
 	var from := int(cfg.get("elite_from", 4))
@@ -883,6 +907,8 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 		return 0.0
 	if t is Barrel:
 		return barrels.hit(t, src)
+	if delve and t is Enemy and (t as Enemy).dormant:
+		delve.wake_unit(t)
 	if t.invuln_t > 0.0:
 		return 0.0
 	# the wave is already won: a late projectile, pool or burn mustn't kill the hero and replay a cleared wave
@@ -893,6 +919,8 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 		a *= hero_dmg_mult
 	if src != null and src.team == 1:
 		a *= weather.foe_dmg_mult()
+		if not src is Hero:
+			a *= party_dmg_mult()
 		if pit_enraged:
 			a *= DB.ENRAGE_DMG
 		if is_drummed(src):
@@ -1258,7 +1286,7 @@ func _tick_projectiles(dt: float) -> void:
 					_proj_hit(p, u)
 				done = true
 				break
-		if not done and pp.z < 30.0 and arena.blocks_shot(pp):
+		if not done and pp.z < 30.0 and (arena.blocks_shot(pp) or (delve and delve.blocks_shot(pp))):
 			done = true
 			fx("hit", {"pos": pp})
 		# barrel stacks are cover from foe shots (the hero's own shots still fly over them)
@@ -1267,7 +1295,7 @@ func _tick_projectiles(dt: float) -> void:
 			fx("hit", {"pos": pp, "color": p["opts"].get("color", Color(1, 1, 1))})
 		if not done and p["life"] <= 0.0:
 			done = true
-		if not done and Vector2(pp.x, pp.z).length() > DB.ARENA_R + 1.0 and pp.z < 30.0:
+		if not done and delve == null and Vector2(pp.x, pp.z).length() > DB.ARENA_R + 1.0 and pp.z < 30.0:
 			done = true
 		if done:
 			_release_proj(p)
@@ -1416,25 +1444,28 @@ func resolve_pos(u: Unit, p: Vector3, old: Vector3) -> Vector3:
 		if off.length() > lim:
 			p = DB.CAMP_CENTER + off.normalized() * lim
 		return p
-	for pl in DB.PILLARS:
-		var d := Vector2(p.x - pl.x, p.z - pl.z)
-		var minr := DB.PILLAR_R + u.radius
-		if d.length() < minr:
-			if d.length() < 0.001:
-				d = Vector2(1, 0)
-			d = d.normalized() * minr
-			p.x = pl.x + d.x
-			p.z = pl.z + d.y
-	if arena:
-		p = arena.resolve(u, p)
-	if barrels:
-		p = barrels.resolve(u, p)
-	var r := Vector2(p.x, p.z).length()
-	var lim2 := arena_r() - u.radius - 0.3
-	if r > lim2:
-		var k := lim2 / r
-		p.x *= k
-		p.z *= k
+	if delve and delve.active:
+		p = delve.resolve(u, p)
+	else:
+		for pl in Maps.pillars():
+			var d := Vector2(p.x - pl.x, p.z - pl.z)
+			var minr := DB.PILLAR_R + u.radius
+			if d.length() < minr:
+				if d.length() < 0.001:
+					d = Vector2(1, 0)
+				d = d.normalized() * minr
+				p.x = pl.x + d.x
+				p.z = pl.z + d.y
+		if arena:
+			p = arena.resolve(u, p)
+		if barrels:
+			p = barrels.resolve(u, p)
+		var r := Vector2(p.x, p.z).length()
+		var lim2 := arena_r() - u.radius - 0.3
+		if r > lim2:
+			var k := lim2 / r
+			p.x *= k
+			p.z *= k
 	if u.team == 1 and walls.size() > 0:
 		for w in walls:
 			var a: Vector3 = w["a"]
@@ -1465,6 +1496,10 @@ func resolve_pos(u: Unit, p: Vector3, old: Vector3) -> Vector3:
 
 ## Steering toward a point with pillar avoidance. Returns a normalized direction.
 func steer_dir(u: Unit, goal: Vector3) -> Vector3:
+	if delve and delve.active and u.pos.z < 30.0:
+		var wp := delve.waypoint(u, goal)
+		var tw := _flat(wp - u.pos)
+		return tw.normalized() if tw.length() > 0.01 else Vector3.ZERO
 	if barrels and u.pos.z < 30.0:
 		goal = barrels.waypoint(u, goal)
 	var to := _flat(goal - u.pos)
@@ -1493,18 +1528,22 @@ func steer_dir(u: Unit, goal: Vector3) -> Vector3:
 
 func _pillar_obs() -> Array:
 	var out := []
-	for pl in DB.PILLARS:
+	for pl in Maps.pillars():
 		out.append([pl, DB.PILLAR_R])
 	return out
 
 
 ## Walkable radius of the arena floor right now (shrinks when the rim crumbles).
 func arena_r() -> float:
+	if delve and delve.active:
+		return 1000.0   # the dungeon's walls are delve.resolve()'s business
 	return arena.radius if arena else DB.ARENA_R
 
 
 ## Radius AI and the bot should stay inside: the coming crack line while the rim is about to fall.
 func arena_safe_r() -> float:
+	if delve and delve.active:
+		return 1000.0
 	return arena.safe_radius() if arena else DB.ARENA_R
 
 
@@ -1687,6 +1726,8 @@ func _step(dt: float) -> void:
 	Game.mark(5)
 	if hero.kit:
 		hero.kit.tick(dt)
+	if delve and delve.active and not hero.in_camp:
+		hero.pos = delve.resolve(hero, hero.pos)   # dashes and blinks stop at the dungeon's walls
 	for c in companions:
 		if c.alive and not c.dead:
 			as_unit(c, _tick_ai.bind(c, dt))
@@ -1951,6 +1992,8 @@ func _pick_target_for(h: Hero) -> Unit:
 		var d: float = _flat(e.pos - h.pos).length() - e.radius
 		if d > reach:
 			continue
+		if delve and not delve.los(h.pos, e.pos):
+			continue   # no shooting through the dungeon's walls
 		if d < bd_any:
 			bd_any = d
 			best_any = e
@@ -2324,6 +2367,9 @@ func start_wave() -> void:
 	max_wave_reached = maxi(max_wave_reached, wave)
 	if hud and hud.has_method("close_shop"):
 		hud.close_shop()
+	if delve:
+		_start_depth()
+		return
 	_teleport_hero(DB.ARENA_SPAWN)
 	hero.in_camp = false
 	if hero.kit:
@@ -2353,7 +2399,7 @@ func start_wave() -> void:
 		var b: Dictionary = bursts[i]
 		t += float(b["delay"])
 		var k := 0
-		var gate: Vector3 = DB.GATES[b["gate"]]
+		var gate: Vector3 = Maps.gates()[b["gate"]]
 		for kind in b["units"]:
 			spawn_queue.append({"t": t + k * 0.16, "kind": kind, "gate": gate})
 			k += 1
@@ -2395,6 +2441,9 @@ func start_wave() -> void:
 
 func _tick_wave(dt: float) -> void:
 	wave_time += dt
+	if delve:
+		delve.tick(dt)   # cleared when the guardian falls; no enrage while exploring
+		return
 	var alive_n := 0
 	for e in enemies:
 		if e.alive:
@@ -2427,6 +2476,26 @@ func _tick_wave(dt: float) -> void:
 		return
 	if not pit_enraged and alive_n > 0 and wave_time >= DB.enrage_time(wave):
 		_enrage()
+
+
+## Delve: build this depth (scripts/delve.gd) and send the hero down. The guardian waits in the lair.
+func _start_depth() -> void:
+	spawn_queue.clear()
+	captain = null
+	echoes.clear()
+	gauntlet_i = 0
+	wave_rule = ""
+	boss_title = ""
+	delve.begin(wave)
+	_teleport_hero(delve.start_pos)
+	hero.face(Vector3(0, 0, -1))
+	hero.in_camp = false
+	if hero.kit:
+		hero.kit.on_wave_start()
+	var info := wave_info()
+	banner_requested.emit("Depth %d" % Delve.depth_of(wave), Delve.depth_name(wave))
+	schedule(2.6, toast.bind(String(info.get("desc", "")), Art.palette.get("gold", Color.GOLD)))
+	Audio.play("wave")
 
 
 ## The wave dragged on: everything still alive hits harder and moves faster.
@@ -2495,7 +2564,7 @@ func _wave_cleared() -> void:
 	for u in Profile.on_wave_cleared(self, boss_title != ""):
 		schedule(1.2, toast.bind("Unlocked: %s!" % u, Art.palette.get("gold", Color.GOLD)))
 	if wave >= DB.TOTAL_WAVES and not cfg.get("endless", false):
-		banner_requested.emit("Victory!", "The Pit is silent")
+		banner_requested.emit("Victory!", "The Undercroft is silent" if delve else "The Pit is silent")
 		phase = "victory_wait"
 		schedule(2.5, _end_run.bind("victory"))
 		return
@@ -2503,13 +2572,13 @@ func _wave_cleared() -> void:
 		banner_requested.emit("The Warden falls!", "Endless: the Pit keeps coming")
 		Audio.play("victory")
 		return
-	banner_requested.emit("Wave %d cleared" % wave, sub)
+	banner_requested.emit(("Depth %d cleared" % Delve.depth_of(wave)) if delve else ("Wave %d cleared" % wave), sub)
 	Audio.play("clear")
 
 
 func _return_to_camp() -> void:
 	Game.crumb("return to camp")
-	wave += 1
+	wave += wave_step
 	_clear_arena(false)
 	if hero.kit:
 		hero.kit.on_wave_end()
@@ -2529,11 +2598,13 @@ func _return_to_camp() -> void:
 func _training_hint() -> void:
 	var opened := []
 	for id in DB.UPGRADE_ORDER:
-		if int(DB.UPGRADES[id]["wave"]) == wave:
+		var uw := int(DB.UPGRADES[id]["wave"])
+		if uw <= wave and uw > wave - wave_step:
 			opened.append(DB.UPGRADES[id]["name"])
 	if opened.is_empty():
 		return
-	var text := ("Training is open in the shop: %s" if wave == DB.UPGRADES[DB.UPGRADE_ORDER[0]]["wave"] else "New Training upgrades: %s") % ", ".join(opened)
+	var first := int(DB.UPGRADES[DB.UPGRADE_ORDER[0]]["wave"])
+	var text := ("Training is open in the shop: %s" if first <= wave and first > wave - wave_step else "New Training upgrades: %s") % ", ".join(opened)
 	schedule(3.0, hint_once.bind("train_%d" % wave, text))
 
 
@@ -2566,7 +2637,10 @@ func _after_death() -> void:
 	prep_t = DB.PREP_TIME
 	weather.roll_for(wave)
 	duel.on_prep()
-	banner_requested.emit("Respawned", ("Boss wave %d: try again" % wave) if boss_kind() != "" else ("Wave %d: try again" % wave))
+	if delve:
+		banner_requested.emit("Respawned", "Depth %d: try again" % Delve.depth_of(wave))
+	else:
+		banner_requested.emit("Respawned", ("Boss wave %d: try again" % wave) if boss_kind() != "" else ("Wave %d: try again" % wave))
 	Game.on_prep()
 	_save_progress()
 
@@ -2614,6 +2688,8 @@ func _clear_arena(fx_burst: bool) -> void:
 	weather.clear_patches()
 	spawn_queue.clear()
 	timers.clear()
+	if delve:
+		delve.clear()
 
 
 func _teleport_hero(p: Vector3) -> void:
@@ -2667,7 +2743,7 @@ func _update_camera(delta: float) -> void:
 		return
 	# lean the view toward the arena centre so more of the fight is on screen near the walls
 	var target := hero.pos
-	if not hero.in_camp:
+	if not hero.in_camp and delve == null:
 		var c := Vector3(0, 0, 0)
 		target = hero.pos + (_flat(c - hero.pos)).limit_length(12.0) * 0.18
 	var k := 1.0 - exp(-7.0 * delta)

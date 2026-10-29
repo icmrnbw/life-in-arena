@@ -15,8 +15,9 @@ const DMG_MULT := 0.6
 const POOL := ["sanguine", "twinhide", "gunsmith", "sunspeaker", "duelist", "vanguard", "skyspear", "frostweaver", "stormcaller", "chronomancer"]
 ## The rival's gear, as a share of what the player's items cost.
 const GEAR := {"normal": 0.7, "hard": 0.95, "extreme": 1.15}
-const P_SPOT := Vector3(0, 0, 5)   # clear of the south pillar at (0, 10)
+const P_SPOT := Vector3(0, 0, 5)   # clear of the Pit's south pillar at (0, 10)
 const R_SPOT := Vector3(0, 0, -5)
+const HOLLOW_P_SPOT := Vector3(0, 0, 2)   # Rimefang Hollow has a pillar at (0, 7)
 
 var run: Run
 var offer := {}        # {"hero", "level", "gold"} while a challenger waits
@@ -45,7 +46,7 @@ static func round_level(w: int) -> int:
 ## Camp: a challenger arrives on duel waves (--duel=<hero> offers one every wave, for tests).
 func on_prep() -> void:
 	offer = {}
-	if run.mode in ["training"] or run.result != "":
+	if run.mode in ["training", "delve"] or run.result != "":
 		return
 	var forced: String = Game.arg("duel", "")
 	if ladder():
@@ -105,7 +106,7 @@ func accept() -> bool:
 			h.add_xp(DB.xp_to_next(h.level))
 	h.hp = h.max_hp
 	h.mana = h.max_mana
-	run._teleport_hero(P_SPOT)
+	run._teleport_hero(HOLLOW_P_SPOT if Maps.cur == "hollow" else P_SPOT)
 	h.in_camp = false
 	if h.kit:
 		h.kit.on_wave_start()
