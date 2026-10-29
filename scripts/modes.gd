@@ -39,11 +39,13 @@ const TIERS := {
 		"unlock": "Clear wave 10 on Hard"},
 }
 
-const MODE_ORDER := ["classic", "random", "endless", "daily", "duels", "practice", "training"]
+const MODE_ORDER := ["classic", "random", "endless", "delve", "daily", "duels", "practice", "training"]
 const MODES := {
 	"classic": {"name": "Classic", "desc": "Pick a hero and survive 20 waves. Bosses on every 5th wave.", "icon": "portrait_ashwarden", "tiers": true},
 	"random": {"name": "Random Hero", "desc": "The Pit picks your hero for you. +150 starting gold.", "icon": "portrait_twinhide", "tiers": true},
 	"endless": {"name": "Endless", "desc": "Past the Warden the waves never stop. How far can you go?", "icon": "portrait_sunspeaker", "tiers": true},
+	"delve": {"name": "Delve", "desc": "Experimental. Leave the arena and explore the Undercroft: 10 depths of rooms and corridors. Foes sleep in packs until you come close. Find the lair at the end of each depth and slay its guardian.",
+		"icon": "portrait_nightblade", "tiers": true},
 	"daily": {"name": "Daily Run", "desc": "Today's hero and twist, the same for everyone. Hard tier. Beat your best score.", "icon": "portrait_gunsmith", "tiers": false},
 	"duels": {"name": "Duel Ladder", "desc": "No waves: beat 8 rival heroes one on one, each stronger than the last. Shop between duels. A lost duel costs a life.", "icon": "portrait_duelist", "tiers": true},
 	"practice": {"name": "Practice", "desc": "Any hero, any wave, 99,999 gold, no lives lost. Nothing counts toward records.", "icon": "portrait_stoneshaper", "tiers": true},
@@ -78,8 +80,8 @@ static func config(mode: String, tier := "hard", extra := {}) -> Dictionary:
 	var t: Dictionary = TIERS[tier]
 	var c := {"mode": mode, "tier": tier, "hp": t["hp"], "dmg": t["dmg"], "gold": t["gold"], "xp": t["xp"], "lives": t["lives"],
 		"elite": t["elite"], "elite_from": t["elite_from"], "bonus_gold": 0, "hero_dmg": 1.0, "hero_taken": 1.0, "enemy_speed": 1.0,
-		"hero_speed": 1.0, "extra": 0.0, "endless": mode == "endless", "counts": mode in ["classic", "random", "endless", "daily"],
-		"seed": 0, "mod": ""}
+		"hero_speed": 1.0, "extra": 0.0, "endless": mode == "endless", "counts": mode in ["classic", "random", "endless", "daily", "delve"],
+		"seed": 0, "mod": "", "map": "pit"}
 	match mode:
 		"random":
 			c["bonus_gold"] = RANDOM_BONUS_GOLD
@@ -105,6 +107,10 @@ static func config(mode: String, tier := "hard", extra := {}) -> Dictionary:
 				c["lives"] = m["lives"]
 	for k in extra:
 		c[k] = extra[k]
+	if mode == "delve":
+		c["map"] = "delve"
+	elif mode in ["daily", "training"] or not Maps.MAPS.has(String(c["map"])):
+		c["map"] = "pit"
 	return c
 
 
@@ -187,6 +193,9 @@ static func label(cfg: Dictionary) -> String:
 	var nm: String = MODES.get(mode, MODES["classic"])["name"]
 	if mode == "daily":
 		return "Daily Run · " + String(DAILY_MODS.get(cfg.get("mod", ""), {}).get("name", ""))
+	var map: String = cfg.get("map", "pit")
+	if map not in ["pit", "delve"]:
+		nm += " · " + Maps.map_name(map)
 	if MODES.get(mode, {}).get("tiers", false):
 		return "%s · %s" % [nm, TIERS[cfg.get("tier", "hard")]["name"]]
 	return nm

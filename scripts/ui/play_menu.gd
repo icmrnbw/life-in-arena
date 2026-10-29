@@ -1,7 +1,7 @@
 class_name PlayMenu
 extends RefCounted
-## The Play screen: pick a mode (Classic, Random Hero, Endless, Daily Run, Practice, Training) and a difficulty tier,
-## then either choose a hero or start straight away. Also the Records screen and the first-run Training offer.
+## The Play screen: pick a mode (Classic, Random Hero, Endless, Delve, Daily Run, Practice, Training), a difficulty
+## tier and, for the arena modes, an arena (Maps), then either choose a hero or start straight away. Also the Records screen and the first-run Training offer.
 
 
 ## on_choose(cfg): go to hero select with these run settings. on_launch(hero_id, wave, cfg): start the run now.
@@ -56,14 +56,16 @@ static func create(on_choose: Callable, on_launch: Callable, on_back: Callable, 
 	if not Profile.tier_unlocked(tier):
 		tier = "hard"
 	var start_mode := first_mode if Modes.MODES.has(first_mode) else ("training" if not Profile.d().get("training_done", false) and int(Profile.d()["totals"]["runs"]) == 0 else "classic")
-	var st := {"mode": start_mode, "tier": tier, "wave": 1, "allies": clampi(int(Profile.d().get("last_allies", 0)), 0, 3), "buttons": {}}
+	var last_map: String = Profile.d().get("last_map", "pit")
+	var st := {"mode": start_mode, "tier": tier, "wave": 1, "allies": clampi(int(Profile.d().get("last_allies", 0)), 0, 3), "buttons": {},
+		"map": last_map if Maps.ORDER.has(last_map) else "pit"}
 	# the refresh lambda lives in st so the tier buttons it builds can call it again
 	st["refresh"] = func():
 		for id in st["buttons"]:
 			var b: Button = st["buttons"][id]
 			b.modulate = Color(1, 1, 1) if id == st["mode"] else Color(0.7, 0.67, 0.63)
 			(b.get_meta("ring") as Control).visible = id == st["mode"]
-		go.text = "Choose Hero" if st["mode"] in ["classic", "endless", "practice", "duels"] else "Start"
+		go.text = "Choose Hero" if st["mode"] in ["classic", "endless", "practice", "duels", "delve"] else "Start"
 		for c in detail_holder.get_children():
 			c.queue_free()
 		detail_holder.add_child(_mode_detail(st, st["refresh"]))
@@ -91,9 +93,14 @@ static func _start(st: Dictionary, on_choose: Callable, on_launch: Callable) -> 
 	var al := {"allies": int(st["allies"])} if mode in ALLY_MODES and int(st["allies"]) > 0 else {}
 	if mode in ALLY_MODES:
 		Profile.d()["last_allies"] = int(st["allies"])
+	if mode in MAP_MODES:
+		Profile.d()["last_map"] = st["map"]
+		al["map"] = st["map"]
 	match mode:
 		"classic", "endless", "duels":
 			on_choose.call(Modes.config(mode, st["tier"], al))
+		"delve":
+			on_choose.call(Modes.config(mode, st["tier"]))
 		"practice":
 			al["start_wave"] = st["wave"]
 			on_choose.call(Modes.config(mode, st["tier"], al))
@@ -154,6 +161,8 @@ static func _mode_line(id: String) -> String:
 			return "Any of %d heroes" % DB.HERO_ORDER.size()
 		"endless":
 			return "Best: wave %d" % int(p["endless_best"]) if int(p["endless_best"]) > 0 else "No wave limit"
+		"delve":
+			return "Deepest: depth %d" % int(p.get("delve_best", 0)) if int(p.get("delve_best", 0)) > 0 else "New · explore a dungeon"
 		"daily":
 			var dd := Modes.daily(Modes.today())
 			return "%s · %s" % [DB.HEROES[dd["hero"]]["name"], Modes.DAILY_MODS[dd["mod"]]["name"]]
@@ -221,6 +230,23 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 		al.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		al.custom_minimum_size = Vector2(300, 0)
 		v.add_child(al)
+	if mode in MAP_MODES:
+		v.add_child(UIK.label("Arena", "", 20, UIK.col("gold", Color.GOLD)))
+		var mrow := HBoxContainer.new()
+		mrow.add_theme_constant_override("separation", 10)
+		v.add_child(mrow)
+		for id in Maps.ORDER:
+			var mb := UIK.button(Maps.map_name(id), "PrimaryButton" if id == st["map"] else "", Vector2(220, 60))
+			mb.name = "Map_" + id
+			var mid: String = id
+			mb.pressed.connect(func():
+				st["map"] = mid
+				refresh.call())
+			mrow.add_child(mb)
+		var ml2 := UIK.label(String(Maps.MAPS[st["map"]]["desc"]), "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+		ml2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		ml2.custom_minimum_size = Vector2(300, 0)
+		v.add_child(ml2)
 	match mode:
 		"daily":
 			var dd := Modes.daily(Modes.today())
@@ -265,9 +291,19 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 			v.add_child(UIK.label("Your hero starts at the level and gold of that wave. Every hero is playable here.", "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62))))
 		"endless":
 			v.add_child(UIK.label("Bosses return every 5th wave, tougher with each lap past wave 20.", "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62))))
+		"delve":
+			var dl := UIK.label("Bosses guard depths 3, 6 and 10. Ember wells heal you once, side rooms hide treasure. The camp and shop wait between depths.",
+				"SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+			dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			dl.custom_minimum_size = Vector2(300, 0)
+			v.add_child(dl)
 		"training":
 			v.add_child(UIK.label("You play the Ashwarden and can't fall. Takes about three minutes.", "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62))))
 	return card
+
+
+## Modes fought in an arena you can pick (Maps.ORDER).
+const MAP_MODES := ["classic", "random", "endless", "practice"]
 
 
 # ---------------------------------------------------------------- first-run offer
@@ -362,6 +398,7 @@ static func records(on_back: Callable) -> Control:
 	for tr in Modes.TIER_ORDER:
 		rows.append(["Best wave, %s" % Modes.TIERS[tr]["name"], str(int(p["tier_best"].get(tr, 0))) if Profile.tier_unlocked(tr) else "locked"])
 	rows.append(["Best wave, Endless", str(int(p["endless_best"]))])
+	rows.append(["Deepest Delve", str(int(p.get("delve_best", 0)))])
 	var dr := Profile.daily_today()
 	rows.append(["Daily Run today", "score %d" % int(dr["best_score"]) if int(dr["runs"]) > 0 else "not played"])
 	for r in rows:
