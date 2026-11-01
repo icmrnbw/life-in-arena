@@ -48,7 +48,10 @@ static func create(on_choose: Callable, on_launch: Callable, on_back: Callable, 
 	list.add_theme_constant_override("separation", 8)
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(list)
-	var detail_holder := MarginContainer.new()
+	# the detail card scrolls on its own, so a tall mode (tiers + allies + arenas) never pushes the screen past the bottom edge
+	var detail_holder := ScrollContainer.new()
+	detail_holder.name = "DetailScroll"
+	detail_holder.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	detail_holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	detail_holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(detail_holder)
@@ -66,9 +69,21 @@ static func create(on_choose: Callable, on_launch: Callable, on_back: Callable, 
 			b.modulate = Color(1, 1, 1) if id == st["mode"] else Color(0.7, 0.67, 0.63)
 			(b.get_meta("ring") as Control).visible = id == st["mode"]
 		go.text = "Choose Hero" if st["mode"] in ["classic", "endless", "practice", "delve", "duels"] else "Start"
+		var keep := detail_holder.scroll_vertical if st.get("mode_shown", "") == st["mode"] else 0
+		st["mode_shown"] = st["mode"]
 		for c in detail_holder.get_children():
+			if c is ScrollBar:
+				continue
+			detail_holder.remove_child(c)
 			c.queue_free()
-		detail_holder.add_child(_mode_detail(st, st["refresh"]))
+		var card := _mode_detail(st, st["refresh"])
+		_swipeable(card)
+		detail_holder.add_child(card)
+		# picking a tier / arena rebuilds the card: stay where the finger was once the new card has its size
+		var tree := Engine.get_main_loop() as SceneTree
+		tree.process_frame.connect(func():
+			if is_instance_valid(detail_holder):
+				detail_holder.scroll_vertical = keep, CONNECT_ONE_SHOT)
 	for id in Modes.MODE_ORDER:
 		var b := _mode_button(id)
 		b.mouse_filter = Control.MOUSE_FILTER_PASS   # a swipe on the list scrolls it, a tap still picks
@@ -81,7 +96,33 @@ static func create(on_choose: Callable, on_launch: Callable, on_back: Callable, 
 	UIK.pass_touch(list)
 	go.pressed.connect(func(): _start(st, on_choose, on_launch))
 	st["refresh"].call()
+	# a mode opened from elsewhere (e.g. Duels at the bottom) is scrolled into view on short screens, once the list is laid out
+	if start_mode != Modes.MODE_ORDER[0]:
+		var sel: Control = st["buttons"][start_mode]
+		sel.ready.connect(func():
+			await sel.get_tree().process_frame
+			await sel.get_tree().process_frame
+			if is_instance_valid(scroll):
+				scroll.ensure_control_visible(sel), CONNECT_ONE_SHOT)
 	return root
+
+
+## Swipes anywhere on the card scroll it; buttons still react to a tap.
+static func _swipeable(n: Node) -> void:
+	if n is BaseButton:
+		(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+	elif n is Control and (n as Control).mouse_filter == Control.MOUSE_FILTER_STOP:
+		(n as Control).mouse_filter = Control.MOUSE_FILTER_PASS
+	for c in n.get_children():
+		_swipeable(c)
+
+
+## A row of buttons that wraps onto a second line when long names (or a narrow phone) don't fit.
+static func _flow(sep := 10) -> HFlowContainer:
+	var f := HFlowContainer.new()
+	f.add_theme_constant_override("h_separation", sep)
+	f.add_theme_constant_override("v_separation", 8)
+	return f
 
 
 ## Modes that can bring AI ally heroes along.
@@ -177,6 +218,7 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 	var mode: String = st["mode"]
 	var md: Dictionary = Modes.MODES[mode]
 	var card := UIK.panel("FramePanel")
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
@@ -188,8 +230,7 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 	v.add_child(desc)
 	if md.get("tiers", false):
 		v.add_child(UIK.label("Difficulty", "", 20, UIK.col("gold", Color.GOLD)))
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 10)
+		var row := _flow()
 		v.add_child(row)
 		for t in Modes.TIER_ORDER:
 			var td: Dictionary = Modes.TIERS[t]
@@ -201,7 +242,7 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 			var tid: String = t
 			tb.pressed.connect(func():
 				st["tier"] = tid
-				refresh.call())
+				refresh.call_deferred())   # deferred: this button is freed by the rebuild
 			row.add_child(tb)
 		var td2: Dictionary = Modes.TIERS[st["tier"]]
 		var tl := UIK.label(L.t(td2["desc"]), "SmallLabel", 18, UIK.col("dim", Color(0.75, 0.7, 0.62)))
@@ -211,17 +252,16 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 		if not Profile.tier_unlocked("extreme"):
 			v.add_child(_wrap(UIK.label("Extreme unlocks when you clear wave 10 on Hard.", "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
 	if mode in ALLY_MODES:
-		var arow := HBoxContainer.new()
-		arow.add_theme_constant_override("separation", 10)
+		v.add_child(UIK.label("Allies", "", 20, UIK.col("gold", Color.GOLD)))
+		var arow := _flow()
 		v.add_child(arow)
-		arow.add_child(UIK.label("Allies", "", 20, UIK.col("gold", Color.GOLD)))
 		for n in 4:
 			var ab := UIK.button(L.t("None") if n == 0 else str(n), "PrimaryButton" if n == int(st["allies"]) else "", Vector2(96 if n == 0 else 72, 60))
 			ab.name = "Allies_%d" % n
 			var nn := n
 			ab.pressed.connect(func():
 				st["allies"] = nn
-				refresh.call())
+				refresh.call_deferred())   # deferred: this button is freed by the rebuild
 			arow.add_child(ab)
 		var al := UIK.label(L.t("AI heroes fight beside you. The first deals the other damage type. Each ally gives foes +85% HP and +30% damage.") if int(st["allies"]) > 0
 			else L.t("Bring up to 3 AI heroes into the Pit with you."), "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))
@@ -230,8 +270,7 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 		v.add_child(al)
 	if mode in MAP_MODES:
 		v.add_child(UIK.label("Arena", "", 20, UIK.col("gold", Color.GOLD)))
-		var mrow := HBoxContainer.new()
-		mrow.add_theme_constant_override("separation", 10)
+		var mrow := _flow()
 		v.add_child(mrow)
 		for id in Maps.ORDER:
 			var mb := UIK.button(L.t(Maps.map_name(id)), "PrimaryButton" if id == st["map"] else "", Vector2(220, 60))
@@ -239,7 +278,7 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 			var mid: String = id
 			mb.pressed.connect(func():
 				st["map"] = mid
-				refresh.call())
+				refresh.call_deferred())   # deferred: this button is freed by the rebuild
 			mrow.add_child(mb)
 		var ml2 := UIK.label(L.t(Maps.MAPS[st["map"]]["desc"]), "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))
 		ml2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

@@ -632,6 +632,7 @@ func test_modes_flow() -> void:
 		(tile.get_meta("button") as Button).pressed.emit()
 		await frames(2)
 		check(main.run == null, "tapping a locked hero again doesn't start a run")
+	await _mode_screen_fits()
 	# practice: every hero playable, start wave
 	main.show_play("practice")
 	await frames(2)
@@ -728,3 +729,51 @@ func test_modes_flow() -> void:
 	main.show_title()
 	await frames(2)
 	Profile.reset()
+
+
+## The mode screen (in Russian, the longest strings) stays on a phone screen: the list and the detail card scroll by swipe,
+## and picking an arena near the bottom keeps the card where it was.
+func _mode_screen_fits() -> void:
+	section("mode screen fits a phone and scrolls (ru)")
+	var was := L.lang
+	L.setup("ru")
+	main.show_play("classic")
+	await frames(4)
+	var vis_h: float = main.screen.get_viewport().get_visible_rect().size.y
+	var ds := main.screen.find_child("DetailScroll", true, false) as ScrollContainer
+	check(ds != null, "detail card sits in a scroll")
+	if ds == null:
+		L.setup(was)
+		return
+	check(ds.get_global_rect().end.y <= vis_h + 1.0, "detail card ends on screen", "bottom %d, screen %d" % [ds.get_global_rect().end.y, vis_h])
+	var last := main.screen.find_child("Mode_training", true, false) as Control
+	var ms := last.get_parent().get_parent() as ScrollContainer
+	check(ms.get_global_rect().end.y <= vis_h + 1.0, "mode list ends on screen", "bottom %d" % ms.get_global_rect().end.y)
+	var bar := ds.get_v_scroll_bar()
+	if bar.max_value - bar.page > 4.0:
+		var r := ds.get_global_rect()
+		var from := Vector2(r.position.x + r.size.x * 0.5, r.end.y - 30.0)
+		touch(4, from, true)
+		await frames(1)
+		for i in 15:
+			drag(4, from - Vector2(0, 25.0 * (i + 1)), Vector2(0, -25.0))
+			await frames(1)
+		touch(4, from - Vector2(0, 375.0), false)
+		await frames(3)
+		var sv := ds.scroll_vertical
+		check(sv > 0, "swiping the detail card scrolls it", "scroll=%d" % sv)
+		var mb := main.screen.find_child("Map_hollow", true, false) as Button
+		var c := mb.get_global_rect().get_center()
+		check(c.y < vis_h, "arena buttons are reachable after the swipe", "y=%d" % c.y)
+		touch(4, c, true)
+		await frames(1)
+		touch(4, c, false)
+		await frames(4)
+		var mb2 := main.screen.find_child("Map_hollow", true, false) as Button
+		check(mb2 != null and mb2.theme_type_variation == "PrimaryButton", "tapping an arena picks it")
+		check(absi(ds.scroll_vertical - sv) <= 2, "picking an arena keeps the scroll", "%d -> %d" % [sv, ds.scroll_vertical])
+		(main.screen.find_child("Map_pit", true, false) as Button).pressed.emit()
+		await frames(2)
+	else:
+		print("  detail card fits without scrolling")
+	L.setup(was)
