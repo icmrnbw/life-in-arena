@@ -34,6 +34,23 @@ vec3 skin_col(vec3 c) {
 }
 """
 
+# Delve darkness (scripts/delve.gd sets the globals, project.godot [shader_globals] declares them): outside the
+# hero's lantern and the lit rooms (delve_litmap, one texel per dungeon cell) the world goes black. w = 0 elsewhere.
+const DELVE_FN := """
+global uniform vec4 delve_lantern;
+global uniform vec4 delve_grid;
+global uniform sampler2D delve_litmap;
+vec3 delve_vis(vec3 p) {
+	if (delve_lantern.w <= 0.001) { return vec3(1.0, 1.0, 0.0); }
+	float dl = length(p.xz - delve_lantern.xy);
+	float lan = 1.0 - smoothstep(delve_lantern.z * 0.4, delve_lantern.z, dl);
+	vec2 uv = (p.xz - delve_grid.xy) / delve_grid.zw;
+	float room = texture(delve_litmap, uv).r;
+	float v = max(lan, room * 0.62);
+	return vec3(mix(1.0, max(v, 0.025), delve_lantern.w), mix(1.0, max(room, lan * 0.35), delve_lantern.w), lan * delve_lantern.w);
+}
+"""
+
 const UNIT := """
 shader_type spatial;
 render_mode cull_back, specular_disabled;
@@ -48,7 +65,11 @@ uniform float rim_pow = 2.6;
 uniform float dissolve = 0.0;
 uniform float ao_height = 1.8;
 uniform sampler2D noise_tex : filter_linear_mipmap, repeat_enable;
-""" + SKIN_FN + """
+varying vec3 wpu;
+""" + SKIN_FN + DELVE_FN + """
+void vertex() {
+	wpu = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
 void fragment() {
 	float n = texture(noise_tex, UV2 * 0.45).r;
 	float n2 = texture(noise_tex, UV2 * 1.9 + vec2(0.37, 0.11)).r;
@@ -61,9 +82,18 @@ void fragment() {
 	base *= tint.rgb;
 	ALBEDO = mix(base, flash.rgb, flash.a * 0.65);
 	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), rim_pow);
-	vec3 em = vcol * UV.x * (glow_strength + glow_boost * 2.5) * (0.8 + 0.4 * n);
+	vec3 glow_em = vcol * UV.x * (glow_strength + glow_boost * 2.5) * (0.8 + 0.4 * n);
+	vec3 em = glow_em;
 	em += rim_color.rgb * fres * rim_strength * (0.6 + 0.4 * ao);
 	em += glow_color.rgb * glow_boost * fres * 1.5;
+	vec3 dk = delve_vis(wpu);
+	float dv = dk.x;
+	em += base * vec3(1.0, 0.85, 0.65) * dk.z * 0.3;
+	if (dv < 0.999) {
+		// in the dark: a faint silhouette and rim, glowing parts still glow
+		ALBEDO *= max(dv, 0.1);
+		em = glow_em + (em - glow_em) * max(dv, 0.3);
+	}
 	em += flash.rgb * flash.a * 0.9;
 	if (dissolve > 0.001) {
 		float dn = n2 * 0.8 + n * 0.2;
@@ -119,6 +149,7 @@ uniform float occ_r = 2.1;
 uniform float occ_on = 0.0;
 varying vec3 wp;
 varying vec3 wn;
+""" + DELVE_FN + """
 float bayer4(vec2 fc) {
 	ivec2 i = ivec2(mod(fc, 4.0));
 	float m[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
@@ -173,7 +204,11 @@ void fragment() {
 	}
 	float fl = 0.88 + 0.12 * sin(TIME * 9.0 + wp.x) * flicker;
 	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
-	EMISSION = base * add * fl + COLOR.rgb * UV.x * glow_strength * (0.75 + 0.5 * n2) + rim_color.rgb * fres * rim_strength;
+	vec3 dk = delve_vis(wp);
+	ALBEDO *= dk.x;
+	EMISSION = base * add * fl * dk.y + COLOR.rgb * UV.x * glow_strength * (0.75 + 0.5 * n2) + rim_color.rgb * fres * rim_strength * dk.x;
+	// the hero's lantern: warm light round them
+	EMISSION += base * vec3(1.0, 0.82, 0.58) * dk.z * 0.6;
 	// faint ember edge on the dithered part so the cut-away still reads as solid stone
 	EMISSION += vec3(1.0, 0.45, 0.15) * occ_k * 0.12;
 }

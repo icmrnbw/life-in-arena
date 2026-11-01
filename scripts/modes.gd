@@ -44,7 +44,7 @@ const MODES := {
 	"classic": {"name": "Classic", "desc": "Pick a hero and survive 20 waves. Bosses on every 5th wave.", "icon": "portrait_ashwarden", "tiers": true},
 	"random": {"name": "Random Hero", "desc": "The Pit picks your hero for you. +150 starting gold.", "icon": "portrait_twinhide", "tiers": true},
 	"endless": {"name": "Endless", "desc": "Past the Warden the waves never stop. How far can you go?", "icon": "portrait_sunspeaker", "tiers": true},
-	"delve": {"name": "Delve", "desc": "Experimental. Leave the arena and explore the Undercroft: 10 depths of rooms and corridors. Foes sleep in packs until you come close. Find the lair at the end of each depth and slay its guardian.",
+	"delve": {"name": "Delve", "desc": "Leave the arena for the dark Undercroft: 10 depths of crypts, flooded caves and the Abyss. Light rooms, time the traps, break into sealed vaults for relics. After each depth, press on or rest.",
 		"icon": "portrait_nightblade", "tiers": true},
 	"daily": {"name": "Daily Run", "desc": "Today's hero and twist, the same for everyone. Hard tier. Beat your best score.", "icon": "portrait_gunsmith", "tiers": false},
 	"duels": {"name": "Duel Ladder", "desc": "No waves: beat 8 rival heroes one on one, each stronger than the last. Shop between duels. A lost duel costs a life.", "icon": "portrait_duelist", "tiers": true},

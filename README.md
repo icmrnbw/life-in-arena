@@ -50,6 +50,15 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - Difficulty tiers: Normal (gentler foes, more gold), Hard (the tuning so far) and Extreme (one life, tougher foes, less gold, elites from wave 2).
   - 0.6.1 adds a second arena, Rimefang Hollow (frozen look, five pillars, two gates low on the flanks, two barrel stacks by the spawn), picked under Arena for Classic, Random Hero, Endless and Practice (`scripts/maps.gd`; test hook `--map=hollow`).
   - 0.6.1 adds Delve (experimental, Diablo style): 10 depths of a generated dungeon (`scripts/delve.gd`, art in `art/dungeon.gd`). Foes sleep in packs and wake when you come close or hit one; the lair at the end holds the guardian (a captain, or the Pit Brute / Twin Matrons / Hollow Choir on depths 3, 6, 10). Ember wells heal once, side-room chests hold gold, a minimap marks the lair. Depth d is fought at wave 2d, so stats, shop and Training scale like Classic. Test hooks `--mode=delve --seed=N`.
+  - 0.8.0 makes Delve its own game (`scripts/delve.gd`, data in `scripts/delve_lore.gd`, art in `art/dungeon.gd`):
+    - Darkness: you see by your lantern. Each room has a beacon brazier; light it and the room's braziers burn, the room shows on the minimap, and foes standing in the light are Exposed (+20% damage taken, not bosses). Foes out in the dark show glowing eyes. The world and unit shaders read three globals (`delve_lantern`, `delve_grid`, `delve_litmap`, declared in `project.godot` `[shader_globals]`).
+    - Layouts branch: the path to the lair wanders north, east and west, with side branches, dead ends and loops; some rooms are rough caves (more of them deeper).
+    - Three looks: Bone Crypt (depths 1-3, cold blue fire), Flooded Caverns (4-6, water slows everyone who wades through it), the Abyss (7-10, ember cracks burn whoever stands on them). Foes suffer the terrain too.
+    - Traps: rows of spike plates (fire vents in the Abyss) across corridors, striking on a beat after a warning. They hurt foes too.
+    - Shrines: Fury, Iron, Haste, Greed, Wisdom, or the Blood Shrine (costs 25% health for +40% damage). The blessing lasts the depth.
+    - Sealed vault (depths without a boss): step in and the doorway bars shut; three bursts of foes crawl out of the walls. Clear it for a relic: pick 1 of 3 run-long passives (14 in all). Boss depths give a relic too.
+    - Press on or rest: after each depth, take the stairs straight down (no shop, no healing; +20% gold and xp per depth in a row, up to 3) or go back to camp.
+    - Test hooks: `--scene=relic`, `--scene=stairs` (the choice cards). Bot reports list `relics` and a `delve` event log.
   - Every run gets a score. The Records screen shows totals, best waves per tier, Endless and the Daily Run, and every hero's record.
 - Training: the first time you press Play, the game offers a guided run with the Ashwarden. A coach card gives one step at a time and waits for you to do it: walk, learn and cast a skill, buy an item, fight a pack, level up, dig into a barrel stack, and dodge a captain's slam. You can't fall, and you can skip it at any time. It's also under Play.
 - After a crash, the title screen offers a Copy report button with the crash trail.
@@ -70,7 +79,7 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
 - Music: three original medieval-style tunes, composed and synthesized in code by `tools/compose_music.py` (no samples or third-party recordings, so nothing to license). A tavern tune (lute, recorder, harp, drone; D Dorian) plays on the title screen and in camp, a battle tune (shawm, lute, tabor drum; E Dorian) during waves, and a boss tune (war drums, low voices, bell; D Phrygian) on boss waves. Tunes crossfade, duck while paused, and have their own Music toggle on the title and pause screens.
 
 ## Install (Android)
-Download `builds/emberpit-0.7.3-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.8.0-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.

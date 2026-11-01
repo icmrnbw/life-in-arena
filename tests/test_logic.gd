@@ -1952,6 +1952,77 @@ func test_delve() -> void:
 		var g2 := r.gold
 		dv._props(r.hero)
 		check(r.gold == g2, "and opens only once")
+	# 0.8: light, shrines, traps, the vault and its relic, pressing on
+	r._clear_arena(false)
+	r.phase = "prep"
+	r.wave = 4
+	r.start_wave()
+	r.hero.hp = r.hero.max_hp
+	check(dv.tier == 0 and dv.rooms[0]["lit"], "depth 2 is the Bone Crypt and the start room is lit")
+	var dark_i := -1
+	for i in dv.rooms.size():
+		if not dv.rooms[i]["lit"] and dv.rooms[i]["beacon"] != Vector3.ZERO and dv.rooms[i]["kind"] in ["room", "side", "shrine"]:
+			dark_i = i
+			break
+	check(dark_i >= 0, "rooms start dark")
+	if dark_i >= 0:
+		var rr: Rect2i = dv.rooms[dark_i]["rect"]
+		var probe := r.spawn_enemy("gnawer", Delve.cell_pos(Delve._center(rr) + Vector2i(1, 1)), 4)
+		probe.dormant = true
+		check(not dv.exposed(probe), "a foe in a dark room is not Exposed")
+		r.hero.pos = dv.rooms[dark_i]["beacon"]
+		dv._props(r.hero)
+		check(dv.rooms[dark_i]["lit"] and dv.exposed(probe), "lighting the beacon lights the room: foes in it are Exposed")
+		var hp_a := probe.hp
+		r.damage(probe, 100.0, r.hero, "Test", "pure")
+		check(is_equal_approx(hp_a - probe.hp, 100.0 * Delve.EXPOSED * r.hero_dmg_mult) or probe.hp <= 0.0, "Exposed foes take 20% more", str(hp_a - probe.hp))
+	if dv.shrines.size() > 0:
+		var sh: Dictionary = dv.shrines[0]
+		r.hero.hp = r.hero.max_hp
+		r.hero.pos = sh["pos"]
+		dv._props(r.hero)
+		check(sh["used"] and not r.hero.blessing.is_empty() and dv.blessing_name() != "", "a shrine blesses the hero for the depth", String(sh["kind"]))
+	check(dv.traps.size() >= 1, "corridors hold traps", str(dv.traps.size()))
+	if dv.traps.size() > 0:
+		var tr: Dictionary = dv.traps[0]
+		r.hero.hp = r.hero.max_hp
+		r.hero.pos = Delve.cell_pos(tr["cells"][1])
+		var foe := r.spawn_enemy("gnawer", Delve.cell_pos(tr["cells"][0]), 4)
+		tr["t"] = float(tr["period"]) - 0.3
+		tr["state"] = "warn"
+		var hp_h := r.hero.hp
+		var hp_f := foe.hp
+		dv._traps_tick(0.02)
+		check(r.hero.hp < hp_h and foe.hp < hp_f, "a trap strike hurts the hero and foes on it", "%s %s" % [r.hero.hp / r.hero.max_hp, foe.hp / foe.max_hp])
+		r.hero.hp = r.hero.max_hp
+	check(not dv.vault.is_empty() and dv.vault["doors"].size() > 0, "a depth without a boss has a sealed vault")
+	if not dv.vault.is_empty():
+		for e in r.enemies.duplicate():
+			if e.alive:
+				r.kill(e, r.hero)
+		_steps(r, 0.3)
+		r.hero.pos = Delve.cell_pos(Delve._center(dv.vault["rect"]))
+		_steps(r, 0.5)
+		var door: Vector2i = dv.vault["doors"][0]
+		check(dv.vault["state"] == "sealed" and dv.is_solid(door), "stepping into the vault bars the doorway")
+		for k in 20:
+			for e in r.enemies.duplicate():
+				if e.alive:
+					r.kill(e, r.hero)
+			_steps(r, 1.5)
+			if dv.vault["state"] == "done":
+				break
+		_steps(r, 1.0)
+		check(dv.vault["state"] == "done" and not dv.is_solid(door), "clearing the vault's bursts opens it", String(dv.vault["state"]))
+		check(r.hero.relics.size() == 1, "the vault gives a relic", str(r.hero.relics))
+		check(r.snapshot()["relics"] == r.hero.relics, "relics are saved with the run")
+	# press on: straight down, the streak pays more, the blessing ends
+	dv.streak = 1
+	r.phase = "clear"
+	r.descend()
+	check(r.wave == 6 and r.phase == "wave" and dv.active and not r.hero.in_camp, "pressing on goes straight to the next depth", "%s %d" % [r.phase, r.wave])
+	check(r.hero.blessing.is_empty() and is_equal_approx(dv.reward_mult("gold"), 1.0 + DelveLore.STREAK_BONUS + float(r.hero.item_stats.get("gold_pct", 0.0))), "the blessing ends with its depth; the streak raises rewards")
+	check(dv.vault.is_empty(), "boss depths have no vault (the boss gives the relic)")
 	_g().god = false
 	free_run(r)
 	await get_tree().process_frame

@@ -6,6 +6,7 @@ signal run_ended(result: String)
 signal toast_requested(text: String, color: Color)
 signal banner_requested(text: String, sub: String)
 signal skill_cast(slot: int)
+signal choice_requested(data: Dictionary, cb: Callable)   # Delve: pick a relic / press on or rest (scripts/main.gd shows it)
 
 const MAX_ENEMIES := 80
 const SUBSTEP := 1.0 / 30.0
@@ -252,7 +253,7 @@ func snapshot() -> Dictionary:
 		its.append(e)
 	return {"version": Profile.VERSION, "hero": hero_id, "wave": wave, "gold": gold, "lives": lives, "level": hero.level,
 		"xp": hero.xp, "skill_points": hero.skill_points, "ranks": hero.ranks.duplicate(), "bonus": hero.bonus.duplicate(),
-		"train": hero.train.duplicate(),
+		"train": hero.train.duplicate(), "relics": hero.relics.duplicate(),
 		"items": its, "stats": stats.duplicate(true), "max_wave": max_wave_reached, "waves_cleared": waves_cleared,
 		"run_time": run_time, "feathers": feathers, "cfg": c, "saved_at": int(Time.get_unix_time_from_system()),
 		"kills_saved": int(get_meta("kills_saved", 0)), "companions": companions.map(_hero_state), "duel": duel.snapshot()}
@@ -296,6 +297,10 @@ func _restore_hero(h: Hero, s: Dictionary) -> void:
 	for id in tr:
 		if DB.UPGRADES.has(String(id)):
 			h.train[String(id)] = clampi(int(tr[id]), 0, int(DB.UPGRADES[String(id)].get("max", 999)))
+	h.relics.clear()
+	for id in s.get("relics", []):
+		if DelveLore.RELICS.has(String(id)) and not String(id) in h.relics:
+			h.relics.append(String(id))
 	h.items.clear()
 	for it in s.get("items", []):
 		if it is Dictionary and DB.ITEMS.has(String(it.get("id", ""))):
@@ -929,6 +934,8 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 		a *= weather.fire_mult()
 	if src is Hero and t.team != src.team:
 		a *= _hero_item_mult(t, opts, src)
+	if delve and src != null and src.team == 0 and delve.exposed(t):
+		a *= Delve.EXPOSED   # Delve: foes standing in a lit room
 	if t.team == 1 and not t.is_boss and src != null and src.team == 0:
 		if wave_rule == "evasive" and opts.get("attack", false) and rng.randf() < DB.EVADE_CHANCE:
 			if rng.randf() < 0.5:
@@ -1031,7 +1038,7 @@ func damage(t: Unit, amount: float, src: Unit, tag: String, dtype := "phys", opt
 ## Damage bonuses from the hero's items on this hit (Hawkeye Lens long shots, Lantern in Fog / Blood Moon).
 func _hero_item_mult(t: Unit, opts: Dictionary, h: Hero) -> float:
 	var st: Dictionary = h.item_stats
-	var m := 1.0
+	var m := 1.0 + float(st.get("dmg_pct", 0.0))   # Delve relics and the Blood Shrine
 	if st.get("lantern", 0.0) > 0.0:
 		m *= weather.lantern_mult()
 	if opts.get("attack", false) and not opts.get("melee", false) and st.get("far_shot", 0.0) > 0.0 \
@@ -1133,13 +1140,13 @@ func _kill_rest(t: Unit) -> void:
 				as_unit(c, func(): c.kit.on_enemy_killed(e))
 		if not e.no_reward:
 			stats["kills"] += 1
-			var g := int(round(e.gold_val))
+			var g := int(round(e.gold_val * (delve.reward_mult("gold") if delve else 1.0)))
 			if g > 0:
 				add_gold(g)
 				if rng.randf() < 0.5 or e.is_boss:
 					fx("gold", {"pos": e.pos + Vector3(0, 1.5, 0), "amount": g})
 			if hero.alive and not hero.dead:
-				if hero.add_xp(e.xp_val):
+				if hero.add_xp(e.xp_val * (delve.reward_mult("xp") if delve else 1.0)):
 					_on_level_up()
 			for c in companions:
 				if not c.dead:
@@ -1707,7 +1714,8 @@ func _step(dt: float) -> void:
 			else:
 				wave_time += dt
 		"clear":
-			phase_t -= dt
+			if not (delve and delve.choosing):
+				phase_t -= dt
 			if phase_t <= 0.0:
 				_return_to_camp()
 		"dead":
@@ -2574,10 +2582,44 @@ func _wave_cleared() -> void:
 		return
 	banner_requested.emit(("Depth %d cleared" % Delve.depth_of(wave)) if delve else ("Wave %d cleared" % wave), sub)
 	Audio.play("clear")
+	if delve:
+		# Delve: a relic on boss depths, then the stairs (press on, or rest in camp)
+		delve.choosing = true
+		schedule(1.6, delve.after_clear)
+
+
+## Delve: shows a choice card (relics, the stairs) and pauses; the bot and headless tests pick data["auto"].
+func request_choice(data: Dictionary, cb: Callable) -> void:
+	if bot != null or choice_requested.get_connections().is_empty():
+		# the bot plays data["auto"]; headless tests (no card on screen) take data["fallback"] if there is one
+		var pick := String(data.get("auto", "") if bot != null else data.get("fallback", data.get("auto", "")))
+		if pick == "":
+			pick = String(data["options"][0]["id"])
+		schedule(0.6, cb.bind(pick))
+		return
+	choice_requested.emit(data, cb)
+
+
+## Delve: take the stairs straight down to the next depth (no camp, no shop, no healing).
+func descend() -> void:
+	if delve == null or result != "":
+		return
+	Game.crumb("descend")
+	wave += wave_step
+	_clear_arena(false)
+	if hero.kit:
+		hero.kit.on_wave_end()
+	phase = "prep"
+	start_wave()
+	var pct := int(round(delve.streak * DelveLore.STREAK_BONUS * 100))
+	schedule(3.2, toast.bind(L.f("Streak %d: foes give +%d%% gold and xp", [delve.streak, pct]), Color(1.0, 0.6, 0.3)))
 
 
 func _return_to_camp() -> void:
 	Game.crumb("return to camp")
+	if delve:
+		delve.streak = 0
+		delve.choosing = false
 	wave += wave_step
 	_clear_arena(false)
 	if hero.kit:
@@ -2616,6 +2658,9 @@ func _save_progress() -> void:
 
 
 func _after_death() -> void:
+	if delve:
+		delve.streak = 0
+		delve.choosing = false
 	# leftover enemies are cleared and the same wave is fought again
 	_clear_arena(true)
 	if hero.kit:
