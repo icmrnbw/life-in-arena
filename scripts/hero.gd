@@ -21,6 +21,8 @@ var bonus := {"str": 0.0, "agi": 0.0, "int": 0.0}   # tomes / auto stat points
 var train := {}          # Training Grounds ranks: {upgrade id: rank}
 var items: Array = []     # [{id, charges, choice, cd}]
 var item_stats := {}
+var relics: Array = []    # Delve relics (scripts/delve_lore.gd), kept for the whole run
+var blessing := {}        # Delve shrine blessing: stat -> value, until the depth ends
 var attack_speed := 1.0
 var dmg_bonus_mult := 1.0
 var cd_mult := 1.0
@@ -84,6 +86,12 @@ func recalc(fill := false) -> void:
 		var ud: Dictionary = DB.UPGRADES.get(id, {})
 		for k in ud.get("stats", {}):
 			item_stats[k] = item_stats.get(k, 0.0) + float(ud["stats"][k]) * int(train[id])
+	for id in relics:
+		var rd: Dictionary = DelveLore.RELICS.get(id, {})
+		for k in rd.get("stats", {}):
+			item_stats[k] = item_stats.get(k, 0.0) + float(rd["stats"][k])
+	for k in blessing:
+		item_stats[k] = item_stats.get(k, 0.0) + float(blessing[k])
 	var lv := float(level - 1)
 	str_v = data["str"] + data["str_g"] * lv + bonus["str"] + item_stats.get("str", 0.0)
 	agi_v = data["agi"] + data["agi_g"] * lv + bonus["agi"] + item_stats.get("agi", 0.0)

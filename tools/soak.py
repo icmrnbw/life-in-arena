@@ -39,11 +39,11 @@ SCENARIOS = {
     "ladder": (["--mode=duels", "--tier=normal"], "Duel Ladder: rival heroes 1 on 1", 1),
     "hollow": (["--wave=4", "--god", "--map=hollow"], "Rimefang Hollow arena: pillars, gates, Pit Brute", 5),
     "delve": (["--mode=delve", "--wave=4"], "Delve: dungeon depths 2-3, packs waking, the Pit Brute's lair", 4),
-    "delve_end": (["--mode=delve", "--wave=18", "--god"], "Delve: depths 9-10, Hollow Choir lair and victory", 18),
+    "delve_end": (["--mode=delve", "--wave=18", "--god"], "Delve: depths 9-10 (Abyss: vents, ember cracks, vault), Hollow Choir lair and victory", 18),
 }
 
 # long boss fights get more time (multiplies --seconds)
-LONGER = {"choir": 1.6, "warden": 1.6, "endless": 2.0}
+LONGER = {"choir": 1.6, "warden": 1.6, "endless": 2.0, "delve_end": 2.0}   # Delve depths are longer since 0.8 (vaults, shrines)
 
 # engine noise that is not a game bug
 IGNORE = [

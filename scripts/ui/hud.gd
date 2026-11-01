@@ -626,7 +626,13 @@ func _process(_delta: float) -> void:
 		prep_box.visible = false
 		preview_box.visible = false
 		if run.delve:
-			wave_label.text = _wave_text() + ("" if run.delve.lair_open else "  ·  " + L.t("find the lair"))
+			var t := _wave_text() + ("" if run.delve.lair_open else "  ·  " + L.t("find the lair"))
+			if run.delve.streak > 0:
+				t += "  ·  " + L.f("Streak %d", [run.delve.streak])
+			var bn := run.delve.blessing_name()
+			if bn != "":
+				t += "  ·  " + L.t(bn)
+			wave_label.text = t
 		elif ph == "wave" or ph == "clear":
 			wave_label.text = "%s  ·  %s" % [_wave_text(), L.f("%d left", [run.enemies.size() + run.spawn_queue.size()])]
 		elif ph == "duel" or ph == "duel_end":

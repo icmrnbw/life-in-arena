@@ -767,3 +767,80 @@ static func _skill_row(h: Hero, slot: int, key: String) -> Control:
 	d.custom_minimum_size = Vector2(600, 0)
 	v.add_child(d)
 	return row
+
+
+# ---------------------------------------------------------------- delve choice
+## Delve: a card per option (relics: pick 1 of 3; the stairs: press on / rest). on_pick(id) is called once.
+static func delve_choice(data: Dictionary, on_pick: Callable) -> Control:
+	var root := _base()
+	root.process_mode = Node.PROCESS_MODE_ALWAYS
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.01, 0.0, 0.0, 0.9)
+	root.add_child(shade)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(center)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	center.add_child(v)
+	var t := _outlined(UIK.label(String(data.get("title", "")), "TitleLabel", 44, UIK.col("gold", Color.GOLD)))
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var sub := _outlined(UIK.label(String(data.get("sub", "")), "", 22, Color(0.85, 0.8, 0.72)), 6)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(sub)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 18)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(row)
+	var done := [false]
+	var opts: Array = data.get("options", [])
+	var card_w := 330.0 if opts.size() >= 3 else 380.0
+	for o in opts:
+		var col: Color = o.get("color", Color.WHITE)
+		var b := UIK.button("", "", Vector2(card_w, 330))
+		b.focus_mode = Control.FOCUS_NONE
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.09, 0.07, 0.07, 0.96)
+		sb.border_color = col.darkened(0.2)
+		sb.set_border_width_all(3)
+		sb.set_corner_radius_all(14)
+		var sbh := sb.duplicate() as StyleBoxFlat
+		sbh.bg_color = Color(0.16, 0.12, 0.1, 0.98)
+		sbh.border_color = col.lightened(0.2)
+		b.add_theme_stylebox_override("normal", sb)
+		b.add_theme_stylebox_override("hover", sbh)
+		b.add_theme_stylebox_override("pressed", sbh)
+		var cv := VBoxContainer.new()
+		cv.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		cv.offset_left = 18
+		cv.offset_right = -18
+		cv.offset_top = 18
+		cv.offset_bottom = -14
+		cv.add_theme_constant_override("separation", 10)
+		cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(cv)
+		var ic := UIK.icon_rect(String(o.get("icon", "")), 96)
+		ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		cv.add_child(ic)
+		var nm := _outlined(UIK.label(String(o.get("name", "")), "", 28, col.lightened(0.15)), 6)
+		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cv.add_child(nm)
+		UIK.fit_font(nm, card_w - 40.0)
+		var ds := UIK.label(String(o.get("desc", "")), "", 21, Color(0.9, 0.86, 0.78))
+		ds.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		ds.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		ds.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		ds.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cv.add_child(ds)
+		var id := String(o.get("id", ""))
+		b.pressed.connect(func():
+			if done[0]:
+				return
+			done[0] = true
+			Audio.play("level_up")
+			on_pick.call(id))
+		row.add_child(b)
+	return root

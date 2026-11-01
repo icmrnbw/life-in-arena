@@ -258,6 +258,9 @@ func build_report() -> Dictionary:
 		rep["duration_s"] = snappedf(run.run_time, 0.1)
 		rep["gold"] = run.gold
 		rep["items"] = run.hero.items.map(func(it): return it["id"])
+		rep["relics"] = run.hero.relics.duplicate()
+		if run.delve:
+			rep["delve"] = run.get_meta("delve_log", [])
 		rep["ranks"] = run.hero.ranks.duplicate()
 		rep["train"] = run.hero.train.duplicate()
 		rep["tomes"] = run.hero.bonus.duplicate()

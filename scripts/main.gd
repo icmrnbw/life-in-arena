@@ -7,6 +7,7 @@ var backdrop_cam: Camera3D
 var run: Run
 var screen: Control
 var pause_ui: Control
+var choice_ui: Control   # Delve relic / stairs card: stays up (paused) until a pick; the pause menu can open over it
 var menu_hero := ""
 var menu_unit: Node3D
 var overlay: Control       # the first-run Training offer, over the title screen
@@ -78,6 +79,15 @@ func _ready() -> void:
 			get_tree().create_timer(0.5).timeout.connect(func():
 				if run:
 					run.skip_prep())
+		"relic", "stairs":
+			# Delve choice cards (screenshots): --scene=relic | stairs
+			start_run(hero if hero != "" else "ashwarden", 4, Modes.config("delve", "hard", {"seed": 3}))
+			get_tree().create_timer(0.8).timeout.connect(func():
+				if run and run.delve:
+					if sc == "relic":
+						run.delve.offer_relic("The vault is yours", Callable())
+					else:
+						run.delve._stairs())
 		"camp":
 			start_run(hero if hero != "" else "ashwarden", wave if Game.args.has("wave") else 4, _arg_cfg())
 		"duel":
@@ -102,7 +112,7 @@ func _shot_when_ready(sc: String) -> void:
 	var t := 0.0
 	while t < 8.0:
 		var ok := true
-		if sc in ["hud", "shop", "pause", "skills", "end", "victory", "training", "camp", "duel"]:
+		if sc in ["hud", "shop", "pause", "skills", "end", "victory", "training", "camp", "duel", "relic", "stairs"]:
 			ok = run != null and is_instance_valid(run) and run.camera != null
 			if ok and sc == "shop":
 				ok = run.hud != null and run.hud.shop != null
@@ -325,6 +335,28 @@ func start_run(hero_id: String, wave := 1, run_cfg := {}) -> void:
 	run.run_ended.connect(_on_run_ended)
 	run.hud.pause_requested.connect(pause_game)
 	run.hud.skills_info_requested.connect(show_skill_info)
+	run.choice_requested.connect(_show_choice)
+
+
+## Delve: a relic to pick, or the stairs (press on / rest). The game waits until the player picks.
+func _show_choice(data: Dictionary, cb: Callable) -> void:
+	_close_choice()
+	_release_controls()
+	get_tree().paused = true
+	choice_ui = Menus.delve_choice(data, func(id: String):
+		_close_choice()
+		if pause_ui == null:
+			get_tree().paused = false
+		cb.call(id))
+	ui.add_child(choice_ui)
+	if pause_ui and is_instance_valid(pause_ui):
+		ui.move_child(pause_ui, -1)
+
+
+func _close_choice() -> void:
+	if choice_ui and is_instance_valid(choice_ui):
+		choice_ui.queue_free()
+	choice_ui = null
 
 
 func _end_run_node() -> void:
@@ -333,6 +365,7 @@ func _end_run_node() -> void:
 		run.queue_free()
 	run = null
 	_close_pause()
+	_close_choice()
 	get_tree().paused = false
 	Game.paused_by_shop = false
 
@@ -412,7 +445,7 @@ func show_skill_info() -> void:
 func resume_game() -> void:
 	_close_pause()
 	_release_controls()
-	get_tree().paused = false
+	get_tree().paused = choice_ui != null
 
 
 ## Drop every held finger / joystick so nothing keeps walking or aiming after a pause or focus loss.

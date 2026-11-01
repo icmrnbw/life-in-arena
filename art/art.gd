@@ -103,6 +103,18 @@ func build_dungeon(delve: Node3D) -> Node3D:
 		return null
 	return Dungeon.build(delve)
 
+## Delve: room i of the depth was lit (its brazier flames appear).
+func light_dungeon_room(delve: Node3D, i: int) -> void:
+	Dungeon.light_room(delve, i)
+
+## Delve: a trap row changes state ("idle", "warn", "strike"); `near` = worth animating.
+func dungeon_trap_state(tr: Dictionary, st: String, near: bool) -> void:
+	Dungeon.trap_state(tr, st, near)
+
+## Delve: show / hide the sealed vault's bars.
+func dungeon_vault_bars(delve: Node3D, on: bool) -> void:
+	Dungeon.vault_bars(delve, on)
+
 ## Title-screen campsite (ledge, bench, tent, props) with the bonfire at `pos`.
 func menu_camp(parent: Node3D, pos: Vector3) -> Node3D:
 	if parent == null:
