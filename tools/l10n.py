@@ -23,7 +23,7 @@ STR = r'"((?:[^"\\\n]|\\.)*)"'
 # data-table fields shown to the player
 DATA_FIELDS = ["name", "desc", "title", "role", "tag", "playstyle", "text", "hint", "button", "unlock"]
 DATA_FILES = ["scripts/data.gd", "scripts/modes.gd", "scripts/maps.gd", "scripts/skins.gd", "scripts/tutorial.gd",
-              "scripts/delve.gd", "scripts/delve_lore.gd", "scripts/duel.gd", "scripts/weather.gd"]
+              "scripts/delve.gd", "scripts/delve_lore.gd", "scripts/duel.gd", "scripts/weather.gd", "scripts/meta.gd"]
 # calls whose string arguments (all of them, also inside "a" if c else "b") are UI text
 CALLS = ["L.t(", "L.f(", "UIK.label(", "UIK.button(", "UIK.icon_button(", "_toggle(", "banner_requested.emit(",
          "toast(", "toast.bind(", "hint_once("]

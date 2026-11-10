@@ -28,7 +28,7 @@ static func _toggle(text: String, key: String) -> CheckButton:
 
 
 # ---------------------------------------------------------------- title
-static func title_screen(on_play: Callable, on_heroes := Callable(), on_continue := Callable(), on_records := Callable(), snap := {}, on_language := Callable()) -> Control:
+static func title_screen(on_play: Callable, on_heroes := Callable(), on_continue := Callable(), on_records := Callable(), snap := {}, on_language := Callable(), on_altar := Callable()) -> Control:
 	var root := _base()
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# darken the right side only: the bonfire scene stays bright on the left
@@ -57,9 +57,10 @@ static func title_screen(on_play: Callable, on_heroes := Callable(), on_continue
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(center)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 14)
+	v.add_theme_constant_override("separation", 10)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	center.add_child(v)
+	shrink_to_fit(v, center)
 	var t := _outlined(UIK.label("EMBERPIT", "TitleLabel", 104, UIK.col("ember", Color(1, 0.5, 0.2))), 14)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
@@ -67,7 +68,7 @@ static func title_screen(on_play: Callable, on_heroes := Callable(), on_continue
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(sub)
 	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 30)
+	gap.custom_minimum_size = Vector2(0, 8)
 	v.add_child(gap)
 	if on_continue.is_valid() and not snap.is_empty():
 		# the run saved in camp: hero, mode and wave on the button
@@ -124,12 +125,41 @@ static func title_screen(on_play: Callable, on_heroes := Callable(), on_continue
 		q.pressed.connect(func(): Game.quit_game())
 		row.add_child(q)
 	v.add_child(row)
-	var tip := _outlined(UIK.label("Survive 20 waves in the Pit. 3 lives. Shop between waves.", "SmallLabel", 20, UIK.col("dim", Color(0.75, 0.7, 0.62))), 6)
-	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(tip)
+	if on_altar.is_valid() and (Meta.souls() > 0 or int(Profile.d()["totals"]["runs"]) > 0):
+		var alt := UIK.button(L.f("Altar · %d Souls", [Meta.souls()]), "", Vector2(360, 60))
+		alt.name = "AltarButton"
+		alt.add_theme_color_override("font_color", PlayMenu.SOUL_COL)
+		alt.pressed.connect(on_altar)
+		var ac := CenterContainer.new()
+		ac.add_child(alt)
+		v.add_child(ac)
+	else:
+		var tip := _outlined(UIK.label("Survive 20 waves in the Pit. 3 lives. Shop between waves.", "SmallLabel", 20, UIK.col("dim", Color(0.75, 0.7, 0.62))), 6)
+		tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(tip)
 	if not Game.prev_crash.is_empty():
 		v.add_child(_crash_notice())
 	return root
+
+
+## Scales `c` (the child of the CenterContainer `center`) down when it is taller than the screen, and keeps it centred.
+static func shrink_to_fit(c: Control, center: Container) -> void:
+	var fit := func():
+		if not is_instance_valid(c) or not c.is_inside_tree():
+			return
+		var vh := c.get_viewport_rect().size.y - 8.0
+		c.pivot_offset = c.size * 0.5
+		var k := minf(1.0, vh / maxf(1.0, c.size.y))
+		c.scale = Vector2(k, k)
+		if k < 1.0:   # taller than the screen: the container can't centre it, so do it here
+			c.position.y = (vh + 8.0 - c.size.y) * 0.5
+	c.resized.connect(fit)
+	center.sort_children.connect(fit)
+	c.ready.connect(func():
+		var tree := c.get_tree()
+		for i in 3:
+			await tree.process_frame
+			fit.call())
 
 
 ## Shown after a session that closed unexpectedly: copies the crash trail so the player can paste it to us.
@@ -390,6 +420,11 @@ static func _hero_detail(id: String, open := true) -> Control:
 	var diff := UIK.label(L.f("Difficulty: %s", [difficulty_name(int(d.get("difficulty", 1)))]), "SmallLabel", 17, UIK.col("gold", Color.GOLD))
 	names.add_child(diff)
 	names.add_child(_dmg_label(id, 17, true))
+	var mp := Meta.mastery_progress(id)
+	var ml := UIK.label(L.f("Mastery %d", [Meta.mastery(id)]) + ("  ·  %d / %d" % [mp[0], mp[1]] if int(mp[1]) > 0 else "  ·  " + L.t("Master")), "SmallLabel", 17, PlayMenu.SOUL_COL)
+	ml.name = "MasteryLabel"
+	ml.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	names.add_child(ml)
 	if open:
 		names.add_child(_fit(UIK.label("Tap again to start", "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
 	else:
@@ -453,8 +488,10 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 	var frame := UIK.panel("FramePanel")
 	frame.custom_minimum_size = Vector2(900, 0)
 	center.add_child(frame)
+	# a long summary (rewards, unlocks, bounties) never pushes the buttons off a phone screen: the card shrinks to fit
+	shrink_to_fit(frame, center)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
+	v.add_theme_constant_override("separation", 4)
 	frame.add_child(v)
 	var gold := UIK.col("gold", Color(1.0, 0.8, 0.3))
 	if run.result == "training":
@@ -490,10 +527,9 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 	body.add_theme_constant_override("separation", 30)
 	v.add_child(body)
 	var left := VBoxContainer.new()
-	left.add_theme_constant_override("separation", 4)
+	left.add_theme_constant_override("separation", -6)
 	body.add_child(left)
 	var rows := [
-		["Hero", hd["name"]],
 		["Duels won", "%d / %d" % [run.max_wave_reached, Duel.LADDER_ROUNDS]] if run.duel.ladder() else
 		["Depth reached", "%d / %d" % [Delve.depth_of(run.max_wave_reached), Delve.DEPTHS]] if run.mode == "delve" else
 			["Wave reached", ("%d" % run.max_wave_reached) if run.mode == "endless" else ("%d / %d" % [run.max_wave_reached, DB.TOTAL_WAVES])],
@@ -511,7 +547,7 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 		h.add_child(UIK.label(r[1], "", 21, UIK.col("text", Color(0.95, 0.9, 0.82))))
 		left.add_child(h)
 	var right := VBoxContainer.new()
-	right.add_theme_constant_override("separation", 4)
+	right.add_theme_constant_override("separation", -4)
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_child(right)
 	right.add_child(UIK.label("Damage dealt", "", 21, UIK.col("gold", Color.GOLD)))
@@ -596,6 +632,31 @@ static func _run_summary(run: Run) -> Control:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.name = "SummaryLabel"
 	v.add_child(l)
+	if info.has("souls"):
+		# what the run paid toward the Altar and the hero's mastery
+		var ms: Array = info.get("mastery", [1, 1, 0])
+		var hn: String = DB.HEROES[run.hero_id]["name"]
+		var parts := [L.f("+%d Souls", [int(info["souls"]) + int(ms[2])])]
+		parts.append(L.f("%s Mastery %d", [hn, int(ms[1])]) + (" ▲" if int(ms[1]) > int(ms[0]) else ""))
+		var rl := UIK.label("  ·  ".join(parts), "", 21, PlayMenu.SOUL_COL)
+		rl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		rl.name = "RewardLabel"
+		rl.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		v.add_child(rl)
+		var extra := []
+		if int(ms[1]) > int(ms[0]) and int(ms[0]) < Meta.MASTERY_SKIN and int(ms[1]) >= Meta.MASTERY_SKIN:
+			extra.append(L.f("Legendary skin unlocked for %s!", [hn]))
+		if int(info.get("heat_opened", 0)) > 0:
+			extra.append(L.f("Heat %d opened!", [int(info["heat_opened"])]))
+		for b in run.bounties_done:
+			extra.append(L.f("Bounty complete: +%d Souls", [int(b["souls"])]))
+		if not extra.is_empty():
+			var el := _outlined(UIK.label("  ·  ".join(extra.slice(0, 3)), "", 20, UIK.col("ember", Color(1, 0.55, 0.25))), 5)
+			el.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			el.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			el.custom_minimum_size = Vector2(800, 0)
+			el.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+			v.add_child(el)
 	for u in info.get("unlocks", []):
 		var ul := _outlined(UIK.label(L.f("Unlocked: %s!", [L.t(u)]), "", 24, UIK.col("ember", Color(1, 0.55, 0.25))), 6)
 		ul.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -843,4 +904,16 @@ static func delve_choice(data: Dictionary, on_pick: Callable) -> Control:
 			Audio.play("level_up")
 			on_pick.call(id))
 		row.add_child(b)
+	if int(data.get("reroll", 0)) > 0:
+		var rb := UIK.button(L.f("Reroll (%d left)", [int(data["reroll"])]), "", Vector2(280, 64))
+		rb.name = "RerollButton"
+		rb.pressed.connect(func():
+			if done[0]:
+				return
+			done[0] = true
+			Audio.play("click")
+			on_pick.call("__reroll"))
+		var rc := CenterContainer.new()
+		rc.add_child(rb)
+		v.add_child(rc)
 	return root

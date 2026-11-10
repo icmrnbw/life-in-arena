@@ -135,6 +135,8 @@ static func rarity_color(r: String) -> Color:
 static func owned(hero_id: String, skin_id: String) -> bool:
 	if find(hero_id, skin_id).get("unlock", "free") == "free":
 		return true
+	if Meta.skin_unlocked(hero_id):   # legendary skins are earned at Mastery 5
+		return true
 	return (Game.settings.get("skins_owned", []) as Array).has("%s/%s" % [hero_id, skin_id])
 
 

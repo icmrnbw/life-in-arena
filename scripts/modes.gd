@@ -39,9 +39,12 @@ const TIERS := {
 		"unlock": "Clear wave 10 on Hard"},
 }
 
-const MODE_ORDER := ["classic", "random", "endless", "delve", "duels", "daily", "practice", "training"]
+## The two modes the game is built around come first on the Play screen; the rest sit under "Other modes".
+const MAIN_MODES := ["classic", "delve"]
+const OTHER_MODES := ["endless", "random", "daily", "duels", "practice", "training"]
+const MODE_ORDER := ["classic", "delve", "endless", "random", "daily", "duels", "practice", "training"]
 const MODES := {
-	"classic": {"name": "Classic", "desc": "Pick a hero and survive 20 waves. Bosses on every 5th wave.", "icon": "portrait_ashwarden", "tiers": true},
+	"classic": {"name": "Survival", "desc": "Pick a hero and survive 20 waves in the arena. Bosses on every 5th wave, and each boss you beat offers a boon for the rest of the run.", "icon": "portrait_ashwarden", "tiers": true},
 	"random": {"name": "Random Hero", "desc": "The Pit picks your hero for you. +150 starting gold.", "icon": "portrait_twinhide", "tiers": true},
 	"endless": {"name": "Endless", "desc": "Past the Warden the waves never stop. How far can you go?", "icon": "portrait_sunspeaker", "tiers": true},
 	"delve": {"name": "Delve", "desc": "Leave the arena for the dark Undercroft: 10 depths of crypts, flooded caves and the Abyss. Light rooms, time the traps, break into sealed vaults for relics. After each depth, press on or rest.",
@@ -63,6 +66,38 @@ const DAILY_MODS := {
 	"elite_pit": {"name": "Elite Pit", "desc": "Elites are twice as common and come from wave 2. 25% more gold.", "elite": 2.0, "elite_from": 2, "gold": 1.25},
 	"quickening": {"name": "Quickening", "desc": "Enemies move 20% faster. So do you, 15%.", "enemy_speed": 1.2, "hero_speed": 1.15},
 }
+
+## Heat: optional curses for Survival and Delve, stacked in this order (Heat 3 = the first three). Winning at
+## Heat N on Hard or Extreme opens Heat N+1 (Meta). hp / dmg / gold / elite / enemy_speed / boss_hp / price multiply
+## the run's values, elite_from replaces it, lives adds. More Heat pays more Souls and mastery (Meta).
+const HEAT := [
+	{"name": "Thick Hides", "desc": "Foes have 12% more health.", "hp": 1.12},
+	{"name": "Sharp Teeth", "desc": "Foes deal 10% more damage.", "dmg": 1.1},
+	{"name": "Elite Blood", "desc": "Elites are 50% more common and come from wave 2.", "elite": 1.5, "elite_from": 2},
+	{"name": "Greedy Merchant", "desc": "The shop charges 15% more.", "price": 1.15},
+	{"name": "Tyrants", "desc": "Bosses have 30% more health.", "boss_hp": 1.3},
+	{"name": "Fleet Foes", "desc": "Foes move 10% faster.", "enemy_speed": 1.1},
+	{"name": "Lean Purse", "desc": "You earn 15% less gold.", "gold": 0.85},
+	{"name": "Iron Hides", "desc": "Foes have another 15% more health.", "hp": 1.15},
+	{"name": "On the Edge", "desc": "One life fewer.", "lives": -1},
+	{"name": "Inferno", "desc": "Foes deal another 15% more damage and bosses another 20% more health.", "dmg": 1.15, "boss_hp": 1.2},
+]
+
+
+## Writes Heat level n into a run cfg.
+static func apply_heat(c: Dictionary, n: int) -> void:
+	n = clampi(n, 0, HEAT.size())
+	c["heat"] = n
+	for i in n:
+		var h: Dictionary = HEAT[i]
+		for k in ["hp", "dmg", "gold", "elite", "enemy_speed", "boss_hp", "price"]:
+			if h.has(k):
+				c[k] = float(c.get(k, 1.0)) * float(h[k])
+		if h.has("elite_from"):
+			c["elite_from"] = mini(int(c["elite_from"]), int(h["elite_from"]))
+		if h.has("lives"):
+			c["lives"] = maxi(1, int(c["lives"]) + int(h["lives"]))
+
 
 ## Endless: bosses keep coming every 5th wave, a little tougher each lap.
 const ENDLESS_BOSSES := ["pit_brute", "matron", "hollow_choir", "warden"]
@@ -107,6 +142,10 @@ static func config(mode: String, tier := "hard", extra := {}) -> Dictionary:
 				c["lives"] = m["lives"]
 	for k in extra:
 		c[k] = extra[k]
+	if int(c.get("heat", 0)) > 0 and mode in MAIN_MODES:
+		apply_heat(c, int(c["heat"]))
+	else:
+		c["heat"] = 0
 	if mode == "delve":
 		c["map"] = "delve"
 	elif mode in ["daily", "training"] or not Maps.MAPS.has(String(c["map"])):
@@ -183,9 +222,9 @@ static func wave_bursts(w: int) -> Array:
 
 # ---------------------------------------------------------------- score
 ## Run score for records: waves, kills and bosses, minus deaths, scaled by tier.
-static func score(waves_cleared: int, kills: int, bosses: int, deaths: int, tier: String) -> int:
+static func score(waves_cleared: int, kills: int, bosses: int, deaths: int, tier: String, heat := 0) -> int:
 	var s := waves_cleared * 100 + kills * 2 + bosses * 300 - deaths * 150
-	return maxi(0, int(round(s * float(TIERS.get(tier, TIERS["hard"])["score"]))))
+	return maxi(0, int(round(s * float(TIERS.get(tier, TIERS["hard"])["score"]) * (1.0 + 0.1 * heat))))
 
 
 static func label(cfg: Dictionary) -> String:
@@ -197,5 +236,7 @@ static func label(cfg: Dictionary) -> String:
 	if map not in ["pit", "delve"]:
 		nm += " · " + L.t(Maps.map_name(map))
 	if MODES.get(mode, {}).get("tiers", false):
-		return "%s · %s" % [nm, L.t(TIERS[cfg.get("tier", "hard")]["name"])]
+		nm = "%s · %s" % [nm, L.t(TIERS[cfg.get("tier", "hard")]["name"])]
+	if int(cfg.get("heat", 0)) > 0:
+		nm += " · " + L.f("Heat %d", [int(cfg["heat"])])
 	return nm

@@ -75,6 +75,7 @@ func _main() -> void:
 	await test_arena_changes()
 	await test_maps()
 	await test_delve()
+	await test_meta()
 	print("\n==== RESULT: %d passed, %d failed" % [passed, failed])
 	for f in fails:
 		print("FAILED: ", f)
@@ -2041,3 +2042,150 @@ func test_delve() -> void:
 	check(r3.result == "victory", "clearing depth 10 wins the run", r3.result)
 	free_run(r3)
 	await get_tree().process_frame
+
+
+# ------------------------------------------------------------------ 0.9: souls, altar, heat, mastery, bounties, boons
+func test_meta() -> void:
+	section("souls, altar, heat, mastery, bounties, survival boons")
+	Profile.reset()
+	_g().god = true
+	check(Modes.MAIN_MODES == ["classic", "delve"], "Survival and Delve are the main modes")
+	for id in Modes.MODE_ORDER:
+		check(id in Modes.MAIN_MODES or id in Modes.OTHER_MODES, "mode listed somewhere: " + id)
+	# altar
+	check(Meta.souls() == 0 and not Meta.buy("vitality"), "no Souls, no upgrade")
+	Meta.add_souls(1000)
+	check(Meta.buy("vitality") and Meta.rank("vitality") == 1 and Meta.souls() == 920, "rank 1 costs 80", str(Meta.souls()))
+	check(Meta.buy("vitality") and Meta.souls() == 760, "rank 2 costs 160", str(Meta.souls()))
+	check(Meta.buy("purse") and Meta.buy("fortune") and Meta.buy("insight"), "more upgrades")
+	var plain := Modes.config("classic", "hard")
+	var c := Meta.dress(Modes.config("classic", "hard"))
+	check(near(float(c["perks"]["hp"]), 80.0) and int(c["bonus_gold"]) == 50 and near(float(c["gold"]), 1.04) and int(c["rerolls"]) == 1, "dress() writes the upgrades into the cfg", str(c))
+	Meta.dress(c)
+	check(int(c["bonus_gold"]) == 50 and near(float(c["gold"]), 1.04), "dressing twice changes nothing")
+	check(not plain.has("perks"), "an undressed cfg (bots, tests) has no upgrades")
+	var base := make_mode_run("ashwarden", plain)
+	var up := make_mode_run("ashwarden", c)
+	await get_tree().process_frame
+	check(near(up.hero.max_hp, base.hero.max_hp + 80.0, 0.5) and up.gold == base.gold + 50 and up.rerolls == 1, "the run starts with them", "%f %f %d" % [up.hero.max_hp, base.hero.max_hp, up.gold])
+	up.hero.recalc()
+	check(near(up.hero.max_hp, base.hero.max_hp + 80.0, 0.5), "they survive a recalc")
+	free_run(base)
+	free_run(up)
+	await get_tree().process_frame
+	var spent := 80 + 160 + 60 + 90 + 250
+	check(Meta.refund_all() == spent and Meta.souls() == 1000 and Meta.rank("vitality") == 0, "refund gives everything back")
+	# heat
+	var h0 := Modes.config("classic", "hard")
+	var h3 := Modes.config("classic", "hard", {"heat": 3})
+	check(near(float(h3["hp"]), float(h0["hp"]) * 1.12) and near(float(h3["dmg"]), 1.1) and int(h3["elite_from"]) == 2 and int(h3["heat"]) == 3, "Heat 3 stacks the first three curses", str(h3))
+	var h10 := Modes.config("delve", "extreme", {"heat": 10})
+	check(int(h10["lives"]) == 1 and near(float(h10["price"]), 1.15) and near(float(h10["boss_hp"]), 1.3 * 1.2), "Heat 10: never below one life, prices and bosses up", str(h10))
+	check(int(Modes.config("endless", "hard", {"heat": 4})["heat"]) == 0, "Heat is only for Survival and Delve")
+	check(Modes.score(10, 200, 2, 1, "hard", 5) > Modes.score(10, 200, 2, 1, "hard"), "Heat raises the score")
+	var rh := make_mode_run("ashwarden", Modes.config("classic", "hard", {"heat": 5}), 5)
+	await get_tree().process_frame
+	var rn := make_mode_run("ashwarden", Modes.config("classic", "hard"), 5)
+	await get_tree().process_frame
+	check(rh.buy_price("iron_knuckles") > rn.buy_price("iron_knuckles"), "Greedy Merchant raises shop prices")
+	var rh2 := make_mode_run("ashwarden", Modes.config("classic", "hard", {"heat": 5}), 5)
+	await get_tree().process_frame
+	var bh: Enemy = rh2.spawn_enemy("pit_brute", Vector3(0, 0, -5))
+	var bn: Enemy = rn.spawn_enemy("pit_brute", Vector3(0, 0, -5))
+	check(near(bh.max_hp / bn.max_hp, 1.12 * 1.3, 0.02), "Tyrants: boss health", str(bh.max_hp / bn.max_hp))
+	free_run(rn)
+	free_run(rh2)
+	await get_tree().process_frame
+	check(Meta.heat_open("classic") == 0, "no Heat open at first")
+	# a boss kill in Survival offers a boon; winning at Heat 5 opens Heat 6
+	var s0 := Meta.souls()
+	clear_wave(rh)
+	check(rh.boon_open, "a boss slain: the boon card is pending")
+	for i in 220:
+		rh._step(1.0 / 30.0)
+	check(rh.hero.relics.size() == 1 and rh.hero.relics[0] in Meta.BOONS and not rh.boon_open, "the boon is taken and kept", str(rh.hero.relics))
+	check(rh.phase == "prep" and rh.wave == 6, "then the camp", "%s %d %f %s %d" % [rh.phase, rh.wave, rh.phase_t, str(rh.boon_open), rh.timers.size()])
+	check(rh.snapshot()["relics"] == rh.hero.relics, "boons are in the saved run")
+	rh.waves_cleared = 20
+	rh._end_run("victory")
+	check(Meta.heat_open("classic") == 6 and Meta.heat_best("classic") == 5 and int(rh.end_info.get("heat_opened", 0)) == 6, "victory at Heat 5 opens Heat 6", str(Profile.d()["heat"]))
+	check(Meta.heat_open("delve") == 0, "Delve's Heat is separate")
+	check(int(rh.end_info["souls"]) > 0 and Meta.souls() > s0, "the run pays Souls", str(rh.end_info))
+	check(Meta.mastery("ashwarden") >= 2 and int(rh.end_info["mastery"][1]) == Meta.mastery("ashwarden"), "and hero mastery", str(rh.end_info["mastery"]))
+	free_run(rh)
+	await get_tree().process_frame
+	var rno := make_mode_run("ashwarden", Modes.config("classic", "normal"), 5)
+	await get_tree().process_frame
+	rno._end_run("victory")
+	check(Meta.heat_open("classic") == 6, "a Normal win opens no Heat")
+	free_run(rno)
+	await get_tree().process_frame
+	# mastery levels and the legendary skin
+	check(Meta.level_for(0) == 1 and Meta.level_for(99) == 1 and Meta.level_for(100) == 2 and Meta.level_for(99999) == Meta.max_mastery(), "mastery thresholds")
+	check(not Skins.owned("riftdancer", "starlit"), "legendary skin locked below Mastery 5")
+	var before := Meta.souls()
+	var up2 := Meta.add_mastery("riftdancer", 700)
+	check(up2[0] == 1 and up2[1] == 5 and Meta.souls() == before + 40 * (2 + 3 + 4 + 5), "levels pay Souls", str(up2))
+	check(Skins.owned("riftdancer", "starlit") and Skins.equip("riftdancer", "starlit"), "Mastery 5 unlocks and equips the legendary skin")
+	Skins.equip("riftdancer", "classic")
+	# bounties: the same for a day, fresh the next, paid once
+	Profile.reset()
+	var day0 := 1794000000
+	var b1: Array = Meta.bounties(day0)["daily"].duplicate(true)
+	var ids := {}
+	for b in b1:
+		ids[b["id"]] = true
+		check(Meta.bounty_text(b) != "" and not Meta.bounty_text(b).contains("%d") and not Meta.bounty_text(b).contains("{"), "bounty text: " + Meta.bounty_text(b))
+	check(b1.size() == 3 and ids.size() == 3, "three different daily bounties")
+	check(Meta.bounties(day0 + 3600)["daily"][0]["id"] == b1[0]["id"], "same bounties later that day")
+	var varied := false
+	for d in range(1, 8):
+		var bx: Array = Meta.bounties(day0 + 86400 * d)["daily"]
+		if bx[0]["id"] != b1[0]["id"] or bx[1]["id"] != b1[1]["id"]:
+			varied = true
+	check(varied, "other days bring other bounties")
+	check(Meta.week_key(day0) == Meta.week_key(day0 + 86400) or Meta.week_key(day0) == Meta.week_key(day0 - 86400), "weeks last longer than a day")
+	Profile.reset()
+	var bd := Meta.bounties()
+	bd["daily"] = [{"id": "kills", "n": 5, "prog": 0, "done": false, "souls": 50}, {"id": "hero", "n": 2, "prog": 0, "done": false, "souls": 90, "hero": "sanguine"},
+		{"id": "boons", "n": 1, "prog": 0, "done": false, "souls": 60}]
+	check(Meta.track("kill", 3).is_empty() and Meta.track("kill", 3).size() == 1 and Meta.souls() == 50, "a bounty pays when its target is reached")
+	check(Meta.track("kill", 99).is_empty() and Meta.souls() == 50, "and only once")
+	check(Meta.track("wave_hero", 2, {"hero": "ashwarden"}).is_empty(), "a hero bounty ignores other heroes")
+	check(Meta.track("wave_hero", 2, {"hero": "sanguine"}).size() == 1, "and counts its own")
+	# a counted run moves them; practice doesn't
+	bd["daily"] = [{"id": "surv_waves", "n": 1, "prog": 0, "done": false, "souls": 60}, {"id": "bosses", "n": 1, "prog": 0, "done": false, "souls": 70},
+		{"id": "boons", "n": 1, "prog": 0, "done": false, "souls": 60}]
+	var rp := make_mode_run("ashwarden", Modes.config("practice", "hard"), 5)
+	await get_tree().process_frame
+	clear_wave(rp)
+	for i in 120:
+		rp._step(1.0 / 30.0)
+	check(not bd["daily"][0]["done"] and not bd["daily"][2]["done"] and rp.hero.relics.size() == 1, "Practice: boons yes, bounties no")
+	free_run(rp)
+	await get_tree().process_frame
+	var rb := make_mode_run("ashwarden", Modes.config("classic", "hard"), 5)
+	await get_tree().process_frame
+	clear_wave(rb)
+	for i in 120:
+		rb._step(1.0 / 30.0)
+	check(bd["daily"][0]["done"] and bd["daily"][1]["done"] and bd["daily"][2]["done"], "a Survival boss wave: wave, boss and boon bounties done", str(bd["daily"]))
+	check(rb.bounties_done.size() == 3, "the run remembers them for the end screen", str(rb.bounties_done.size()))
+	# rerolls
+	rb.rerolls = 1
+	var seen := []
+	rb.choice_requested.connect(func(data: Dictionary, cb: Callable):
+		seen.append(data)
+		cb.call("__reroll" if data.has("reroll") else String(data["options"][0]["id"])))
+	rb.offer_boon()
+	check(seen.size() == 2 and seen[0].has("reroll") and not seen[1].has("reroll") and rb.rerolls == 0 and rb.hero.relics.size() == 2, "Insight: one reroll, then a pick", "%d %d" % [seen.size(), rb.hero.relics.size()])
+	# hunter's mark pays in the arena
+	rb.hero.relics.append("hunters_mark")
+	rb.hero.recalc()
+	check(float(rb.hero.item_stats.get("gold_pct", 0.0)) >= 0.25, "Hunter's Mark is active")
+	free_run(rb)
+	await get_tree().process_frame
+	for id in Meta.BOONS:
+		check(DelveLore.RELICS.has(id), "boon exists: " + id)
+	_g().god = false
+	Profile.reset()

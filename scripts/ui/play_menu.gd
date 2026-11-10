@@ -5,7 +5,7 @@ extends RefCounted
 
 
 ## on_choose(cfg): go to hero select with these run settings. on_launch(hero_id, wave, cfg): start the run now.
-static func create(on_choose: Callable, on_launch: Callable, on_back: Callable, first_mode := "") -> Control:
+static func create(on_choose: Callable, on_launch: Callable, on_back: Callable, first_mode := "", on_altar := Callable()) -> Control:
 	var root := Menus._base()
 	var shade := ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -32,6 +32,12 @@ static func create(on_choose: Callable, on_launch: Callable, on_back: Callable, 
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	head.add_child(title)
+	if on_altar.is_valid():
+		var ab := UIK.button(L.f("Altar · %d Souls", [Meta.souls()]), "", Vector2(250, 64))
+		ab.name = "AltarButton"
+		ab.add_theme_color_override("font_color", SOUL_COL)
+		ab.pressed.connect(on_altar)
+		head.add_child(ab)
 	var go := UIK.button("Choose Hero", "PrimaryButton", Vector2(240, 72))
 	go.name = "GoButton"
 	go.add_theme_font_size_override("font_size", 28)
@@ -58,10 +64,12 @@ static func create(on_choose: Callable, on_launch: Callable, on_back: Callable, 
 	var tier: String = Profile.d().get("last_tier", "hard")
 	if not Profile.tier_unlocked(tier):
 		tier = "hard"
-	var start_mode := first_mode if Modes.MODES.has(first_mode) else ("training" if not Profile.d().get("training_done", false) and int(Profile.d()["totals"]["runs"]) == 0 else "classic")
+	var start_mode := first_mode if Modes.MODES.has(first_mode) else "classic"
 	var last_map: String = Profile.d().get("last_map", "pit")
+	var lh: Dictionary = Profile.d().get("last_heat", {})
 	var st := {"mode": start_mode, "tier": tier, "wave": 1, "allies": clampi(int(Profile.d().get("last_allies", 0)), 0, 3), "buttons": {},
-		"map": last_map if Maps.ORDER.has(last_map) else "pit"}
+		"map": last_map if Maps.ORDER.has(last_map) else "pit", "view": "main" if start_mode in Modes.MAIN_MODES else "other",
+		"heat": {"classic": mini(int(lh.get("classic", 0)), Meta.heat_open("classic")), "delve": mini(int(lh.get("delve", 0)), Meta.heat_open("delve"))}}
 	# the refresh lambda lives in st so the tier buttons it builds can call it again
 	st["refresh"] = func():
 		for id in st["buttons"]:
@@ -84,27 +92,81 @@ static func create(on_choose: Callable, on_launch: Callable, on_back: Callable, 
 		tree.process_frame.connect(func():
 			if is_instance_valid(detail_holder):
 				detail_holder.scroll_vertical = keep, CONNECT_ONE_SHOT)
-	for id in Modes.MODE_ORDER:
-		var b := _mode_button(id)
-		b.mouse_filter = Control.MOUSE_FILTER_PASS   # a swipe on the list scrolls it, a tap still picks
-		list.add_child(b)
-		st["buttons"][id] = b
-		var mid: String = id
-		b.pressed.connect(func():
-			st["mode"] = mid
-			st["refresh"].call())
-	UIK.pass_touch(list)
+	# the list: Survival and Delve up front with today's bounties; every other mode one tap away under "Other modes"
+	st["build_list"] = func():
+		for c in list.get_children():
+			list.remove_child(c)
+			c.queue_free()
+		st["buttons"] = {}
+		var ids: Array = Modes.MAIN_MODES if st["view"] == "main" else Modes.OTHER_MODES
+		if st["view"] == "other":
+			var mb := UIK.button("< Survival and Delve", "", Vector2(360, 60))
+			mb.name = "MainModes"
+			mb.mouse_filter = Control.MOUSE_FILTER_PASS
+			mb.pressed.connect(func():
+				st["view"] = "main"
+				st["mode"] = "classic"
+				st["build_list"].call_deferred())   # deferred: this button is freed by the rebuild
+			list.add_child(mb)
+		for id in ids:
+			var b := _mode_button(id, st["view"] == "main")
+			b.mouse_filter = Control.MOUSE_FILTER_PASS   # a swipe on the list scrolls it, a tap still picks
+			list.add_child(b)
+			st["buttons"][id] = b
+			var mid: String = id
+			b.pressed.connect(func():
+				st["mode"] = mid
+				st["refresh"].call())
+		if st["view"] == "main":
+			var ob := UIK.button("Other modes", "", Vector2(360, 60))
+			ob.name = "OtherModes"
+			ob.mouse_filter = Control.MOUSE_FILTER_PASS
+			ob.pressed.connect(func():
+				st["view"] = "other"
+				st["mode"] = Modes.OTHER_MODES[0]
+				st["build_list"].call_deferred())
+			list.add_child(ob)
+			list.add_child(_bounty_panel())
+		UIK.pass_touch(list)
+		scroll.scroll_vertical = 0
+		st["refresh"].call()
 	go.pressed.connect(func(): _start(st, on_choose, on_launch))
-	st["refresh"].call()
-	# a mode opened from elsewhere (e.g. Duels at the bottom) is scrolled into view on short screens, once the list is laid out
-	if start_mode != Modes.MODE_ORDER[0]:
+	st["build_list"].call()
+	# a mode opened from elsewhere (e.g. Training at the bottom) is scrolled into view on short screens, once the list is laid out
+	if st["view"] == "other" and start_mode != Modes.OTHER_MODES[0]:
 		var sel: Control = st["buttons"][start_mode]
 		sel.ready.connect(func():
 			await sel.get_tree().process_frame
 			await sel.get_tree().process_frame
-			if is_instance_valid(scroll):
+			if is_instance_valid(scroll) and is_instance_valid(sel):
 				scroll.ensure_control_visible(sel), CONNECT_ONE_SHOT)
 	return root
+
+
+const SOUL_COL := Color(0.62, 0.82, 1.0)
+
+
+## Today's three bounties and the weekly one, with progress. Paid in Souls the moment they are done.
+static func _bounty_panel() -> Control:
+	var card := UIK.panel("DarkPanel")
+	card.name = "Bounties"
+	card.custom_minimum_size = Vector2(360, 0)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 3)
+	card.add_child(v)
+	v.add_child(UIK.label("Bounties", "", 20, UIK.col("gold", Color.GOLD)))
+	for b in Meta.all_bounties():
+		var done: bool = b["done"]
+		var head := L.t("Weekly") + ": " if Meta.is_weekly(b) else ""
+		var l := UIK.label(head + Meta.bounty_text(b), "SmallLabel", 15, UIK.col("dim", Color(0.75, 0.7, 0.62)) if done else UIK.col("text", Color(0.95, 0.9, 0.82)))
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size = Vector2(300, 0)
+		l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		v.add_child(l)
+		var st := UIK.label(L.t("Done") if done else L.f("%d / %d  ·  +%d Souls", [int(b["prog"]), int(b["n"]), int(b["souls"])]), "SmallLabel", 14,
+			Color(0.55, 0.9, 0.5) if done else SOUL_COL)
+		v.add_child(st)
+	return card
 
 
 ## Swipes anywhere on the card scroll it; buttons still react to a tap.
@@ -135,11 +197,13 @@ static func _start(st: Dictionary, on_choose: Callable, on_launch: Callable) -> 
 	if mode in MAP_MODES:
 		Profile.d()["last_map"] = st["map"]
 		al["map"] = st["map"]
+	if mode in Modes.MAIN_MODES:
+		al["heat"] = int(st["heat"][mode])
+		var lh: Dictionary = Profile.d()["last_heat"]
+		lh[mode] = al["heat"]
 	match mode:
-		"classic", "endless", "duels":
+		"classic", "endless", "duels", "delve":
 			on_choose.call(Modes.config(mode, st["tier"], al))
-		"delve":
-			on_choose.call(Modes.config(mode, st["tier"]))
 		"practice":
 			al["start_wave"] = st["wave"]
 			on_choose.call(Modes.config(mode, st["tier"], al))
@@ -152,9 +216,9 @@ static func _start(st: Dictionary, on_choose: Callable, on_launch: Callable) -> 
 			on_launch.call("ashwarden", 1, Modes.config("training"))
 
 
-static func _mode_button(id: String) -> Button:
+static func _mode_button(id: String, big := false) -> Button:
 	var md: Dictionary = Modes.MODES[id]
-	var b := UIK.button("", "", Vector2(360, 82))
+	var b := UIK.button("", "", Vector2(360, 150 if big else 82))
 	b.name = "Mode_" + id
 	var hb := HBoxContainer.new()
 	hb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -163,16 +227,22 @@ static func _mode_button(id: String) -> Button:
 	hb.add_theme_constant_override("separation", 12)
 	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(hb)
-	var ic := UIK.icon_rect("portrait_" + Modes.daily(Modes.today())["hero"] if id == "daily" else md["icon"], 60)
+	var ic := UIK.icon_rect("portrait_" + Modes.daily(Modes.today())["hero"] if id == "daily" else md["icon"], 92 if big else 60)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	hb.add_child(ic)
 	var tv := VBoxContainer.new()
 	tv.add_theme_constant_override("separation", 0)
 	tv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hb.add_child(tv)
-	tv.add_child(Menus._outlined(UIK.label(L.t(md["name"]), "", 24, UIK.col("ember", Color(1, 0.55, 0.25))), 5))
-	tv.add_child(Menus._fit(UIK.label(_mode_line(id), "SmallLabel", 15, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
+	tv.add_child(Menus._outlined(UIK.label(L.t(md["name"]), "", 32 if big else 24, UIK.col("ember", Color(1, 0.55, 0.25))), 5))
+	tv.add_child(Menus._fit(UIK.label(_mode_line(id), "SmallLabel", 17 if big else 15, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
+	if big:
+		var ho := Meta.heat_open(id)
+		var hbst := Meta.heat_best(id)
+		var ht := L.f("Heat %d beaten", [hbst]) if hbst > 0 else (L.f("Heat %d open", [ho]) if ho > 0 else L.t("Win on Hard to open Heat"))
+		tv.add_child(Menus._fit(UIK.label(ht, "SmallLabel", 15, Color(1.0, 0.5, 0.3) if ho > 0 else UIK.col("dim", Color(0.75, 0.7, 0.62)))))
 	var ring := Panel.new()
 	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -195,7 +265,7 @@ static func _mode_line(id: String) -> String:
 			var best := 0
 			for t in p["tier_best"]:
 				best = maxi(best, int(p["tier_best"][t]))
-			return L.f("Best: wave %d", [best]) if best > 0 else L.t("20 waves, 4 bosses")
+			return L.f("Best: wave %d", [best]) if best > 0 else L.t("20 waves, 4 bosses, 3 boons")
 		"random":
 			return L.f("Any of %d heroes", [DB.HERO_ORDER.size()])
 		"endless":
@@ -251,6 +321,8 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 		v.add_child(tl)
 		if not Profile.tier_unlocked("extreme"):
 			v.add_child(_wrap(UIK.label("Extreme unlocks when you clear wave 10 on Hard.", "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
+	if mode in Modes.MAIN_MODES:
+		_heat_rows(v, st, refresh)
 	if mode in ALLY_MODES:
 		v.add_child(UIK.label("Allies", "", 20, UIK.col("gold", Color.GOLD)))
 		var arow := _flow()
@@ -339,6 +411,37 @@ static func _mode_detail(st: Dictionary, refresh: Callable) -> Control:
 		"training":
 			v.add_child(_wrap(UIK.label("You play the Ashwarden and can't fall. Takes about three minutes.", "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
 	return card
+
+
+## Heat: the curses the player has opened for this mode. More Heat, more Souls.
+static func _heat_rows(v: VBoxContainer, st: Dictionary, refresh: Callable) -> void:
+	var mode: String = st["mode"]
+	var open := Meta.heat_open(mode)
+	v.add_child(UIK.label("Heat", "", 20, UIK.col("gold", Color.GOLD)))
+	if open == 0:
+		v.add_child(_wrap(UIK.label("Win a run on Hard or Extreme to open Heat 1: a curse that makes the next run tougher and pays 25% more Souls. Each win opens the next Heat.",
+			"SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
+		return
+	var cur := clampi(int(st["heat"][mode]), 0, open)
+	var row := _flow(8)
+	v.add_child(row)
+	for n in open + 1:
+		var hb := UIK.button(str(n), "PrimaryButton" if n == cur else "", Vector2(64, 60))
+		hb.name = "Heat_%d" % n
+		var nn := n
+		hb.pressed.connect(func():
+			st["heat"][mode] = nn
+			refresh.call_deferred())   # deferred: this button is freed by the rebuild
+		row.add_child(hb)
+	if cur == 0:
+		v.add_child(_wrap(UIK.label("No curses. Pick a Heat for a tougher run that pays more Souls.", "SmallLabel", 17, UIK.col("dim", Color(0.75, 0.7, 0.62)))))
+		return
+	v.add_child(_wrap(UIK.label(L.f("+%d%% Souls and score. Curses:", [int(round(cur * Meta.HEAT_SOULS * 100))]), "SmallLabel", 17, SOUL_COL)))
+	for i in cur:
+		var h: Dictionary = Modes.HEAT[i]
+		var hl := _wrap(UIK.label("%d. %s: %s" % [i + 1, L.t(h["name"]), L.t(h["desc"])], "SmallLabel", 16, Color(1.0, 0.62, 0.45)))
+		hl.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		v.add_child(hl)
 
 
 static func _wrap(l: Label) -> Label:
@@ -444,6 +547,8 @@ static func records(on_back: Callable) -> Control:
 		rows.append([L.f("Best wave, %s", [L.t(Modes.TIERS[tr]["name"])]), str(int(p["tier_best"].get(tr, 0))) if Profile.tier_unlocked(tr) else L.t("locked")])
 	rows.append(["Best wave, Endless", str(int(p["endless_best"]))])
 	rows.append(["Deepest Delve", str(int(p.get("delve_best", 0)))])
+	rows.append(["Highest Heat beaten", "%s %d  ·  %s %d" % [L.t("Survival"), maxi(0, Meta.heat_best("classic")), L.t("Delve"), maxi(0, Meta.heat_best("delve"))]])
+	rows.append(["Souls earned", str(int(p.get("souls_total", 0)))])
 	var dr := Profile.daily_today()
 	rows.append(["Daily Run today", L.f("score %d", [int(dr["best_score"])]) if int(dr["runs"]) > 0 else L.t("not played")])
 	for r in rows:
@@ -492,7 +597,7 @@ static func _hero_record_row(id: String) -> Control:
 	tv.add_child(UIK.label(DB.HEROES[id]["name"], "", 21, UIK.col("ember", Color(1, 0.55, 0.25)) if open else Color(0.6, 0.57, 0.53)))
 	if open:
 		var hr: Dictionary = Profile.d()["heroes"].get(id, {})
-		tv.add_child(UIK.label(L.f("Runs %d  ·  best wave %d  ·  victories %d", [int(hr.get("runs", 0)), int(hr.get("best_wave", 0)), int(hr.get("wins", 0))]),
+		tv.add_child(UIK.label(L.f("Mastery %d", [Meta.mastery(id)]) + "  ·  " + L.f("Runs %d  ·  best wave %d  ·  victories %d", [int(hr.get("runs", 0)), int(hr.get("best_wave", 0)), int(hr.get("wins", 0))]),
 			"SmallLabel", 16, UIK.col("text", Color(0.9, 0.86, 0.8))))
 	else:
 		var pr := Profile.progress(id)

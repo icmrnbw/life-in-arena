@@ -42,6 +42,8 @@ func _ready() -> void:
 			show_play(Game.arg("mode", ""))
 		"records":
 			show_records()
+		"altar":
+			show_altar()
 		"languages":
 			show_title()
 			show_languages()
@@ -137,6 +139,8 @@ func _arg_cfg() -> Dictionary:
 		extra["date"] = Game.arg("date", Modes.today())
 	if Game.args.has("seed"):
 		extra["seed"] = int(Game.arg("seed", "0"))
+	if Game.args.has("heat"):
+		extra["heat"] = int(Game.arg("heat", "0"))
 	var c := Modes.config(Game.arg("mode", "classic"), Game.arg("tier", "hard"), extra)
 	if not Game.args.has("profile"):
 		c["counts"] = false
@@ -217,7 +221,7 @@ func show_title() -> void:
 	_close_overlay()
 	Game.state["phase"] = "menu"
 	var snap := Profile.load_run()
-	screen = Menus.title_screen(_on_play, show_gallery, continue_run if not snap.is_empty() else Callable(), show_records, snap, show_languages)
+	screen = Menus.title_screen(_on_play, show_gallery, continue_run if not snap.is_empty() else Callable(), show_records, snap, show_languages, show_altar)
 	ui.add_child(screen)
 
 
@@ -267,7 +271,18 @@ func show_play(first_mode := "") -> void:
 	_clear_screen()
 	_close_overlay()
 	Game.state["phase"] = "play"
-	screen = PlayMenu.create(show_hero_select, start_run, show_title, first_mode)
+	screen = PlayMenu.create(show_hero_select, func(id, w, c): start_run(id, w, Meta.dress(c)), show_title, first_mode, show_altar.bind(first_mode))
+	ui.add_child(screen)
+
+
+## The Altar of Souls (permanent upgrades). Back returns to the mode list.
+func show_altar(back_mode := "") -> void:
+	_end_run_node()
+	_ensure_backdrop()
+	_clear_screen()
+	_close_overlay()
+	Game.state["phase"] = "altar"
+	screen = AltarUI.create(show_play.bind(back_mode))
 	ui.add_child(screen)
 
 
@@ -300,7 +315,7 @@ func show_hero_select(run_cfg := {}) -> void:
 	_clear_screen()
 	var c: Dictionary = run_cfg if not run_cfg.is_empty() else Modes.config("classic", Profile.d().get("last_tier", "hard"))
 	Game.state["phase"] = "hero_select"
-	screen = Menus.hero_select(func(id): start_run(id, int(c.get("start_wave", 1)), c), func(): show_play(c.get("mode", "classic")), c)
+	screen = Menus.hero_select(func(id): start_run(id, int(c.get("start_wave", 1)), Meta.dress(c.duplicate())), func(): show_play(c.get("mode", "classic")), c)
 	ui.add_child(screen)
 
 
@@ -392,13 +407,18 @@ func _show_end(for_run: Run = null) -> void:
 	var again := func():
 		match String(c.get("mode", "classic")):
 			"random":
-				start_run(Modes.random_hero(), 1, Modes.config("random", c.get("tier", "hard")))
+				start_run(Modes.random_hero(), 1, Meta.dress(Modes.config("random", c.get("tier", "hard"))))
 			"daily":
-				start_run(run.hero_id, 1, Modes.config("daily", "hard", {"date": c.get("date", Modes.today())}))
+				start_run(run.hero_id, 1, Meta.dress(Modes.config("daily", "hard", {"date": c.get("date", Modes.today())})))
 			"training":
 				show_play()
 			_:
-				show_hero_select(c)
+				# a fresh cfg: Altar upgrades bought since the last run apply, and nothing is applied twice
+				var extra := {}
+				for k in ["map", "allies", "ally_ids", "heat", "start_wave"]:
+					if c.has(k):
+						extra[k] = c[k]
+				show_hero_select(Modes.config(String(c.get("mode", "classic")), String(c.get("tier", "hard")), extra))
 	screen = Menus.end_screen(run, again, show_title)
 	ui.add_child(screen)
 	if run.result == "victory":
@@ -490,7 +510,7 @@ func _on_back() -> void:
 		_close_overlay()
 	elif Game.state.get("phase", "") == "hero_select":
 		show_play()
-	elif Game.state.get("phase", "") in ["play", "records", "gallery"]:
+	elif Game.state.get("phase", "") in ["play", "records", "gallery", "altar"]:
 		show_title()
 	else:
 		Game.quit_game()

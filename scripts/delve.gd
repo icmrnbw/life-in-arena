@@ -1345,22 +1345,7 @@ func _open_vault() -> void:
 # ---------------------------------------------------------------- relics, stairs
 ## Pick 1 of 3 relics (pauses the game). then_cb runs after the pick.
 func offer_relic(title: String, then_cb: Callable) -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.randomize()
-	var ids := DelveLore.relic_offer(run.hero.relics, 3, rng)
-	if ids.is_empty():
-		if then_cb.is_valid():
-			then_cb.call()
-		return
-	var opts := []
-	for id in ids:
-		var rd: Dictionary = DelveLore.RELICS[id]
-		opts.append({"id": id, "name": rd["name"], "desc": rd["desc"], "icon": rd["icon"], "color": rd["color"]})
-	run.request_choice({"title": L.t(title), "sub": L.t("Choose a relic. It lasts the whole run."), "options": opts,
-		"auto": _bot_relic(ids)}, func(id: String):
-			_take_relic(id)
-			if then_cb.is_valid():
-				then_cb.call())
+	Meta.offer_relics(run, L.t(title), L.t("Choose a relic. It lasts the whole run."), DelveLore.RELICS.keys(), _take_relic, then_cb, _bot_relic)
 
 
 func _take_relic(id: String) -> void:

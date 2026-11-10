@@ -418,7 +418,7 @@ func _fill_skins() -> void:
 		grid.add_child(_skin_card(s, eq))
 	var cur := Skins.find(hero_id, skin_id)
 	var own := Skins.owned(hero_id, skin_id)
-	var act := UIK.button(L.t("Equipped") if skin_id == eq else (L.f("Equip %s", [L.t(cur["name"])]) if own else L.t("Locked: store coming soon")),
+	var act := UIK.button(L.t("Equipped") if skin_id == eq else (L.f("Equip %s", [L.t(cur["name"])]) if own else L.f("Locked: reach Mastery %d (now %d)", [Meta.MASTERY_SKIN, Meta.mastery(hero_id)])),
 		"PrimaryButton" if own and skin_id != eq else "", Vector2(0, 68))
 	act.name = "EquipButton"
 	act.add_theme_font_size_override("font_size", 22)
