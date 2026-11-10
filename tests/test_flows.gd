@@ -77,6 +77,7 @@ func _main() -> void:
 	await test_shop_flow()
 	await test_end_screens()
 	await test_modes_flow()
+	await test_meta_flow()
 	print("\n==== RESULT: %d passed, %d failed" % [passed, failed])
 	for f in fails:
 		print("FAILED: ", f)
@@ -746,7 +747,7 @@ func _mode_screen_fits() -> void:
 		L.setup(was)
 		return
 	check(ds.get_global_rect().end.y <= vis_h + 1.0, "detail card ends on screen", "bottom %d, screen %d" % [ds.get_global_rect().end.y, vis_h])
-	var last := main.screen.find_child("Mode_training", true, false) as Control
+	var last := main.screen.find_child("Mode_delve", true, false) as Control
 	var ms := last.get_parent().get_parent() as ScrollContainer
 	check(ms.get_global_rect().end.y <= vis_h + 1.0, "mode list ends on screen", "bottom %d" % ms.get_global_rect().end.y)
 	var bar := ds.get_v_scroll_bar()
@@ -777,3 +778,87 @@ func _mode_screen_fits() -> void:
 	else:
 		print("  detail card fits without scrolling")
 	L.setup(was)
+
+
+# ------------------------------------------------------------------ 0.9: main modes, altar, heat, boon card
+func test_meta_flow() -> void:
+	section("main modes up front, other modes, altar, heat, boon card")
+	Profile.reset()
+	Profile.d()["training_offered"] = true
+	main.show_play()
+	await frames(3)
+	check(main.screen.find_child("Mode_classic", true, false) != null and main.screen.find_child("Mode_delve", true, false) != null, "Survival and Delve are on the first screen")
+	check(main.screen.find_child("Mode_duels", true, false) == null and main.screen.find_child("Mode_endless", true, false) == null, "the other modes are not")
+	check(main.screen.find_child("Bounties", true, false) != null, "bounties are listed")
+	var vis: Vector2 = main.screen.get_viewport().get_visible_rect().size
+	var om := main.screen.find_child("OtherModes", true, false) as Button
+	check(om != null and om.get_global_rect().end.y <= vis.y, "Other modes button is on screen")
+	om.pressed.emit()
+	await frames(3)
+	for id in Modes.OTHER_MODES:
+		check(main.screen.find_child("Mode_" + id, true, false) != null, "other mode listed: " + id)
+	check(main.screen.find_child("Mode_classic", true, false) == null, "the main modes left the list")
+	(main.screen.find_child("Mode_duels", true, false) as Button).pressed.emit()
+	await frames(2)
+	find_button(main.screen, "Choose Hero").pressed.emit()
+	await frames(2)
+	check(game().state["phase"] == "hero_select", "Duel Ladder still starts from Other modes")
+	find_button(main.screen, "Back").pressed.emit()
+	await frames(3)
+	check(main.screen.find_child("Mode_duels", true, false) != null, "Back returns to the other modes")
+	(main.screen.find_child("MainModes", true, false) as Button).pressed.emit()
+	await frames(3)
+	check(main.screen.find_child("Mode_delve", true, false) != null and main.screen.find_child("Mode_duels", true, false) == null, "and back to the main modes")
+	# heat: nothing to pick until a win opens it
+	check(main.screen.find_child("Heat_1", true, false) == null, "no Heat buttons before a win")
+	Profile.d()["heat"]["classic"] = 3
+	main.show_play("classic")
+	await frames(3)
+	var h2 := main.screen.find_child("Heat_2", true, false) as Button
+	check(h2 != null and main.screen.find_child("Heat_3", true, false) != null and main.screen.find_child("Heat_4", true, false) == null, "Heat 0-3 offered once opened")
+	h2.pressed.emit()
+	await frames(3)
+	find_button(main.screen, "Choose Hero").pressed.emit()
+	await frames(2)
+	find_button(main.screen, "Begin Run").pressed.emit()
+	await frames(3)
+	check(main.run != null and int(main.run.cfg.get("heat", 0)) == 2 and main.run.cfg.get("dressed", false), "the run starts at Heat 2", str(main.run.cfg.get("heat")))
+	# the boon card: three options, picking one closes it and unpauses
+	main.run.rerolls = 1
+	main.run.offer_boon()
+	await frames(3)
+	check(main.choice_ui != null and get_tree().paused, "boon card pauses the game")
+	var rb := main.choice_ui.find_child("RerollButton", true, false) as Button
+	check(rb != null, "Insight shows a Reroll button")
+	rb.pressed.emit()
+	await frames(3)
+	check(main.choice_ui != null and main.choice_ui.find_child("RerollButton", true, false) == null and main.run.rerolls == 0, "reroll deals a new card, once")
+	var picked := false
+	for b in main.choice_ui.find_children("*", "Button", true, false):
+		if (b as Button).custom_minimum_size.y >= 300:
+			(b as Button).pressed.emit()
+			picked = true
+			break
+	await frames(3)
+	check(picked and main.choice_ui == null and not get_tree().paused and main.run.hero.relics.size() == 1, "picking a boon closes the card", str(main.run.hero.relics))
+	# altar
+	Meta.add_souls(200)
+	main.show_altar()
+	await frames(3)
+	check(game().state["phase"] == "altar", "Altar screen opens")
+	var buy := main.screen.find_child("Buy_vitality", true, false) as Button
+	check(buy != null and not buy.disabled and (main.screen.find_child("Buy_second_wind", true, false) as Button).disabled, "affordable upgrades are enabled, the rest not")
+	buy.pressed.emit()
+	await frames(3)
+	check(Meta.rank("vitality") == 1 and Meta.souls() == 120, "buying spends Souls", str(Meta.souls()))
+	check((main.screen.find_child("SoulsLabel", true, false) as Label).text.contains("120"), "and the purse updates")
+	var sc := main.screen.find_child("AltarScroll", true, false) as ScrollContainer
+	check(sc.get_global_rect().end.y <= vis.y + 1.0, "altar list ends on screen")
+	find_button(main.screen, "Back").pressed.emit()
+	await frames(3)
+	check(game().state["phase"] == "play", "Back -> mode list")
+	main.show_title()
+	await frames(3)
+	var ab := main.screen.find_child("AltarButton", true, false) as Button
+	check(ab != null and ab.get_global_rect().end.y * 1.0 <= vis.y + 1.0, "title shows the Altar button on screen", str(ab.get_global_rect()) if ab else "")
+	Profile.reset()

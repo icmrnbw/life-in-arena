@@ -42,7 +42,7 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - Everything is restored at the start of each wave.
 - The title screen shows the Riftdancer resting by a bonfire, with the menu on the right.
 - The (i) button next to pause opens a card with every skill's description, rank, mana and cooldown (the game pauses while it's open). Holding a skill button no longer shows its description, so it can't rank a skill up by accident.
-- A Heroes screen on the title menu shows every hero's model on a turntable (drag to spin, tap it or the buttons below to see it run, attack and cast), their skills, and their skins. Skins come in rarities (Common, Uncommon, Rare, Mythical, Legendary); each hero has a Classic look plus three example recolours. Uncommon and Mythical ones can be equipped now; Legendary ones can only be previewed until there's a store. The equipped skin is the one you play with.
+- A Heroes screen on the title menu shows every hero's model on a turntable (drag to spin, tap it or the buttons below to see it run, attack and cast), their skills, and their skins. Skins come in rarities (Common, Uncommon, Rare, Mythical, Legendary); each hero has a Classic look plus three example recolours. Uncommon and Mythical ones can be equipped now; Legendary ones unlock at hero Mastery 5. The equipped skin is the one you play with.
 - Replayability:
   - Your records are saved on the phone. Every hero and every tier is open from the start (the unlock-by-playing rules in `scripts/modes.gd` stay in the code, off, in case they're wanted later).
   - A run in progress is saved every time you're back in camp. If the app closes, Continue on the title screen picks it up from that camp.
@@ -75,11 +75,18 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
   - Duel Ladder (a new mode): no waves, just 8 rival heroes of rising level, with the shop between duels. A lost duel costs a life.
   - Rivals are full heroes with their kits and items, played by the same bot as `--autoplay`, which sees the fight from the rival's side.
 - Touch controls: a joystick, tap-to-cast and drag-to-aim.
+  - 0.9.0 is about coming back (`scripts/meta.gd`, saved in the profile):
+    - The Play screen leads with the two main modes, Survival (the 20-wave arena, formerly Classic) and Delve. Endless, Random Hero, Daily Run, Duel Ladder, Practice and Training sit under "Other modes".
+    - Souls: every counted run pays Souls (waves, depths, bosses, kills, a win; more on harder tiers and Heat). Spend them at the Altar of Souls (title screen and Play screen) on nine permanent upgrades with ranks: health, damage, armor, cooldowns, starting gold, gold, experience, boon rerolls, an extra life. Bot and test runs never get them.
+    - Heat: win Survival or Delve on Hard or Extreme to open Heat 1 for that mode, then 2, up to 10. Each level adds a curse on top of the earlier ones (`Modes.HEAT`) and pays 25% more Souls and 10% more score. Test hook `--heat=N`.
+    - Hero mastery: each hero levels 1-10 from being played. Levels pay Souls; level 5 unlocks the hero's Legendary skin.
+    - Bounties: three daily goals and one weekly, the same for everyone, paid in Souls when done (shown on the Play screen).
+    - Survival boons: every boss slain in the arena offers 1 of 3 run-long boons (the relics that make sense outside the Undercroft, plus four new ones).
 - All art is procedural and original, generated in code.
 - Music: three original medieval-style tunes, composed and synthesized in code by `tools/compose_music.py` (no samples or third-party recordings, so nothing to license). A tavern tune (lute, recorder, harp, drone; D Dorian) plays on the title screen and in camp, a battle tune (shawm, lute, tabor drum; E Dorian) during waves, and a boss tune (war drums, low voices, bell; D Phrygian) on boss waves. Tunes crossfade, duck while paused, and have their own Music toggle on the title and pause screens.
 
 ## Install (Android)
-Download `builds/emberpit-0.8.0-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download `builds/emberpit-0.9.0-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.

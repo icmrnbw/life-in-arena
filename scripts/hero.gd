@@ -22,6 +22,7 @@ var train := {}          # Training Grounds ranks: {upgrade id: rank}
 var items: Array = []     # [{id, charges, choice, cd}]
 var item_stats := {}
 var relics: Array = []    # Delve relics (scripts/delve_lore.gd), kept for the whole run
+var perks := {}           # Altar of Souls upgrades (Meta.perk_stats): stat -> value, for the whole run
 var blessing := {}        # Delve shrine blessing: stat -> value, until the depth ends
 var attack_speed := 1.0
 var dmg_bonus_mult := 1.0
@@ -92,6 +93,8 @@ func recalc(fill := false) -> void:
 			item_stats[k] = item_stats.get(k, 0.0) + float(rd["stats"][k])
 	for k in blessing:
 		item_stats[k] = item_stats.get(k, 0.0) + float(blessing[k])
+	for k in perks:
+		item_stats[k] = item_stats.get(k, 0.0) + float(perks[k])
 	var lv := float(level - 1)
 	str_v = data["str"] + data["str_g"] * lv + bonus["str"] + item_stats.get("str", 0.0)
 	agi_v = data["agi"] + data["agi_g"] * lv + bonus["agi"] + item_stats.get("agi", 0.0)

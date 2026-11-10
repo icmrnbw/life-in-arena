@@ -20,10 +20,25 @@ static func defaults() -> Dictionary:
 		"best_score": {},   # mode -> best score
 		"endless_best": 0,  # best wave cleared in Endless
 		"delve_best": 0,    # deepest Delve depth cleared
-		"daily": {"date": "", "best_wave": 0, "best_score": 0, "runs": 0}}
+		"daily": {"date": "", "best_wave": 0, "best_score": 0, "runs": 0},
+		# 0.9 (scripts/meta.gd): Souls and what they bought, Heat opened / beaten per mode, today's bounties
+		"souls": 0, "souls_total": 0, "altar": {}, "heat": {}, "heat_best": {}, "last_heat": {}, "bounties": {}}
 
 
 ## Points the profile at other files (tests) and reloads.
+static var _fresh: Array = []   # bounties finished and not yet shown (Run toasts them)
+
+
+static func note_bounties(done: Array) -> void:
+	_fresh.append_array(done)
+
+
+static func take_fresh_bounties() -> Array:
+	var out := _fresh
+	_fresh = []
+	return out
+
+
 static func use_paths(p: String, rp: String) -> void:
 	path = p
 	run_path = rp
@@ -160,6 +175,7 @@ static func on_wave_cleared(r: Run, boss: bool) -> Array:
 	if boss:
 		t["bosses"] = int(t["bosses"]) + 1
 	_add_kills(r)
+	note_bounties(Meta.track_wave(r, boss))
 	var w := r.wave
 	var hr := hero_rec(r.hero_id)
 	hr["best_wave"] = maxi(int(hr["best_wave"]), w)
@@ -206,6 +222,16 @@ static func on_run_ended(r: Run) -> Dictionary:
 		d()["best_score"][key] = sc
 		out["best"] = true
 	out["unlocks"] = check_unlocks()
+	# 0.9: Souls, hero mastery, Heat and the win bounties
+	if r.result == "victory":
+		if mode in ["classic", "random"] and r.tier != "normal":
+			note_bounties(Meta.track("win_surv", 1))
+		elif mode == "delve":
+			note_bounties(Meta.track("win_delve", 1))
+		out["heat_opened"] = Meta.on_victory_heat(mode, r.tier, int(r.cfg.get("heat", 0)))
+	out["souls"] = Meta.run_souls(r)
+	Meta.add_souls(int(out["souls"]))
+	out["mastery"] = Meta.add_mastery(r.hero_id, Meta.run_mastery_xp(r))
 	save()
 	return out
 
@@ -216,6 +242,7 @@ static func _add_kills(r: Run) -> void:
 	if k <= done:
 		return
 	d()["totals"]["kills"] = int(d()["totals"]["kills"]) + (k - done)
+	note_bounties(Meta.track("kill", k - done))
 	var hr := hero_rec(r.hero_id)
 	hr["kills"] = int(hr.get("kills", 0)) + (k - done)
 	r.set_meta("kills_saved", k)

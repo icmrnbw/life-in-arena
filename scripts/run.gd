@@ -44,6 +44,8 @@ var barrels: BarrelField
 var weather: Weather
 var arena: Arena
 var delve: Delve           # Delve mode's dungeon (null in the arena modes)
+var rerolls := 0           # boon / relic rerolls left this run (Altar: Insight)
+var boon_open := false     # Survival: the boon card is up after a boss; the camp waits for the pick
 var wave_step := 1         # Delve: 2 (a depth is fought at wave = 2 * depth)
 var immune_shown_t := -10.0
 var hints_shown := {}
@@ -60,6 +62,7 @@ var hero_taken_mult := 1.0
 var enemy_speed_mult := 1.0
 var hero_speed_mult := 1.0
 var waves_cleared := 0
+var bounties_done: Array = []   # bounties finished during this run (end screen)
 var end_info := {}         # Profile.on_run_ended(): score, new best, unlocks (for the end screen)
 var tutorial: Node = null  # Training: the coach that drives this run
 
@@ -122,6 +125,7 @@ func setup(id: String, start_wave := 1, run_cfg := {}) -> void:
 	hero_speed_mult = float(cfg.get("hero_speed", 1.0))
 	lives = int(cfg.get("lives", DB.START_LIVES))
 	gold = DB.START_GOLD + int(cfg.get("bonus_gold", 0))
+	rerolls = int(cfg.get("rerolls", 0))
 	Maps.use(String(cfg.get("map", "pit")))
 	if mode == "delve":
 		Maps.use("delve")
@@ -174,6 +178,9 @@ func _ready() -> void:
 	camera.current = true
 
 	hero = make_hero(hero_id, 0)
+	if not (cfg.get("perks", {}) as Dictionary).is_empty():
+		hero.perks = (cfg["perks"] as Dictionary).duplicate()   # Altar of Souls upgrades (Meta.dress)
+		hero.recalc(true)
 	hero.pos = DB.CAMP_SPAWN
 	hero.sync_visual()
 	cam_focus = hero.pos
@@ -239,7 +246,7 @@ func wave_info(w := -1) -> Dictionary:
 
 
 func score() -> int:
-	return Modes.score(waves_cleared, int(stats["kills"]), int(stats["bosses"]), int(stats["deaths"]), tier)
+	return Modes.score(waves_cleared, int(stats["kills"]), int(stats["bosses"]), int(stats["deaths"]), tier, int(cfg.get("heat", 0)))
 
 
 ## Everything needed to carry on from camp after the app is closed (saved at the start of every prep phase).
@@ -256,7 +263,7 @@ func snapshot() -> Dictionary:
 		"train": hero.train.duplicate(), "relics": hero.relics.duplicate(),
 		"items": its, "stats": stats.duplicate(true), "max_wave": max_wave_reached, "waves_cleared": waves_cleared,
 		"run_time": run_time, "feathers": feathers, "cfg": c, "saved_at": int(Time.get_unix_time_from_system()),
-		"kills_saved": int(get_meta("kills_saved", 0)), "companions": companions.map(_hero_state), "duel": duel.snapshot()}
+		"kills_saved": int(get_meta("kills_saved", 0)), "rerolls": rerolls, "companions": companions.map(_hero_state), "duel": duel.snapshot()}
 
 
 ## An AI ally's level, skills and items for a saved run.
@@ -280,6 +287,7 @@ func _restore(s: Dictionary) -> void:
 	waves_cleared = int(s.get("waves_cleared", 0))
 	run_time = float(s.get("run_time", 0.0))
 	feathers = int(s.get("feathers", 0))
+	rerolls = int(s.get("rerolls", rerolls))
 	set_meta("kills_saved", int(s.get("kills_saved", 0)))
 	set_meta("deaths_saved", int(stats["deaths"]))
 
@@ -761,7 +769,7 @@ func spawn_enemy(kind: String, p: Vector3, w := -1) -> Enemy:
 
 ## Tier / Daily Run multipliers on a freshly made enemy (Endless bosses also grow each lap).
 func _scale_enemy(e: Enemy) -> void:
-	var hm := hp_scale * (Modes.boss_hp_mult(e.wave) if e.is_boss else 1.0) * party_hp_mult()
+	var hm := hp_scale * (Modes.boss_hp_mult(e.wave) * float(cfg.get("boss_hp", 1.0)) if e.is_boss else 1.0) * party_hp_mult()
 	e.max_hp *= hm
 	e.hp = e.max_hp
 	e.atk_dmg *= dmg_scale
@@ -1140,13 +1148,13 @@ func _kill_rest(t: Unit) -> void:
 				as_unit(c, func(): c.kit.on_enemy_killed(e))
 		if not e.no_reward:
 			stats["kills"] += 1
-			var g := int(round(e.gold_val * (delve.reward_mult("gold") if delve else 1.0)))
+			var g := int(round(e.gold_val * (delve.reward_mult("gold") if delve else 1.0 + float(hero.item_stats.get("gold_pct", 0.0)))))
 			if g > 0:
 				add_gold(g)
 				if rng.randf() < 0.5 or e.is_boss:
 					fx("gold", {"pos": e.pos + Vector3(0, 1.5, 0), "amount": g})
 			if hero.alive and not hero.dead:
-				if hero.add_xp(e.xp_val * (delve.reward_mult("xp") if delve else 1.0)):
+				if hero.add_xp(e.xp_val * (delve.reward_mult("xp") if delve else 1.0 + float(hero.item_stats.get("xp_pct", 0.0)))):
 					_on_level_up()
 			for c in companions:
 				if not c.dead:
@@ -1714,7 +1722,7 @@ func _step(dt: float) -> void:
 			else:
 				wave_time += dt
 		"clear":
-			if not (delve and delve.choosing):
+			if not ((delve and delve.choosing) or boon_open):
 				phase_t -= dt
 			if phase_t <= 0.0:
 				_return_to_camp()
@@ -2141,7 +2149,7 @@ func buy_price(id: String) -> int:
 	var owned := []
 	for it in hero.items:
 		owned.append(it["id"])
-	return _price_with(id, owned)
+	return int(round(_price_with(id, owned) * float(cfg.get("price", 1.0))))
 
 
 ## Remaining entries of the hero's recommended build, in order. Owned recipes satisfy their entry and the
@@ -2571,6 +2579,7 @@ func _wave_cleared() -> void:
 	fx("gold", {"pos": hero.pos + Vector3(0, 2, 0), "amount": bonus + flawless})
 	for u in Profile.on_wave_cleared(self, boss_title != ""):
 		schedule(1.2, toast.bind(L.f("Unlocked: %s!", [L.t(u)]), Art.palette.get("gold", Color.GOLD)))
+	_bounty_toasts()
 	if wave >= DB.TOTAL_WAVES and not cfg.get("endless", false):
 		banner_requested.emit("Victory!", "The Undercroft is silent" if delve else "The Pit is silent")
 		phase = "victory_wait"
@@ -2586,6 +2595,39 @@ func _wave_cleared() -> void:
 		# Delve: a relic on boss depths, then the stairs (press on, or rest in camp)
 		delve.choosing = true
 		schedule(1.6, delve.after_clear)
+	elif boss_title != "" and mode in Meta.BOON_MODES:
+		# Survival: every boss slain offers a boon for the rest of the run
+		boon_open = true
+		schedule(1.6, offer_boon)
+
+
+## Bounties finished since the last call: a toast each, and a line on the end screen.
+func _bounty_toasts() -> void:
+	var i := 0
+	for b in Profile.take_fresh_bounties():
+		bounties_done.append(b)
+		schedule(1.8 + 1.4 * i, toast.bind(L.f("Bounty complete: +%d Souls", [int(b["souls"])]), Color(0.7, 0.85, 1.0)))
+		i += 1
+
+
+## Survival: pick 1 of 3 boons (DelveLore.RELICS that work in the arena). Kept for the whole run.
+func offer_boon() -> void:
+	if result != "":
+		boon_open = false
+		return
+	Meta.offer_relics(self, L.t("Boss slain"), L.t("Choose a boon. It lasts the whole run."), Meta.BOONS, func(id: String):
+		if DelveLore.RELICS.has(id) and not id in hero.relics:
+			hero.relics.append(id)
+			hero.recalc()
+			var rd: Dictionary = DelveLore.RELICS[id]
+			fx("level_up", {"pos": hero.pos})
+			toast(L.f("Boon: %s", [L.t(rd["name"])]), rd["color"]),
+		func(): boon_open = false,
+		func(ids: Array) -> String:
+			for pref in ["vampire_fang", "gravebloom", "warlord_crown", "whetstone", "quicksand", "stoneskin_idol", "oathstone", "soul_jar"]:
+				if pref in ids:
+					return pref
+			return ids[0])
 
 
 ## Delve: shows a choice card (relics, the stairs) and pauses; the bot and headless tests pick data["auto"].
@@ -2770,6 +2812,8 @@ func _end_run(res: String) -> void:
 		max_wave_reached = Duel.LADDER_ROUNDS if duel.ladder() else DB.TOTAL_WAVES
 		hero.set_state("idle", true)
 	end_info = Profile.on_run_ended(self)
+	for b in Profile.take_fresh_bounties():
+		bounties_done.append(b)
 	Audio.play("victory" if res == "victory" else "defeat")
 	_sync_state()
 	run_ended.emit(res)

@@ -35,6 +35,14 @@ const RELICS := {
 		"stats": {"hit_heal": 8.0}, "color": Color(0.4, 1.0, 0.85)},
 	"ashen_soles": {"name": "Ashen Soles", "desc": "Spikes and ember cracks don't hurt you.", "icon": "wayfarer_treads",
 		"stats": {"trapproof": 1.0}, "color": Color(1.0, 0.45, 0.25)},
+	"warlord_crown": {"name": "Warlord's Crown", "desc": "+12% damage.", "icon": "berserkers_torc",
+		"stats": {"dmg_pct": 0.12}, "color": Color(1.0, 0.6, 0.3)},
+	"sage_tome": {"name": "Sage's Tome", "desc": "+200 max mana and +2.5 mana regen.", "icon": "sage_circlet",
+		"stats": {"mana": 200.0, "mana_regen": 2.5}, "color": Color(0.45, 0.65, 1.0)},
+	"hunters_mark": {"name": "Hunter's Mark", "desc": "Foes give 25% more gold and 15% more experience.", "icon": "hawkeye_lens",
+		"stats": {"gold_pct": 0.25, "xp_pct": 0.15}, "color": Color(0.95, 0.75, 0.35)},
+	"stoneskin_idol": {"name": "Stoneskin Idol", "desc": "+5 armor and +150 max health.", "icon": "hide_vest",
+		"stats": {"armor": 5.0, "hp": 150.0}, "color": Color(0.7, 0.68, 0.6)},
 }
 
 ## Shrines: walk up to one for a blessing that lasts until the depth ends. Cursed ones cost health first.
