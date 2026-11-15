@@ -86,12 +86,13 @@ A single-player hero arena survival game for Android, built with Godot 4.6. It's
 - Music: three original medieval-style tunes, composed and synthesized in code by `tools/compose_music.py` (no samples or third-party recordings, so nothing to license). A tavern tune (lute, recorder, harp, drone; D Dorian) plays on the title screen and in camp, a battle tune (shawm, lute, tabor drum; E Dorian) during waves, and a boss tune (war drums, low voices, bell; D Phrygian) on boss waves. Tunes crossfade, duck while paused, and have their own Music toggle on the title and pause screens.
 
 ## Install (Android)
-Download `builds/emberpit-0.9.0-debug.apk` on your phone, allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
+Download the newest build on your phone from https://github.com/icmrnbw/life-in-arena/releases/latest (or straight from https://github.com/icmrnbw/life-in-arena/releases/latest/download/emberpit-debug.apk), allow installing from unknown sources, and open it. It's debug-signed and arm64 only.
 
 ## Develop
 - Open the folder in Godot 4.6. The renderer is GL Compatibility.
 - `tools/setup_env.sh` rebuilds the export environment (Godot, templates and a minimal Android SDK).
 - `tools/export_android.sh` exports `build/emberpit-debug.apk`.
+- To ship a build, copy it to `builds/emberpit-<version>-debug.apk`, commit and push. The `release-apk` workflow publishes it as release `v<version>`, marks it latest if it is the highest version, and comments the download link on the branch's open pull request.
 - Localization: UI text is English in code; wrap it in `L.t("...")` or `L.f("... %d", [n])` (`scripts/l10n.gd`). After adding text, run `python3 tools/l10n.py extract` then `check` to list what each of the 15 languages in `locale/` is missing, fill those in, and run `fonts` if new CJK, Thai or Arabic characters appear.
 - `tests/run_all.sh` runs the logic, regression, allies/duels (`tests/test_party.gd`) and flow tests (`--soak` adds the quick crash soak). GitHub Actions runs it plus a soak on every push (`.github/workflows/tests.yml`; start it by hand with "full" ticked for every hero in every scenario).
 - `tests/test_regressions.gd`: one test per bug that reached phones (Twin Matron kills, camp return, wave replay after a death, hero model after respawn, late hits after a cleared wave, Sanguine bleeds on the Hollow Choir), plus every hero through casts, a boss kill, a death and a respawn. Add a test here for each crash you fix.
