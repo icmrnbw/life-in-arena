@@ -1,0 +1,102 @@
+# Publishes the newest committed APK in builds/ as a GitHub Release, on every push to any branch.
+#
+#   Newest build, always:  https://github.com/icmrnbw/life-in-arena/releases/latest
+#   Direct APK download:   https://github.com/icmrnbw/life-in-arena/releases/latest/download/emberpit-debug.apk
+#
+# Each version gets its own release (tag v<version>) with two copies of the APK:
+# emberpit-<version>-debug.apk and emberpit-debug.apk (the fixed name keeps the
+# latest/download link stable). A release is marked "latest" only when its version is
+# the highest one released so far, so pushing an older branch never hides a newer build.
+# When the pushed branch has an open pull request, a comment with the download link is added.
+name: release-apk
+
+on:
+  push:
+    branches: ["**"]
+    paths: ["builds/*.apk", ".github/workflows/release-apk.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: release-apk
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find newest APK
+        id: apk
+        run: |
+          apk=$(ls builds/emberpit-*-debug.apk 2>/dev/null | sort -V | tail -1)
+          if [ -z "$apk" ]; then echo "No APK in builds/"; exit 0; fi
+          ver=$(basename "$apk" | sed -E 's/^emberpit-(.+)-debug\.apk$/\1/')
+          sum=$(sha256sum "$apk" | cut -d' ' -f1)
+          echo "apk=$apk" >> $GITHUB_OUTPUT
+          echo "ver=$ver" >> $GITHUB_OUTPUT
+          echo "sum=$sum" >> $GITHUB_OUTPUT
+          echo "Newest APK: $apk ($ver, sha256 $sum)"
+
+      - name: Publish release
+        id: rel
+        if: steps.apk.outputs.ver != ''
+        run: |
+          apk="${{ steps.apk.outputs.apk }}"; ver="${{ steps.apk.outputs.ver }}"; sum="${{ steps.apk.outputs.sum }}"
+          tag="v$ver"; branch="${GITHUB_REF_NAME}"
+          cp "$apk" emberpit-debug.apk
+
+          # Highest version already released (ignoring this one).
+          top=$(gh release list -R "$REPO" --limit 200 --json tagName --jq '.[].tagName' \
+                | grep -E '^v[0-9]' | grep -vx "$tag" | sed 's/^v//' | sort -V | tail -1)
+          if [ -z "$top" ] || [ "$(printf '%s\n%s\n' "$top" "$ver" | sort -V | tail -1)" = "$ver" ]; then
+            latest=true
+          else
+            latest=false
+          fi
+          echo "Highest other release: ${top:-none}; mark $tag latest: $latest"
+
+          notes=$(printf 'Emberpit %s debug build from branch `%s` (commit %s).\n\n**Install on Android:** tap **emberpit-debug.apk** below, then open the download.\n\nsha256: `%s`' \
+                  "$ver" "$branch" "${GITHUB_SHA::7}" "$sum")
+
+          if gh release view "$tag" -R "$REPO" > /dev/null 2>&1; then
+            if gh release view "$tag" -R "$REPO" --json body --jq .body | grep -q "$sum"; then
+              echo "Release $tag already has this APK; nothing to upload."
+              echo "changed=false" >> $GITHUB_OUTPUT
+            else
+              echo "Release $tag exists with a different APK; replacing it."
+              gh release upload "$tag" "$apk" emberpit-debug.apk -R "$REPO" --clobber
+              gh release edit "$tag" -R "$REPO" --notes "$notes" --latest=$latest
+              echo "changed=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            gh release create "$tag" "$apk" emberpit-debug.apk -R "$REPO" \
+              --target "$GITHUB_SHA" --title "Emberpit $ver" --notes "$notes" --latest=$latest
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+
+          url="https://github.com/$REPO/releases/download/$tag/emberpit-debug.apk"
+          {
+            echo "### Emberpit $ver"
+            echo "- Download: $url"
+            echo "- Newest build (bookmark): https://github.com/$REPO/releases/latest"
+            echo "- Marked latest: $latest"
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment on the pull request
+        if: steps.rel.outputs.changed == 'true' && github.event_name == 'push'
+        run: |
+          ver="${{ steps.apk.outputs.ver }}"; tag="${{ steps.rel.outputs.tag }}"
+          pr=$(gh pr list -R "$REPO" --head "$GITHUB_REF_NAME" --state open --json number --jq '.[0].number')
+          if [ -z "$pr" ]; then echo "No open PR for $GITHUB_REF_NAME"; exit 0; fi
+          gh pr comment "$pr" -R "$REPO" --body "$(printf '📱 **Emberpit %s APK:** [download emberpit-debug.apk](https://github.com/%s/releases/download/%s/emberpit-debug.apk)\n\nRelease page: https://github.com/%s/releases/tag/%s · Newest build: https://github.com/%s/releases/latest' \
+            "$ver" "$REPO" "$tag" "$REPO" "$tag" "$REPO")"
