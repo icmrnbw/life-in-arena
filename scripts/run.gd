@@ -402,6 +402,8 @@ func shake(amount: float) -> void:
 		return
 	if Game.settings.get("shake", true):
 		shake_amt = maxf(shake_amt, amount)
+	if amount >= 0.35:
+		Game.vibrate(int(amount * 70.0))
 
 
 func toast(text: String, color := Color(1, 1, 1)) -> void:

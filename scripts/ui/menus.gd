@@ -28,7 +28,7 @@ static func _toggle(text: String, key: String) -> CheckButton:
 
 
 # ---------------------------------------------------------------- title
-static func title_screen(on_play: Callable, on_heroes := Callable(), on_continue := Callable(), on_records := Callable(), snap := {}, on_language := Callable(), on_altar := Callable()) -> Control:
+static func title_screen(on_play: Callable, on_heroes := Callable(), on_continue := Callable(), on_records := Callable(), snap := {}, on_language := Callable(), on_altar := Callable(), on_settings := Callable()) -> Control:
 	var root := _base()
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# darken the right side only: the bonfire scene stays bright on the left
@@ -116,10 +116,18 @@ static func title_screen(on_play: Callable, on_heroes := Callable(), on_continue
 	v.add_child(row2)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 24)
-	row.add_child(_toggle("Sound", "sound"))
-	row.add_child(_toggle("Music", "music"))
-	row.add_child(_toggle("Screen shake", "shake"))
+	row.add_theme_constant_override("separation", 12)
+	if on_settings.is_valid():
+		var sb := UIK.button("Settings", "", Vector2(174, 64))
+		sb.name = "SettingsButton"
+		sb.add_theme_font_size_override("font_size", 24)
+		sb.pressed.connect(on_settings)
+		row.add_child(sb)
+	var fb := UIK.button("Feedback", "", Vector2(174, 64))
+	fb.name = "FeedbackButton"
+	fb.add_theme_font_size_override("font_size", 24)
+	fb.pressed.connect(func(): OS.shell_open(Game.feedback_url()))
+	row.add_child(fb)
 	if not OS.has_feature("mobile"):
 		var q := UIK.button("Quit", "", Vector2(140, 64))
 		q.pressed.connect(func(): Game.quit_game())
@@ -185,6 +193,110 @@ static func _crash_notice() -> Control:
 	var c := CenterContainer.new()
 	c.add_child(p)
 	return c
+
+
+## Settings: music and sound volume, screen shake, vibration, graphics quality, plus feedback and privacy links.
+static func settings_panel(on_close: Callable) -> Control:
+	var root := _base()
+	root.name = "SettingsPanel"
+	root.process_mode = Node.PROCESS_MODE_ALWAYS
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0, 0, 0, 0.6)
+	root.add_child(shade)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(center)
+	var frame := UIK.panel("FramePanel")
+	frame.custom_minimum_size = Vector2(720, 0)
+	center.add_child(frame)
+	shrink_to_fit(frame, center)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	frame.add_child(v)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 14)
+	v.add_child(head)
+	var t := _outlined(UIK.label("Settings", "TitleLabel", 40, UIK.col("gold", Color.GOLD)))
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(t)
+	var close := UIK.button("Close", "", Vector2(150, 64))
+	close.name = "CloseButton"
+	close.pressed.connect(on_close)
+	head.add_child(close)
+	for pair in [["Music", "music", "music_vol"], ["Sound", "sound", "sound_vol"]]:
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 14)
+		var tg := _toggle(pair[0], pair[1])
+		tg.custom_minimum_size = Vector2(200, 64)
+		h.add_child(tg)
+		var sl := HSlider.new()
+		sl.name = "Slider_" + String(pair[2])
+		sl.min_value = 0
+		sl.max_value = 100
+		sl.step = 5
+		sl.value = float(Game.settings.get(pair[2], 100))
+		sl.focus_mode = Control.FOCUS_NONE
+		sl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		sl.custom_minimum_size = Vector2(0, 48)
+		var pct := UIK.label("%d%%" % int(sl.value), "", 22, UIK.col("text", Color(0.95, 0.9, 0.82)))
+		pct.custom_minimum_size = Vector2(80, 0)
+		var key: String = pair[2]
+		sl.value_changed.connect(func(x):
+			Game.settings[key] = int(x)
+			Game.save_settings()
+			pct.text = "%d%%" % int(x))
+		h.add_child(sl)
+		h.add_child(pct)
+		v.add_child(h)
+	var tg_row := HBoxContainer.new()
+	tg_row.add_theme_constant_override("separation", 14)
+	for pair in [["Screen shake", "shake"], ["Vibration", "vibrate"]]:
+		var tg2 := _toggle(pair[0], pair[1])
+		tg2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tg_row.add_child(tg2)
+	v.add_child(tg_row)
+	v.add_child(_toggle("Open shop when near", "auto_shop"))
+	v.add_child(UIK.label("Graphics", "", 24, UIK.col("gold", Color.GOLD)))
+	var qrow := HBoxContainer.new()
+	qrow.add_theme_constant_override("separation", 10)
+	v.add_child(qrow)
+	var qbtns := {}
+	for qid in Game.QUALITY_ORDER:
+		var qb := UIK.button(String(Game.QUALITY[qid]["name"]), "PrimaryButton" if Game.settings.get("quality", "high") == qid else "", Vector2(210, 64))
+		qb.name = "Quality_" + qid
+		qb.add_theme_font_size_override("font_size", 22)
+		qb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		qrow.add_child(qb)
+		qbtns[qid] = qb
+	for qid in qbtns:
+		var q_id: String = qid
+		(qbtns[qid] as Button).pressed.connect(func():
+			Game.settings["quality"] = q_id
+			Game.save_settings()
+			Game.apply_settings()
+			for k in qbtns:
+				(qbtns[k] as Button).theme_type_variation = "PrimaryButton" if k == q_id else "")
+	var qh := UIK.label("Lower settings run cooler and save battery on older phones.", "SmallLabel", 18, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+	qh.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(qh)
+	var links := HBoxContainer.new()
+	links.alignment = BoxContainer.ALIGNMENT_CENTER
+	links.add_theme_constant_override("separation", 14)
+	v.add_child(links)
+	var fb := UIK.button("Send feedback", "", Vector2(260, 64))
+	fb.name = "FeedbackButton"
+	fb.pressed.connect(func(): OS.shell_open(Game.feedback_url()))
+	links.add_child(fb)
+	var pv := UIK.button("Privacy policy", "", Vector2(260, 64))
+	pv.name = "PrivacyButton"
+	pv.pressed.connect(func(): OS.shell_open(Game.PRIVACY_URL))
+	links.add_child(pv)
+	var ver := UIK.label(L.f("Version %s", [String(ProjectSettings.get_setting("application/config/version", "?"))]), "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(ver)
+	return root
 
 
 ## Every language in its own name, the current one highlighted. on_pick(code) applies it.
@@ -296,7 +408,11 @@ static func hero_select(on_start: Callable, on_back: Callable, cfg := {}) -> Con
 			c.queue_free()
 		detail_holder.add_child(_hero_detail(state["sel"], can.call(state["sel"])))
 		start.disabled = not can.call(state["sel"])
+	var order: Array = DB.STARTERS.duplicate()
 	for id in DB.HERO_ORDER:
+		if not id in order:
+			order.append(id)
+	for id in order:
 		var tile := _hero_tile(id, can.call(id))
 		grid.add_child(tile)
 		state["tiles"][id] = tile
@@ -346,6 +462,11 @@ static func difficulty_name(n: int) -> String:
 
 
 ## Small roster tile: portrait, name, playstyle tag. The whole tile is a button.
+## True while a new player (fewer than DB.STARTER_RUNS finished runs) should see this hero marked as an easy first pick.
+static func starter_badge(id: String) -> bool:
+	return id in DB.STARTERS and int(Profile.d()["totals"]["runs"]) < DB.STARTER_RUNS
+
+
 static func _hero_tile(id: String, open := true) -> Control:
 	var d: Dictionary = DB.HEROES[id]
 	var holder := MarginContainer.new()
@@ -367,6 +488,11 @@ static func _hero_tile(id: String, open := true) -> Control:
 	var t := _fit(UIK.label(L.t(d.get("tag", "")) if open else L.t("Locked"), "SmallLabel", 15, UIK.col("gold", Color.GOLD) if open else Color(0.7, 0.66, 0.6)))
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
+	if starter_badge(id):
+		var badge := _fit(_outlined(UIK.label("Good first pick", "SmallLabel", 13, Color(0.55, 0.95, 0.55)), 4))
+		badge.name = "StarterBadge"
+		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(badge)
 	var dt := _dmg_label(id, 13)
 	dt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(dt)
@@ -584,6 +710,10 @@ static func end_screen(run: Run, on_again: Callable, on_title: Callable) -> Cont
 	var tt := UIK.button("Title", "", Vector2(200, 88))
 	tt.pressed.connect(on_title)
 	btns.add_child(tt)
+	var fb := UIK.button("Feedback", "", Vector2(200, 88))
+	fb.name = "FeedbackButton"
+	fb.pressed.connect(func(): OS.shell_open(Game.feedback_url()))
+	btns.add_child(fb)
 	return root
 
 
@@ -613,6 +743,10 @@ static func _training_end(root: Control, v: VBoxContainer, on_play: Callable, on
 	var tt := UIK.button("Title", "", Vector2(200, 88))
 	tt.pressed.connect(on_title)
 	btns.add_child(tt)
+	var fb := UIK.button("Feedback", "", Vector2(200, 88))
+	fb.name = "FeedbackButton"
+	fb.pressed.connect(func(): OS.shell_open(Game.feedback_url()))
+	btns.add_child(fb)
 	return root
 
 
@@ -735,6 +869,13 @@ static func pause_menu(on_resume: Callable, on_quit: Callable) -> Control:
 	v.add_child(_toggle("Open shop when near", "auto_shop"))
 	var help := UIK.label("Left thumb: move.  Tap a skill: quick cast.\nDrag from a skill: aim, release to cast;\ndrag back onto it to cancel.  Tap + to rank up.\nThe (i) button shows what every skill does.", "SmallLabel", 19, UIK.col("dim", Color(0.75, 0.7, 0.62)))
 	v.add_child(help)
+	var more := UIK.button("More settings", "", Vector2(400, 72))
+	more.name = "SettingsButton"
+	more.pressed.connect(func():
+		var hold := {}
+		hold["p"] = settings_panel(func(): (hold["p"] as Control).queue_free())
+		root.add_child(hold["p"]))
+	v.add_child(more)
 	var q := UIK.button("Quit to Title", "", Vector2(400, 88))
 	q.pressed.connect(on_quit)
 	v.add_child(q)

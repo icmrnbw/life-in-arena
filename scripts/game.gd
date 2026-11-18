@@ -8,7 +8,16 @@ var autoplay_mode := "smart"
 var soak: Node = null      # --soak monitor of the current run (scripts/soak.gd)
 var god := false
 var timescale := 1.0
-var settings := {"auto_shop": true, "shake": true, "sound": true, "music": true, "skins": {}, "skins_owned": [], "lang": ""}
+var settings := {"auto_shop": true, "shake": true, "sound": true, "music": true, "skins": {}, "skins_owned": [], "lang": "",
+	"music_vol": 80, "sound_vol": 100, "vibrate": true, "quality": "high"}
+
+## Graphics presets on the Settings screen: 3D resolution scale and frame cap. "saver" is for weak or hot phones.
+const QUALITY := {"high": {"name": "High", "scale": 1.0, "fps": 60}, "balanced": {"name": "Balanced", "scale": 0.8, "fps": 60},
+	"saver": {"name": "Battery saver", "scale": 0.67, "fps": 30}}
+const QUALITY_ORDER := ["high", "balanced", "saver"]
+## Where the Feedback button goes. Swap for a Google Form link when there is one; "{v}" and "{model}" are filled in.
+const FEEDBACK_URL := "https://github.com/icmrnbw/life-in-arena/issues/new?title=Feedback%20{v}&body=Version%3A%20{v}%0APhone%3A%20{model}%0A%0AWhat%20happened%20or%20what%20would%20you%20change%3F%0A"
+const PRIVACY_URL := "https://github.com/icmrnbw/life-in-arena/blob/main/PRIVACY.md"
 var paused_by_shop := false
 var run: Run = null
 var last_result := ""
@@ -90,6 +99,7 @@ func _ready() -> void:
 	OS.add_logger(_logger)
 	_parse_args()
 	_load_settings()
+	apply_settings()
 	# "" = not chosen yet: follow the device. --lang=<code> (tests and screenshots) overrides without saving.
 	L.setup(arg("lang") if args.has("lang") else String(settings.get("lang", "")))
 	_trail_on = args.is_empty() or args.has("trail")
@@ -148,6 +158,28 @@ func _load_settings() -> void:
 	if cf.load("user://settings.cfg") == OK:
 		for k in settings.keys():
 			settings[k] = cf.get_value("settings", k, settings[k])
+
+
+## Applies the graphics preset (3D resolution scale, frame cap). Accelerated bot runs keep their uncapped frame rate.
+func apply_settings() -> void:
+	var q: Dictionary = QUALITY.get(String(settings.get("quality", "high")), QUALITY["high"])
+	var vp := get_viewport()
+	if vp:
+		vp.scaling_3d_scale = float(q["scale"])
+	if not (autoplay or args.has("hero")):
+		Engine.max_fps = int(q["fps"])
+
+
+## A short buzz on big hits, slams and blasts, when Vibration is on (phones only).
+func vibrate(ms: int) -> void:
+	if settings.get("vibrate", true) and OS.has_feature("mobile") and args.is_empty():
+		Input.vibrate_handheld(clampi(ms, 10, 200))
+
+
+## The feedback link with this build's version and the phone model filled in.
+func feedback_url() -> String:
+	var v := String(ProjectSettings.get_setting("application/config/version", "?"))
+	return FEEDBACK_URL.replace("{v}", v.uri_encode()).replace("{model}", OS.get_model_name().uri_encode())
 
 
 func save_settings() -> void:

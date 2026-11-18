@@ -61,7 +61,8 @@ static func create(on_choose: Callable, on_launch: Callable, on_back: Callable, 
 	detail_holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	detail_holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(detail_holder)
-	var tier: String = Profile.d().get("last_tier", "hard")
+	# new players start on Normal; Hard is the tuning for players who know the game
+	var tier: String = Profile.d().get("last_tier", "normal")
 	if not Profile.tier_unlocked(tier):
 		tier = "hard"
 	var start_mode := first_mode if Modes.MODES.has(first_mode) else "classic"

@@ -3,6 +3,9 @@ extends RefCounted
 ## All static game content: heroes, skills, items, enemies, waves, economy curves.
 ## Numbers are starting balance (see plan sections 3-5).
 
+## Easy first picks, listed first on hero select with a "Good first pick" badge until the player has finished a few runs.
+const STARTERS := ["ashwarden", "vanguard", "frostweaver"]
+const STARTER_RUNS := 5
 const HERO_ORDER := ["ashwarden", "riftdancer", "hivemother", "sanguine", "snarewright", "twinhide", "gravekeeper", "stoneshaper", "gunsmith", "sunspeaker",
 	"duelist", "vanguard", "nightblade", "skyspear", "frostweaver", "stormcaller", "alchemist", "chronomancer"]
 

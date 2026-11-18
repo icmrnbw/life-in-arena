@@ -221,8 +221,17 @@ func show_title() -> void:
 	_close_overlay()
 	Game.state["phase"] = "menu"
 	var snap := Profile.load_run()
-	screen = Menus.title_screen(_on_play, show_gallery, continue_run if not snap.is_empty() else Callable(), show_records, snap, show_languages, show_altar)
+	screen = Menus.title_screen(_on_play, show_gallery, continue_run if not snap.is_empty() else Callable(), show_records, snap, show_languages, show_altar, show_settings)
 	ui.add_child(screen)
+	# a brand-new player is offered Training right away; Skip leaves them on the title screen
+	if snap.is_empty() and Game.args.is_empty() and _training_pending() and int(Profile.d()["totals"]["runs"]) == 0:
+		_offer_training(true)
+
+
+func show_settings() -> void:
+	_close_overlay()
+	overlay = Menus.settings_panel(_close_overlay)
+	ui.add_child(overlay)
 
 
 ## Language list over the title screen. Picking one saves it and rebuilds the title in that language.
@@ -239,13 +248,17 @@ func show_languages() -> void:
 
 ## Play: the first time, offer Training before the mode list.
 func _on_play() -> void:
-	if not Profile.d().get("training_done", false) and not Profile.d().get("training_offered", false):
+	if _training_pending():
 		_offer_training()
 		return
 	show_play()
 
 
-func _offer_training() -> void:
+func _training_pending() -> bool:
+	return not Profile.d().get("training_done", false) and not Profile.d().get("training_offered", false)
+
+
+func _offer_training(skip_to_title := false) -> void:
 	Profile.d()["training_offered"] = true
 	Profile.save()
 	_close_overlay()
@@ -254,7 +267,8 @@ func _offer_training() -> void:
 		start_run("ashwarden", 1, Modes.config("training")),
 	func():
 		_close_overlay()
-		show_play())
+		if not skip_to_title:
+			show_play())
 	ui.add_child(overlay)
 
 

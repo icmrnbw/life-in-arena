@@ -60,7 +60,7 @@ func _process(delta: float) -> void:
 			continue
 		if i == _cur and p.stream and not p.playing:
 			p.play()
-		p.volume_db = linear_to_db(_gain[i]) + MUSIC_DB
+		p.volume_db = linear_to_db(_gain[i] * clampf(float(Game.settings.get("music_vol", 80)) / 100.0, 0.001, 1.0)) + MUSIC_DB
 
 
 ## Which tune fits right now: the run's phase decides (boss waves get their own), anything else is the title.
@@ -102,7 +102,8 @@ func _switch(id: String) -> void:
 func play(id: String, vol_db := 0.0) -> void:
 	if _players.is_empty() or not _streams.has(id):
 		return
-	if not Game.settings.get("sound", true):
+	var sv := float(Game.settings.get("sound_vol", 100)) / 100.0
+	if not Game.settings.get("sound", true) or sv <= 0.0:
 		return
 	var now := Time.get_ticks_msec()
 	var min_gap := 70 if id == "hit" else 40
@@ -112,7 +113,7 @@ func play(id: String, vol_db := 0.0) -> void:
 	var p: AudioStreamPlayer = _players[_next]
 	_next = (_next + 1) % _players.size()
 	p.stream = _streams[id]
-	p.volume_db = vol_db + (-8.0 if id == "hit" else -3.0)
+	p.volume_db = vol_db + (-8.0 if id == "hit" else -3.0) + linear_to_db(sv)
 	p.pitch_scale = randf_range(0.93, 1.07)
 	p.play()
 
