@@ -890,7 +890,7 @@ func test_release_prep() -> void:
 	check(nb != null and nb.theme_type_variation == "PrimaryButton", "a new player starts on Normal")
 	find_button(main.screen, "Choose Hero").pressed.emit()
 	await frames(2)
-	var badges := main.screen.find_children("StarterBadge", "", true, false)
+	var badges: Array = main.screen.find_children("StarterBadge", "", true, false)
 	check(badges.size() == DB.STARTERS.size(), "starter heroes carry a badge", str(badges.size()))
 	check(Menus.starter_badge("vanguard") and not Menus.starter_badge("nightblade"), "badge only on starters")
 	Profile.d()["totals"]["runs"] = DB.STARTER_RUNS

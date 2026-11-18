@@ -327,7 +327,7 @@ func show_hero_select(run_cfg := {}) -> void:
 	_end_run_node()
 	_ensure_backdrop()
 	_clear_screen()
-	var c: Dictionary = run_cfg if not run_cfg.is_empty() else Modes.config("classic", Profile.d().get("last_tier", "hard"))
+	var c: Dictionary = run_cfg if not run_cfg.is_empty() else Modes.config("classic", Profile.d().get("last_tier", "normal"))
 	Game.state["phase"] = "hero_select"
 	screen = Menus.hero_select(func(id): start_run(id, int(c.get("start_wave", 1)), Meta.dress(c.duplicate())), func(): show_play(c.get("mode", "classic")), c)
 	ui.add_child(screen)

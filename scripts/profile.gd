@@ -13,7 +13,7 @@ static var _loaded := false
 
 static func defaults() -> Dictionary:
 	return {"version": VERSION, "unlocked": Modes.STARTER_HEROES.duplicate(), "tiers": Modes.TIER_ORDER.duplicate(),
-		"training_done": false, "training_offered": false, "last_tier": "hard", "last_map": "pit",
+		"training_done": false, "training_offered": false, "last_tier": "normal", "last_map": "pit",
 		"totals": {"runs": 0, "wins": 0, "kills": 0, "bosses": 0, "waves": 0, "deaths": 0, "time": 0.0},
 		"heroes": {},       # id -> {runs, best_wave, wins, kills}
 		"tier_best": {},    # tier -> best wave cleared (Classic / Random Hero)
