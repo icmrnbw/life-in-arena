@@ -263,8 +263,9 @@ static func settings_panel(on_close: Callable) -> Control:
 	qrow.add_theme_constant_override("separation", 10)
 	v.add_child(qrow)
 	var qbtns := {}
+	var qnames := {"high": L.t("High"), "balanced": L.t("Balanced"), "saver": L.t("Battery saver")}
 	for qid in Game.QUALITY_ORDER:
-		var qb := UIK.button(String(Game.QUALITY[qid]["name"]), "PrimaryButton" if Game.settings.get("quality", "high") == qid else "", Vector2(210, 64))
+		var qb := UIK.button(String(qnames.get(qid, qid)), "PrimaryButton" if Game.settings.get("quality", "high") == qid else "", Vector2(210, 64))
 		qb.name = "Quality_" + qid
 		qb.add_theme_font_size_override("font_size", 22)
 		qb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -293,7 +294,8 @@ static func settings_panel(on_close: Callable) -> Control:
 	pv.name = "PrivacyButton"
 	pv.pressed.connect(func(): OS.shell_open(Game.PRIVACY_URL))
 	links.add_child(pv)
-	var ver := UIK.label(L.f("Version %s", [String(ProjectSettings.get_setting("application/config/version", "?"))]), "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62)))
+	var vs := String(ProjectSettings.get_setting("application/config/version", "?"))
+	var ver := UIK.label(L.f("Version %s", [vs]), "SmallLabel", 16, UIK.col("dim", Color(0.75, 0.7, 0.62)))
 	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(ver)
 	return root

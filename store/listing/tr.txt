@@ -1,0 +1,15 @@
+18 kahramanla 20 dalgaya dayan. Alışveriş yap, seviye atla, patronları yen.
+Emberpit, telefonlar için yapılmış bir kahraman arenası hayatta kalma oyunu.
+
+Her biri kendine özgü dövüşen 18 kahramandan birini seç: ateş duvarları ör, bir sürüyü yönet, tuzak kur, kılıçları savuştur, sürüyü dondur ya da zamanı durdur. Ardından Çukur'da 20 canavar dalgasına dayan; her beşinci dalgada bir patron, sonunda da Gardiyan seni bekliyor.
+
+• 18 kahraman, her birinde 4 yetenek ve açılacak görünümler
+• Her dalganın bir kuralı var: kana susamış düşmanlar, büyü kalkanları, hayaletler, patlayan seçkinler
+• Dalgalar arasında dükkan: 28 eşya ve tarif, kalıcı özellikler için eğitim
+• Zırh ve büyü direnci önemli: yapını gelen düşmana göre ayarla
+• Fıçı yığınlarında koridor açıp dar alanda savaş
+• İniş: tuzakları, sunakları, kasaları ve kalıntıları olan karanlık, dallanan bir zindan
+• Ruhlar, Sunak, Sıcaklık seviyeleri, kahraman Ustalığı ve günlük Ödüller
+• Yapay zekâ müttefikleri, rakip düelloları, Sonsuz, Günün Koşusu ve Pratik modları
+• Savaşı değiştiren hava: yağmur, sis, fırtına, kor yağmuru, kanlı ay
+• Tamamen çevrimdışı. Reklam yok, satın alma yok, hesap yok.

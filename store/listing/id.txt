@@ -1,0 +1,15 @@
+Bertahan 20 gelombang dengan 18 pahlawan. Belanja, naik level, kalahkan bos.
+Emberpit adalah game bertahan hidup di arena pahlawan yang dibuat untuk ponsel.
+
+Pilih satu dari 18 pahlawan, masing-masing dengan gaya bertarung sendiri: bangun dinding api, pimpin kawanan, pasang jebakan, tangkis pedang, bekukan musuh, atau hentikan waktu. Lalu bertahanlah dari 20 gelombang monster di Lubang, dengan bos setiap gelombang kelima dan Sang Penjaga menunggu di akhir.
+
+• 18 pahlawan, masing-masing 4 skill, dan skin untuk dibuka
+• Setiap gelombang punya aturan: musuh haus darah, pelindung sihir, hantu, elite yang meledak
+• Toko di antara gelombang: 28 item dan resep, plus latihan untuk stat permanen
+• Armor dan ketahanan sihir penting: sesuaikan build-mu
+• Hancurkan tumpukan tong untuk bertarung di lorong sempit
+• Penjelajahan: dungeon gelap bercabang dengan jebakan, kuil, brankas, dan relik
+• Jiwa, Altar, level Panas, Penguasaan pahlawan, dan Hadiah harian
+• Sekutu AI, duel melawan rival, mode Tanpa Akhir, Tantangan Harian, dan Latihan
+• Cuaca yang mengubah pertarungan: hujan, kabut, badai, hujan bara, bulan darah
+• Bisa dimainkan offline. Tanpa iklan, tanpa pembelian, tanpa akun.
