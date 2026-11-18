@@ -1,0 +1,143 @@
+# Builds the Play Store release of Emberpit: a signed Android App Bundle (.aab) that targets Android 16 (API 36),
+# plus a release APK of the same build for installing on a phone by hand.
+#
+# Signing: when the repository has these secrets, the build is signed with the permanent upload key:
+#   ANDROID_KEYSTORE_BASE64    the upload keystore file, base64-encoded (base64 -w0 upload.keystore)
+#   ANDROID_KEYSTORE_PASSWORD  its password
+#   ANDROID_KEY_ALIAS          the key alias inside it
+# Without them the build is signed with a throwaway key made for this run. That proves the pipeline works, but Play
+# would tie the app to that key, so never upload a build whose summary says "TEST KEY".
+#
+# The bundle and APK are attached to the run as the "emberpit-release" artifact.
+name: release-aab
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+    paths: ["export_presets.cfg", "project.godot", ".github/workflows/release-aab.yml"]
+
+concurrency:
+  group: release-aab-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT: "4.6-stable"
+  GODOT_TPL: "4.6.stable"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cache Godot and export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            /opt/godot
+            ~/.local/share/godot/export_templates
+          key: godot-tpl-${{ env.GODOT }}
+
+      - name: Install Godot and export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo mkdir -p /opt/godot && sudo chown $USER /opt/godot
+          curl -sSL -o /tmp/g.zip https://github.com/godotengine/godot/releases/download/$GODOT/Godot_v${GODOT}_linux.x86_64.zip
+          unzip -oq /tmp/g.zip -d /opt/godot
+          curl -sSL -o /tmp/t.tpz https://github.com/godotengine/godot/releases/download/$GODOT/Godot_v${GODOT}_export_templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates
+          unzip -oq /tmp/t.tpz -d /tmp/tpl
+          mv /tmp/tpl/templates ~/.local/share/godot/export_templates/$GODOT_TPL
+          rm /tmp/t.tpz
+
+      - name: Set up Godot, the Android SDK and the build template
+        run: |
+          sudo ln -sf /opt/godot/Godot_v${GODOT}_linux.x86_64 /usr/local/bin/godot
+          godot --version
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0" "build-tools;36.0.0" "platform-tools" > /dev/null
+          # editor settings: point Godot at the runner's SDK and JDK
+          timeout 180 godot --headless --editor --quit --path . > /dev/null 2>&1 || true
+          E=$(ls ~/.config/godot/editor_settings-4*.tres | head -1)
+          grep -q '^export/android/android_sdk_path' "$E" \
+            && sed -i "s#^export/android/android_sdk_path = .*#export/android/android_sdk_path = \"$SDK\"#" "$E" \
+            || echo "export/android/android_sdk_path = \"$SDK\"" >> "$E"
+          grep -q '^export/android/java_sdk_path' "$E" \
+            && sed -i "s#^export/android/java_sdk_path = .*#export/android/java_sdk_path = \"$JAVA_HOME\"#" "$E" \
+            || echo "export/android/java_sdk_path = \"$JAVA_HOME\"" >> "$E"
+          timeout 300 godot --headless --path . --import > /dev/null 2>&1 || true
+
+      - name: Upload key (real one from secrets, else a throwaway test key)
+        id: key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/ks"
+          KS="$RUNNER_TEMP/ks/upload.keystore"
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ] && [ -n "$KS_ALIAS" ]; then
+            echo "$KS_B64" | base64 -d > "$KS"
+            echo "kind=upload" >> $GITHUB_OUTPUT
+          else
+            KS_PASS="test-$(openssl rand -hex 12)"; KS_ALIAS="test"
+            keytool -genkeypair -v -keystore "$KS" -alias "$KS_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$KS_PASS" -keypass "$KS_PASS" -dname "CN=Emberpit test key" > /dev/null 2>&1
+            echo "kind=TEST KEY" >> $GITHUB_OUTPUT
+            echo "::warning::No upload key secrets set: signed with a throwaway TEST KEY. Do not upload this build to Play."
+          fi
+          echo "::add-mask::$KS_PASS"
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$KS" >> $GITHUB_ENV
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=$KS_ALIAS" >> $GITHUB_ENV
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$KS_PASS" >> $GITHUB_ENV
+
+      - name: Export the bundle and the APK
+        id: export
+        run: |
+          VER=$(grep -m1 '^version/name=' export_presets.cfg | cut -d'"' -f2)
+          CODE=$(grep -m1 '^version/code=' export_presets.cfg | cut -d= -f2)
+          echo "ver=$VER" >> $GITHUB_OUTPUT; echo "code=$CODE" >> $GITHUB_OUTPUT
+          mkdir -p build/out
+          # --install-android-build-template unpacks the Gradle project into android/ before the first export
+          timeout 1500 godot --headless --path . --install-android-build-template --export-release "Android Release" build/out/emberpit-$VER.aab 2>&1 | tee build/export-aab.log | grep -E "ERROR|error|DONE|BUILD" || true
+          timeout 1200 godot --headless --path . --export-release "Android Release APK" build/out/emberpit-$VER-release.apk 2>&1 | tee build/export-apk.log | grep -E "ERROR|error|DONE|BUILD" || true
+          ls -la build/out
+          test -s build/out/emberpit-$VER.aab || { echo "::error::No .aab was produced"; tail -80 build/export-aab.log; exit 1; }
+          test -s build/out/emberpit-$VER-release.apk || { echo "::error::No release APK was produced"; tail -80 build/export-apk.log; exit 1; }
+
+      - name: Check target SDK, debuggable and signature
+        run: |
+          VER=${{ steps.export.outputs.ver }}
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          BT=$(ls -d $SDK/build-tools/* | sort -V | tail -1)
+          curl -sSL -o /tmp/bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+          MAN=$(java -jar /tmp/bundletool.jar dump manifest --bundle build/out/emberpit-$VER.aab)
+          echo "$MAN" | grep -E "uses-sdk|allowBackup|debuggable|VIBRATE|versionCode" || true
+          echo "$MAN" | grep -q 'targetSdkVersion="36"' || { echo "::error::The bundle does not target API 36"; exit 1; }
+          if echo "$MAN" | grep -q 'debuggable="true"'; then echo "::error::The bundle is debuggable"; exit 1; fi
+          "$BT/aapt2" dump badging build/out/emberpit-$VER-release.apk | grep -E "^package|targetSdkVersion" || true
+          "$BT/apksigner" verify --print-certs build/out/emberpit-$VER-release.apk | head -3
+          jarsigner -verify build/out/emberpit-$VER.aab > /dev/null && echo "bundle signature OK"
+          {
+            echo "### Emberpit $VER (code ${{ steps.export.outputs.code }})"
+            echo ""
+            echo "- Signed with: **${{ steps.key.outputs.kind }}**"
+            echo "- Target SDK 36, not debuggable"
+            echo "- Files: emberpit-$VER.aab (Play upload), emberpit-$VER-release.apk (install by hand)"
+          } >> $GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: emberpit-release
+          path: build/out
+          if-no-files-found: error

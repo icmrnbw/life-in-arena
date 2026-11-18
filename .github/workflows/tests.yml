@@ -1,0 +1,74 @@
+# Runs the Emberpit test suite and a short crash soak on every push (the check shows on the push's pull request).
+# A crash, hang, script error, test failure or soak monitor issue turns the check red;
+# the soak report and failed-run logs are attached to the run as an artifact.
+name: tests
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Full soak (every hero in every scenario, ~40 min)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT: "4.6-stable"
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: /opt/godot
+          key: godot-${{ env.GODOT }}
+
+      - name: Install Godot
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo mkdir -p /opt/godot && sudo chown $USER /opt/godot
+          curl -sSL -o /tmp/g.zip https://github.com/godotengine/godot/releases/download/$GODOT/Godot_v${GODOT}_linux.x86_64.zip
+          unzip -oq /tmp/g.zip -d /opt/godot
+
+      - name: Set up
+        run: |
+          sudo ln -sf /opt/godot/Godot_v${GODOT}_linux.x86_64 /usr/local/bin/godot
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libgl1 libegl1 libgles2 > /dev/null
+          godot --version
+          godot --headless --path . --import > /dev/null 2>&1 || true
+
+      - name: Logic, regression and flow tests
+        run: bash tests/run_all.sh
+
+      - name: Crash soak
+        if: ${{ !cancelled() }}
+        run: |
+          if [ "${{ inputs.full }}" == "true" ]; then
+            python3 tools/soak.py --full --render --out qa/soak/ci
+          else
+            python3 tools/soak.py --seconds 60 --render --out qa/soak/ci
+          fi
+
+      - name: Soak summary
+        if: ${{ !cancelled() }}
+        run: cat qa/soak/ci/report.md >> $GITHUB_STEP_SUMMARY || true
+
+      - name: Upload soak report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: soak-report
+          path: qa/soak/ci
+          if-no-files-found: ignore

@@ -13,6 +13,7 @@ var hp := 100.0
 var hurt_at := -100.0          # run_time of the last damage taken (world HP bar visibility)
 var max_hp := 100.0
 var armor := 0.0
+var mres := 0.0                # magic resist: share of magic damage ignored (negative = takes extra)
 var base_speed := 4.0
 var alive := true
 var removed := false
@@ -40,6 +41,7 @@ var taunt_t := 0.0
 var mark_t := 0.0
 var mark_fx: Node = null
 var spit_mark_t := 0.0
+var hex_t := 0.0               # healing received is reduced while > 0
 var knock := Vector3.ZERO     # knockback velocity
 var pull_to := Vector3.ZERO
 var pull_t := 0.0
@@ -48,6 +50,7 @@ var is_boss := false
 var is_summon := false
 var targetable := true         # enemies can pick it as a target
 var untargetable := false      # hero side can't target (burrowed)
+var dormant := false           # Delve: asleep with its pack until the hero comes close (scripts/delve.gd). On Unit so a duel rival in the enemy list has it too
 var collides := true
 var blocks_front := false      # shieldbearer
 var no_push := false           # totems, bosses
@@ -73,6 +76,8 @@ func setup_visual(n: Node3D) -> void:
 
 func speed() -> float:
 	var s := base_speed
+	if run != null and run.weather != null:
+		s *= run.weather.speed_mult(self)
 	if slow_t > 0.0:
 		s *= (1.0 - clampf(slow_amt, 0.0, 0.8))
 	return s
@@ -144,6 +149,8 @@ func tick_status(dt: float) -> void:
 			taunt_t = 0.0
 	if spit_mark_t > 0.0:
 		spit_mark_t -= dt
+	if hex_t > 0.0:
+		hex_t -= dt
 	if mark_t > 0.0:
 		mark_t -= dt
 		if mark_t <= 0.0:

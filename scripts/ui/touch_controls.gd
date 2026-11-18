@@ -1,7 +1,8 @@
 extends Control
 ## Multi-touch controls: floating joystick (left), skill buttons in an arc (right), active-item buttons.
 ## Tap a skill = smart cast; drag out of a skill = aim (release to cast, drag back onto the button to cancel).
-## Keyboard/mouse fallback: arrows move (or hold right mouse), Q/W/E/R cast, Ctrl+Q/W/E/R rank up, 1-6 items.
+## Skill descriptions live behind the HUD's info button (holding a skill no longer shows them).
+## Keyboard/mouse fallback: arrows move (or hold right mouse), Q/W/E/R cast, Ctrl+Q/W/E/R rank up, 1-6 items, I skill info.
 
 const JOY_R := 95.0
 const KNOB_R := 44.0
@@ -100,7 +101,14 @@ func _process(_delta: float) -> void:
 		sb.is_ready = sb.learned and (kit.is_ready(i) or kit.free_cast(i))
 		if sb.is_ready and not was_ready:
 			sb.flash_ready()
-		sb.no_mana = sb.learned and not kit.free_cast(i) and h.mana < h.skill_mana(i)
+		sb.no_mana = sb.learned and not kit.free_cast(i) and (h.mana < h.skill_mana(i) or kit.blocked(i))
+		var sid: String = h.skill_ids[i]
+		if sb.get_meta("sid", "") != sid:
+			# skills can change mid-run (Twinhide's forms)
+			if sb.has_meta("sid"):
+				sb.icon_tex = UIK.icon(sid)
+				sb.queue_redraw()
+			sb.set_meta("sid", sid)
 		sb.can_rank = h.can_rank_up(i)
 		sb.charges = kit.charges(i)
 		sb.label_text = kit.skill_label(i)
@@ -432,6 +440,8 @@ func _focus_tap(p: Vector2) -> void:
 			best = e
 	if best == null:
 		best = _enemy_under(p)
+	if best == null and run.barrels and run.in_arena():
+		best = run.barrels.barrel_near(gp, 1.0)
 	if best:
 		_set_focus(best)
 
@@ -529,3 +539,6 @@ func _key(e: InputEventKey) -> void:
 		run.skip_prep()
 	elif e.keycode == KEY_B and hud and hud.has_method("toggle_shop"):
 		hud.toggle_shop()
+	elif e.keycode == KEY_I and hud:
+		hud.skills_info_requested.emit()
+

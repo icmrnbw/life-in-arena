@@ -5,23 +5,58 @@ extends RefCounted
 const MK := preload("res://art/mesh_kit.gd")
 const SH := preload("res://art/shaders.gd")
 
-const GATES := [Vector2(0, -22), Vector2(22, 0), Vector2(-22, 0), Vector2(15.5, -15.5)]
-const PILLARS := [Vector2(-9, -6), Vector2(9, -6), Vector2(0, 10)]
+# pillar and gate positions come from Maps (scripts/maps.gd): the arena the run fights in
+const PILLAR_PIVOT := 0.8   # pillars topple about this height (top of the plinth)
 const CAMP := Vector3(0, 0, 40)
 const SHOP := Vector3(-4, 0, 42)
 const FOUNTAIN := Vector3(4, 0, 42)
 const SPAWN := Vector3(0, 0, 37)
 const SUN_ROT := Vector3(-52, -32, 0)
 
-static func setup_environment(parent: Node) -> void:
+## Arena looks (Maps "theme"). "ember" = the Pit's warm stone; "frost" = Rimefang Hollow.
+const THEMES := {
+	"ember": {"bg": Color("120e1c"), "ambient": Color("7480b8"), "ambient_e": 0.62, "fog": Color("2c2348"),
+		"wall": Color("6e6a78"), "wall_top": Color("827d8a"), "wall_out": Color("4c4756"), "cliff": Color("3c3444"),
+		"cloth": Color("8e1f1c"), "trim": Color("d6a24a"), "emblem": Color("ff8a3a"),
+		"pillar": Color("706a78"), "pillar_d": Color("524c5a"), "bronze": Color("9a6a36"), "rune": Color("ff7a2f"),
+		"gate": Color("736e7c"), "gate_d": Color("4e4958"),
+		"floor_a": Color(0.30, 0.29, 0.30), "floor_b": Color(0.40, 0.37, 0.34), "sand": Color(0.48, 0.38, 0.26),
+		"mortar": Color(0.12, 0.10, 0.10), "grate": Color(1.0, 0.42, 0.12),
+		"braziers": [157.5, 22.5, -157.5, 90.0], "particles": "embers"},
+	"frost": {"bg": Color("0b1120"), "ambient": Color("8fa8e0"), "ambient_e": 0.72, "fog": Color("223452"),
+		"wall": Color("6c7686"), "wall_top": Color("9aa6b8"), "wall_out": Color("465060"), "cliff": Color("3a4456"),
+		"cloth": Color("1f3f86"), "trim": Color("c8d4e4"), "emblem": Color("8ad8ff"),
+		"pillar": Color("6e7a8c"), "pillar_d": Color("505a6c"), "bronze": Color("8c9aac"), "rune": Color("6fd2ff"),
+		"gate": Color("717b8c"), "gate_d": Color("4c5466"),
+		"floor_a": Color(0.31, 0.34, 0.40), "floor_b": Color(0.43, 0.47, 0.54), "sand": Color(0.80, 0.86, 0.93),
+		"mortar": Color(0.08, 0.10, 0.14), "grate": Color(0.35, 0.78, 1.0),
+		"braziers": [-90.0, 90.0, -20.0, -160.0], "particles": "snow"},
+}
+## The look being built (set by build()).
+static var T: Dictionary = THEMES["ember"]
+
+static func _gates_v2() -> Array:
+	var out := []
+	for g in Maps.gates().values():
+		out.append(Vector2(g.x, g.z).normalized() * 22.0)
+	return out
+
+static func _pillars_v2() -> Array:
+	var out := []
+	for p in Maps.pillars():
+		out.append(Vector2(p.x, p.z))
+	return out
+
+static func setup_environment(parent: Node, theme := "ember") -> void:
+	var th: Dictionary = THEMES.get(theme, THEMES["ember"])
 	var we := WorldEnvironment.new()
 	we.name = "ArtEnvironment"
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("120e1c")
+	env.background_color = th["bg"]
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("7480b8")
-	env.ambient_light_energy = 0.62
+	env.ambient_light_color = th["ambient"]
+	env.ambient_light_energy = th["ambient_e"]
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.08
 	env.tonemap_white = 5.0
@@ -35,7 +70,7 @@ static func setup_environment(parent: Node) -> void:
 	for i in 7:
 		env.set_glow_level(i, 1.0 if i in [1, 2, 3, 4] else 0.0)
 	env.fog_enabled = true
-	env.fog_light_color = Color("2c2348")
+	env.fog_light_color = th["fog"]
 	env.fog_light_energy = 1.0
 	env.fog_density = 0.0035
 	env.fog_height = -1.0
@@ -68,46 +103,13 @@ static func build(parent: Node3D) -> Dictionary:
 	var root := Node3D.new()
 	root.name = "ArtWorld"
 	parent.add_child(root)
+	T = THEMES.get(Maps.theme(), THEMES["ember"])
 	var flames: Array = []   # [pos, scale]
-	var arena_lights: Array = []  # Vector4(x, z, radius, intensity)
 
-	# ---------------- floor
-	var floor_mi := MeshInstance3D.new()
-	var pm := PlaneMesh.new(); pm.size = Vector2(49, 49)
-	floor_mi.mesh = pm
-	floor_mi.name = "ArenaFloor"
-	var fmat: ShaderMaterial = SH.mat("floor")
-	floor_mi.material_override = fmat
-	floor_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.add_child(floor_mi)
-
-	# ---------------- arena stone
-	var k := MK.new()
-	_walls(k, flames, arena_lights)
-	_pillars(k, flames, arena_lights)
-	_gates(k, flames, arena_lights)
-	_cliff(k, Vector3.ZERO, 24.6, 17.0, Color("3c3444"), 64, 11)
-	arena_lights.append(Vector4(0, 0, 5.5, 0.55))
-	var arena_mesh := MeshInstance3D.new()
-	arena_mesh.name = "ArenaStone"
-	arena_mesh.mesh = k.build()
-	var wmat: ShaderMaterial = SH.mat("world")
-	arena_mesh.material_override = wmat
-	arena_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.add_child(arena_mesh)
-	var lights := PackedVector4Array()
-	for l in arena_lights:
-		lights.append(l)
-	while lights.size() < 12:
-		lights.append(Vector4(0, 0, 1, 0))
-	lights.resize(12)
-	wmat.set_shader_parameter("lights", lights)
-	fmat.set_shader_parameter("lights", lights)
-	var pil := PackedVector4Array()
-	for pp in PILLARS:
-		pil.append(Vector4(pp.x, pp.y, 1.6, 0))
-	fmat.set_shader_parameter("pillars", pil)
-	fmat.set_shader_parameter("sun_dir", _sun_dir())
+	# ---------------- arena (Delve builds no arena: its dungeon is art/dungeon.gd)
+	var pillar_res: Array = []
+	if Maps.theme() != "none":
+		pillar_res = _arena(root, flames)
 
 	# ---------------- camp
 	var shop := Node3D.new(); shop.name = "Shop"; shop.position = SHOP
@@ -146,16 +148,81 @@ static func build(parent: Node3D) -> Dictionary:
 	_teleport_pad(root)
 
 	# ---------------- flames, embers, void rocks
-	_flames(root, flames)
-	_embers(root)
+	var flames_mm := _flames(root, flames)
+	if Maps.theme() != "none":
+		_embers(root)
 	_void_rocks(root)
-	return {"shop": shop, "fountain": fountain}
+	return {"shop": shop, "fountain": fountain, "pillars": pillar_res, "flames_mm": flames_mm}
 
 # =================================================================== arena
 
+static func _arena(root: Node3D, flames: Array) -> Array:
+	var arena_lights: Array = []  # Vector4(x, z, radius, intensity)
+	# ---------------- floor
+	var floor_mi := MeshInstance3D.new()
+	var pm := PlaneMesh.new(); pm.size = Vector2(49, 49)
+	floor_mi.mesh = pm
+	floor_mi.name = "ArenaFloor"
+	var fmat: ShaderMaterial = SH.mat("floor")
+	floor_mi.material_override = fmat
+	floor_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(floor_mi)
+
+	# ---------------- arena stone
+	var k := MK.new()
+	arena_lights.append(Vector4(0, 0, 5.5, 0.55))
+	_walls(k, flames, arena_lights)
+	var pillar_mks: Array = []
+	var pillar_flames: Array = []
+	_pillars(k, flames, arena_lights, pillar_mks, pillar_flames)
+	_gates(k, flames, arena_lights)
+	_cliff(k, Vector3.ZERO, 24.6, 17.0, T["cliff"], 64, 11)
+	var arena_mesh := MeshInstance3D.new()
+	arena_mesh.name = "ArenaStone"
+	arena_mesh.mesh = k.build()
+	var wmat: ShaderMaterial = SH.mat("world")
+	arena_mesh.material_override = wmat
+	arena_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(arena_mesh)
+	# pillar shafts are their own nodes so they can topple (scripts/arena.gd); the plinths stay in ArenaStone
+	var pillar_res: Array = []
+	var pv := _pillars_v2()
+	for i in pillar_mks.size():
+		var pmi := MeshInstance3D.new()
+		pmi.name = "Pillar%d" % i
+		pmi.mesh = (pillar_mks[i] as MK).build()
+		pmi.material_override = wmat
+		pmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		pmi.position = Vector3(pv[i].x, PILLAR_PIVOT, pv[i].y)
+		root.add_child(pmi)
+		pillar_res.append({"node": pmi, "flame": pillar_flames[i]})
+	var lights := PackedVector4Array()
+	for l in arena_lights:
+		lights.append(l)
+	while lights.size() < 12:
+		lights.append(Vector4(0, 0, 1, 0))
+	lights.resize(12)
+	wmat.set_shader_parameter("lights", lights)
+	fmat.set_shader_parameter("lights", lights)
+	var pil := PackedVector4Array()
+	for pp in pv:
+		pil.append(Vector4(pp.x, pp.y, 1.6, 0))
+	while pil.size() < 6:
+		pil.append(Vector4(0, 0, 0, 0))
+	fmat.set_shader_parameter("pillars", pil)
+	fmat.set_shader_parameter("sun_dir", _sun_dir())
+	fmat.set_shader_parameter("stone_a", T["floor_a"])
+	fmat.set_shader_parameter("stone_b", T["floor_b"])
+	fmat.set_shader_parameter("sand", T["sand"])
+	fmat.set_shader_parameter("mortar_c", T["mortar"])
+	fmat.set_shader_parameter("ember", T["grate"])
+	return pillar_res
+
+
+
 static func _gate_angles() -> Array:
 	var out := []
-	for g in GATES:
+	for g in _gates_v2():
 		out.append(atan2(g.y, g.x))
 	return out
 
@@ -170,7 +237,7 @@ static func _walls(k: MK, flames: Array, lights: Array) -> void:
 	var r_out := 24.3
 	var h := 3.3
 	var steps := 144
-	var stone := Color("6e6a78"); var stone_top := Color("827d8a"); var stone_out := Color("4c4756")
+	var stone: Color = T["wall"]; var stone_top: Color = T["wall_top"]; var stone_out: Color = T["wall_out"]
 	var gap := 0.135
 	k.cur_aux = 1.0
 	for i in steps:
@@ -199,14 +266,14 @@ static func _walls(k: MK, flames: Array, lights: Array) -> void:
 		if i % 8 == 0 and not _near_gate(am, gap + 0.12):
 			_banner(k, am, r_in - 0.04)
 	k.cur_aux = 0.0
-	# wall braziers (fake lights) at SW, SE, NW and S
-	for a in [deg_to_rad(135.0), deg_to_rad(45.0), deg_to_rad(-135.0), deg_to_rad(90.0)]:
-		var c := _p(a, 20.9, 0)
+	# wall braziers (fake lights) between the gates (the Pit: beside the barrel stacks and at S)
+	for deg in T["braziers"]:
+		var c := _p(deg_to_rad(deg), 20.9, 0)
 		_brazier(k, c, 0.9, flames)
 		lights.append(Vector4(c.x, c.z, 7.0, 0.9))
 
 static func _banner(k: MK, a: float, r: float) -> void:
-	var cloth := Color("8e1f1c"); var trim := Color("d6a24a"); var ember := Color("ff8a3a")
+	var cloth: Color = T["cloth"]; var trim: Color = T["trim"]; var ember: Color = T["emblem"]
 	var rot := Vector3(0, _yrot(cos(a), sin(a)), 0)
 	k.cur_aux = 0.0
 	k.box(Vector3(0.06, 1.9, 1.0), _p(a, r - 0.03, 2.05), cloth, rot)
@@ -235,15 +302,23 @@ static func _brazier(k: MK, c: Vector3, s: float, flames: Array) -> void:
 	flames.append([c + Vector3(0, 1.3 * s, 0), Vector2(1.0, 1.7) * s])
 	k.cur_aux = 1.0
 
-static func _pillars(k: MK, flames: Array, lights: Array) -> void:
-	var stone := Color("706a78"); var stone_d := Color("524c5a"); var bronze := Color("9a6a36"); var rune := Color("ff7a2f")
-	for idx in PILLARS.size():
-		var pp: Vector2 = PILLARS[idx]
-		var c := Vector3(pp.x, 0, pp.y)
-		var broken := idx == 2
+## Plinths go into `k`; each shaft + top goes into its own MK in `out_mks` (local to the pillar's pivot,
+## PILLAR_PIVOT above its base) and the index of its flame (-1 = none) into `out_flames`.
+static func _pillars(k0: MK, flames: Array, lights: Array, out_mks: Array, out_flames: Array) -> void:
+	var stone: Color = T["pillar"]; var stone_d: Color = T["pillar_d"]; var bronze: Color = T["bronze"]; var rune: Color = T["rune"]
+	var pv := _pillars_v2()
+	for idx in pv.size():
+		var pp: Vector2 = pv[idx]
+		var base := Vector3(pp.x, 0, pp.y)
+		var broken := idx == pv.size() - 1
+		k0.cur_aux = 1.0
+		k0.cyl(1.95, 2.1, 0.55, base + Vector3(0, 0.27, 0), stone_d, Vector3.ZERO, -1, 8)
+		k0.cyl(1.7, 1.85, 0.3, base + Vector3(0, 0.68, 0), stone, Vector3.ZERO, -1, 8)
+		var k := MK.new()
+		out_mks.append(k)
+		var c := Vector3(0, -PILLAR_PIVOT, 0)   # base in pivot space
+		var nflames := flames.size()
 		k.cur_aux = 1.0
-		k.cyl(1.95, 2.1, 0.55, c + Vector3(0, 0.27, 0), stone_d, Vector3.ZERO, -1, 8)
-		k.cyl(1.7, 1.85, 0.3, c + Vector3(0, 0.68, 0), stone, Vector3.ZERO, -1, 8)
 		var sh := 3.6 if broken else 5.0
 		k.cyl(1.38, 1.5, sh, c + Vector3(0, 0.8 + sh * 0.5, 0), stone, Vector3.ZERO, -1, 10)
 		k.cur_aux = 0.0
@@ -261,7 +336,7 @@ static func _pillars(k: MK, flames: Array, lights: Array) -> void:
 			for i in 6:
 				var a := TAU * i / 6.0 + 0.4
 				var rr := 2.3 + fposmod(i * 0.53, 0.9)
-				k.box(Vector3(0.7, 0.45, 0.6), c + Vector3(cos(a) * rr, 0.22, sin(a) * rr), stone_d, Vector3(fposmod(i * 31.0, 40.0) - 20.0, i * 47.0, fposmod(i * 17.0, 30.0) - 15.0))
+				k0.box(Vector3(0.7, 0.45, 0.6), base + Vector3(cos(a) * rr, 0.22, sin(a) * rr), stone_d, Vector3(fposmod(i * 31.0, 40.0) - 20.0, i * 47.0, fposmod(i * 17.0, 30.0) - 15.0))
 			k.cur_aux = 0.0
 			_brazier(k, c + Vector3(0, 0.8 + sh + 0.2, 0), 1.4, flames)
 		else:
@@ -273,12 +348,17 @@ static func _pillars(k: MK, flames: Array, lights: Array) -> void:
 			k.cyl(0.92, 0.92, 0.06, top + Vector3(0, 0.42, 0), rune, Vector3.ZERO, 2.0, 10)
 			flames.append([top + Vector3(0, 0.4, 0), Vector2(1.7, 2.6)])
 		lights.append(Vector4(pp.x, pp.y, 8.5, 0.75))
-	k.cur_aux = 0.0
+		k.cur_aux = 0.0
+		# flames were placed in pivot space: move them to the world
+		out_flames.append(nflames if flames.size() > nflames else -1)
+		for fi in range(nflames, flames.size()):
+			flames[fi][0] += base + Vector3(0, PILLAR_PIVOT, 0)
+	k0.cur_aux = 0.0
 
 static func _gates(k: MK, flames: Array, lights: Array) -> void:
-	var stone := Color("736e7c"); var stone_d := Color("4e4958"); var iron := Color("2a2626"); var rune := Color("ff7a2f")
+	var stone: Color = T["gate"]; var stone_d: Color = T["gate_d"]; var iron := Color("2a2626"); var rune: Color = T["rune"]
 	var void_c := Color(0.015, 0.01, 0.02)
-	for g in GATES:
+	for g in _gates_v2():
 		var a := atan2(g.y, g.x)
 		var rad := Vector3(cos(a), 0, sin(a))
 		var tn := Vector3(-sin(a), 0, cos(a))
@@ -593,7 +673,7 @@ static func _ramp(a: Color, b: Color) -> Gradient:
 	g.set_color(0, a); g.set_color(1, b)
 	return g
 
-static func _flames(root: Node3D, flames: Array) -> void:
+static func _flames(root: Node3D, flames: Array) -> MultiMesh:
 	var qm := QuadMesh.new()
 	qm.size = Vector2.ONE
 	qm.center_offset = Vector3(0, 0.5, 0)
@@ -635,6 +715,7 @@ static func _flames(root: Node3D, flames: Array) -> void:
 		sp.scale_amount_min = 0.05; sp.scale_amount_max = 0.1
 		sp.color_ramp = _ramp(Color(1.0, 0.8, 0.4, 1.0), Color(1.0, 0.25, 0.05, 0.0))
 		root.add_child(sp)
+	return mm
 
 static func _embers(root: Node3D) -> void:
 	var e := CPUParticles3D.new()
@@ -651,6 +732,16 @@ static func _embers(root: Node3D) -> void:
 	var g := Gradient.new()
 	g.offsets = PackedFloat32Array([0.0, 0.2, 0.8, 1.0])
 	g.colors = PackedColorArray([Color(1.0, 0.5, 0.1, 0.0), Color(1.0, 0.6, 0.2, 0.75), Color(1.0, 0.35, 0.05, 0.55), Color(1.0, 0.2, 0.0, 0.0)])
+	if T.get("particles", "embers") == "snow":
+		# Rimefang Hollow: slow snow drifting down instead of embers rising
+		e.name = "Snow"
+		e.position = Vector3(0, 9.0, 8)
+		e.amount = 110
+		e.emission_box_extents = Vector3(30, 2.0, 36)
+		e.direction = Vector3.DOWN; e.spread = 20
+		e.gravity = Vector3(0.25, -0.5, 0.1)
+		e.scale_amount_min = 0.04; e.scale_amount_max = 0.09
+		g.colors = PackedColorArray([Color(0.8, 0.9, 1.0, 0.0), Color(0.85, 0.92, 1.0, 0.55), Color(0.8, 0.88, 1.0, 0.45), Color(0.7, 0.8, 1.0, 0.0)])
 	e.color_ramp = g
 	e.visibility_aabb = AABB(Vector3(-35, -5, -45), Vector3(70, 30, 90))
 	root.add_child(e)
@@ -664,6 +755,8 @@ static func _embers(root: Node3D) -> void:
 	pit.initial_velocity_min = 0.6; pit.initial_velocity_max = 1.6
 	pit.scale_amount_min = 0.06; pit.scale_amount_max = 0.14
 	pit.color_ramp = _ramp(Color(1.0, 0.7, 0.3, 1.0), Color(1.0, 0.2, 0.0, 0.0))
+	if T.get("particles", "embers") == "snow":
+		pit.color_ramp = _ramp(Color(0.6, 0.9, 1.0, 1.0), Color(0.2, 0.5, 1.0, 0.0))
 	root.add_child(pit)
 
 static func _void_rocks(root: Node3D) -> void:
@@ -693,3 +786,206 @@ static func _void_rocks(root: Node3D) -> void:
 	mmi.material_override = SH.mat("world")
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(mmi)
+
+# =================================================================== title screen bonfire
+
+class Flicker extends OmniLight3D:
+	var base := 2.2
+	var t := 0.0
+	func _process(dt: float) -> void:
+		t += dt
+		light_energy = base * (0.86 + 0.09 * sin(t * 13.0) + 0.06 * sin(t * 29.0 + 1.3) + 0.04 * sin(t * 4.1))
+
+## A big crackling bonfire for the title screen at `c` (stone ring, log teepee, flames, sparks, smoke, a warm
+## flickering light). Returns the root node.
+static func bonfire(parent: Node3D, c: Vector3) -> Node3D:
+	var root := Node3D.new()
+	root.name = "Bonfire"
+	parent.add_child(root)
+	root.position = c
+	var k := MK.new()
+	var stone := Color("6e6876"); var stone_d := Color("4a4452"); var wood := Color("6a4428"); var wood_d := Color("3a2414")
+	var coal := Color("ff5a1a"); var ash := Color("2a2220")
+	k.cur_aux = 0.0
+	for i in 11:
+		var a := TAU * i / 11.0
+		var sc := 0.85 + 0.25 * sin(i * 2.7)
+		k.ball(0.3 * sc, Vector3(cos(a) * 1.05, 0.12, sin(a) * 1.05), stone if i % 2 == 0 else stone_d, Vector3(1.2, 0.75, 1.0), Vector3(0, -rad_to_deg(a), 0), -1, 7, 4)
+	k.cyl(0.9, 0.95, 0.06, Vector3(0, 0.03, 0), ash, Vector3.ZERO, -1, 12)
+	k.ball(0.55, Vector3(0, 0.08, 0), coal, Vector3(1.2, 0.3, 1.2), Vector3.ZERO, 2.6, 10, 4)
+	for i in 6:
+		var a := TAU * i / 6.0 + 0.2
+		var foot := Vector3(cos(a) * 0.62, 0.05, sin(a) * 0.62)
+		var top := Vector3(cos(a) * 0.08, 1.15, sin(a) * 0.08)
+		k.limb(foot, top, 0.085, wood if i % 2 == 0 else wood_d, -1, 6)
+		k.ball(0.06, foot.lerp(top, 0.25), coal, Vector3.ONE, Vector3.ZERO, 1.8, 5, 3)
+	for b in [[Vector3(0.75, 0.1, 0.55), 30.0], [Vector3(-0.7, 0.1, -0.5), -40.0]]:
+		k.cyl(0.1, 0.1, 0.9, b[0], wood_d, Vector3(90, b[1], 0), -1, 6)
+	k.cur_aux = 1.0
+	var mi := MeshInstance3D.new()
+	mi.name = "BonfireStones"
+	mi.mesh = k.build()
+	mi.material_override = SH.mat("world")
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(mi)
+	# flame sheets (same shader as the braziers), crossed so they read from any side
+	var qm := QuadMesh.new()
+	qm.size = Vector2.ONE
+	qm.center_offset = Vector3(0, 0.5, 0)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = qm
+	var sheets := [[Vector3(0, 0.1, 0), Vector2(1.2, 1.5), 0.0], [Vector3(0.1, 0.1, 0.05), Vector2(0.9, 1.2), 60.0],
+		[Vector3(-0.1, 0.1, -0.05), Vector2(0.9, 1.3), 120.0], [Vector3(0.3, 0.05, 0.2), Vector2(0.6, 0.9), 30.0], [Vector3(-0.3, 0.05, 0.25), Vector2(0.55, 0.8), 90.0]]
+	mm.instance_count = sheets.size()
+	for i in sheets.size():
+		var sh: Array = sheets[i]
+		mm.set_instance_transform(i, Transform3D(Basis(Vector3.UP, deg_to_rad(sh[2])).scaled(Vector3(sh[1].x, sh[1].y, 1)), sh[0]))
+	var mmi := MultiMeshInstance3D.new()
+	mmi.name = "BonfireFlames"
+	mmi.multimesh = mm
+	mmi.material_override = SH.mat("flame")
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.custom_aabb = AABB(Vector3(-3, -1, -3), Vector3(6, 6, 6))
+	root.add_child(mmi)
+	var fire := CPUParticles3D.new()
+	fire.name = "BonfireCore"
+	fire.position = Vector3(0, 0.25, 0)
+	fire.amount = 16; fire.lifetime = 0.55; fire.preprocess = 1.0
+	fire.mesh = _quad(); fire.material_override = SH.mat("particle_add")
+	fire.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE; fire.emission_sphere_radius = 0.45
+	fire.direction = Vector3.UP; fire.spread = 14; fire.gravity = Vector3(0, 1.0, 0)
+	fire.initial_velocity_min = 0.6; fire.initial_velocity_max = 1.4
+	fire.scale_amount_min = 0.22; fire.scale_amount_max = 0.45
+	var sc_c := Curve.new(); sc_c.add_point(Vector2(0, 1)); sc_c.add_point(Vector2(1, 0.15))
+	fire.scale_amount_curve = sc_c
+	var fg := Gradient.new()
+	fg.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
+	fg.colors = PackedColorArray([Color(1.0, 0.8, 0.4, 0.7), Color(1.0, 0.45, 0.1, 0.55), Color(0.8, 0.12, 0.02, 0.0)])
+	fire.color_ramp = fg
+	root.add_child(fire)
+	var sp := CPUParticles3D.new()
+	sp.name = "BonfireSparks"
+	sp.position = Vector3(0, 0.8, 0)
+	sp.amount = 24; sp.lifetime = 2.2; sp.preprocess = 2.2
+	sp.mesh = _quad(); sp.material_override = SH.mat("particle_add")
+	sp.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE; sp.emission_sphere_radius = 0.4
+	sp.direction = Vector3.UP; sp.spread = 22; sp.gravity = Vector3(0.25, 0.9, 0)
+	sp.initial_velocity_min = 1.2; sp.initial_velocity_max = 2.6
+	sp.tangential_accel_min = -0.6; sp.tangential_accel_max = 0.6
+	sp.scale_amount_min = 0.04; sp.scale_amount_max = 0.09
+	sp.color_ramp = _ramp(Color(1.0, 0.85, 0.45, 1.0), Color(1.0, 0.25, 0.05, 0.0))
+	sp.visibility_aabb = AABB(Vector3(-4, -1, -4), Vector3(8, 10, 8))
+	root.add_child(sp)
+	var l := Flicker.new()
+	l.name = "BonfireLight"
+	l.position = Vector3(0, 1.1, 0)
+	l.light_color = Color(1.0, 0.58, 0.26)
+	l.omni_range = 9.0
+	l.omni_attenuation = 1.3
+	l.shadow_enabled = false
+	root.add_child(l)
+	return root
+
+## Title-screen campsite: a small grassy ledge floating in the dark with a bonfire at `c`, a log bench to its
+## west (seat at c + SEAT_OFF), a tent, supplies and a banner. The Pit and the camp glow far beyond.
+const SEAT_OFF := Vector3(-1.56, 0, -1.17)
+const BENCH_YAW := -29.0
+
+static func menu_camp(parent: Node3D, c: Vector3) -> Node3D:
+	var root := Node3D.new()
+	root.name = "MenuCamp"
+	parent.add_child(root)
+	var lights := [Vector4(c.x, c.z, 7.5, 1.5), Vector4(c.x - 3.4, c.z - 2.6, 3.0, 0.5)]
+	var k := MK.new()
+	_cliff(k, c, 7.5, 9.0, Color("3e3646"), 28, 41)
+	var wood := Color("7a5232"); var wood_d := Color("4e3220"); var canvas := Color("b89a6a"); var red := Color("b8322a")
+	var iron := Color("2e2a2a"); var gold := Color("f2c14e"); var stone_d := Color("5e5868")
+	k.cur_aux = 0.0
+	# log bench (the hero's seat) and a second log across the fire
+	k.cyl(0.24, 0.24, 1.9, c + SEAT_OFF + Vector3(-0.1, 0.22, -0.08), wood, Vector3(90, BENCH_YAW, 0), -1, 9)
+	k.cyl(0.22, 0.22, 1.6, c + Vector3(1.95, 0.2, -0.9), wood_d, Vector3(90, -30, 0), -1, 8)
+	# tent behind the bench
+	var tp := c + Vector3(-3.6, 0, -2.6)
+	k.prism(Vector3(2.8, 2.1, 3.2), tp + Vector3(0, 1.05, 0), canvas, Vector3(0, 35, 0))
+	var fwd := Basis.from_euler(Vector3(0, deg_to_rad(35.0), 0)) * Vector3(0, 0, 1)
+	k.prism(Vector3(1.0, 1.2, 0.05), tp + Vector3(0, 0.6, 0) + fwd * 1.61, Color(0.06, 0.04, 0.03), Vector3(0, 35, 0))
+	k.cyl(0.05, 0.05, 2.5, tp + Vector3(0, 1.25, 0) + fwd * 1.7, wood_d, Vector3.ZERO, -1, 5)
+	k.box(Vector3(0.06, 0.5, 0.35), tp + Vector3(0, 2.25, 0) + fwd * 1.72, red, Vector3(0, 125, 0))
+	# supplies: barrels and crates
+	for b in [Vector3(-0.6, 0.45, -2.9), Vector3(0.3, 0.45, -3.2)]:
+		k.cyl(0.36, 0.33, 0.9, c + b, wood, Vector3.ZERO, -1, 10)
+		k.torus(0.33, 0.39, c + b + Vector3(0, 0.25, 0), iron, Vector3.ZERO, -1, 10, 3)
+		k.torus(0.33, 0.39, c + b + Vector3(0, -0.25, 0), iron, Vector3.ZERO, -1, 10, 3)
+	for cr in [[Vector3(1.2, 0.3, -3.0), 0.6, 20.0], [Vector3(1.15, 0.85, -3.0), 0.5, 40.0]]:
+		k.box(Vector3(cr[1], cr[1], cr[1]), c + cr[0], wood_d, Vector3(0, cr[2], 0))
+	# banner pole with the ember sigil
+	var bp := c + Vector3(2.6, 0, -2.4)
+	k.cyl(0.06, 0.07, 3.2, bp + Vector3(0, 1.6, 0), wood_d, Vector3.ZERO, -1, 6)
+	k.box(Vector3(0.7, 1.1, 0.04), bp + Vector3(0.38, 2.5, 0), red, Vector3(0, -20, 0))
+	k.cyl(0.18, 0.18, 0.05, bp + Vector3(0.38, 2.6, 0.03), gold, Vector3(90, -20, 0), 0.9, 10)
+	# weapon rack and a dropped pack by the bench
+	var wr := c + Vector3(-3.3, 0, 1.3)
+	k.box(Vector3(1.3, 0.08, 0.08), wr + Vector3(0, 1.0, 0), wood_d, Vector3(0, 70, 0))
+	for z in [-0.55, 0.55]:
+		k.cyl(0.05, 0.06, 1.2, wr + Basis(Vector3.UP, deg_to_rad(70)) * Vector3(z, 0.6, 0), wood_d, Vector3.ZERO, -1, 5)
+	for i in 3:
+		k.cyl(0.025, 0.03, 1.5, wr + Basis(Vector3.UP, deg_to_rad(70)) * Vector3(-0.35 + i * 0.35, 0.75, 0.08), Color("8a8494"), Vector3(-8, 0, 0), -1, 4)
+	k.ball(0.32, c + Vector3(-2.2, 0.25, 1.35), Color("6e4a2a"), Vector3(1.0, 0.8, 0.8), Vector3(0, 30, 0), -1, 8, 5)
+	# rocks along the rim
+	var rng := RandomNumberGenerator.new(); rng.seed = 9
+	for i in 12:
+		var a := rng.randf() * TAU
+		var r := 5.8 + rng.randf() * 1.2
+		k.ball(0.3 + rng.randf() * 0.35, c + _p(a, r, 0.12), stone_d, Vector3(1.0, 0.6, 0.9), Vector3(0, rng.randf() * 360.0, 0), -1, 6, 4)
+	var mi := MeshInstance3D.new()
+	mi.name = "MenuCampProps"
+	mi.mesh = k.build()
+	var cmat: ShaderMaterial = (SH.mat("world") as ShaderMaterial).duplicate()
+	mi.material_override = cmat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(mi)
+	var cl := PackedVector4Array()
+	for l in lights:
+		cl.append(l)
+	while cl.size() < 12:
+		cl.append(Vector4(0, 0, 1, 0))
+	cmat.set_shader_parameter("lights", cl)
+	var ground := MeshInstance3D.new()
+	ground.name = "MenuGround"
+	var gp := CylinderMesh.new(); gp.top_radius = 7.5; gp.bottom_radius = 7.5; gp.height = 0.02; gp.radial_segments = 28; gp.rings = 1
+	ground.mesh = gp
+	ground.position = c + Vector3(0, -0.01, 0)
+	var gmat: ShaderMaterial = (SH.mat("grass") as ShaderMaterial).duplicate()
+	gmat.set_shader_parameter("lights", cl)
+	gmat.set_shader_parameter("center", Vector2(c.x, c.z))
+	ground.material_override = gmat
+	root.add_child(ground)
+	# grass tufts, kept off the fire, bench and tent
+	var tk := MK.new()
+	for i in 5:
+		var a := TAU * i / 5.0
+		tk.spike(Vector3(cos(a) * 0.05, 0, sin(a) * 0.05), Vector3(cos(a) * 0.22, 0.42 + (i % 2) * 0.12, sin(a) * 0.22), 0.06, Color("3e6626") if i % 2 == 0 else Color("6a8434"), -1, 3)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = tk.build()
+	var xs: Array = []
+	for i in 90:
+		var a := rng.randf() * TAU
+		var r := 2.4 + sqrt(rng.randf()) * 4.6
+		var p := c + _p(a, r, 0)
+		if p.distance_to(tp) < 2.2 or p.distance_to(c + SEAT_OFF) < 1.3:
+			continue
+		var sc := 0.7 + rng.randf() * 0.8
+		xs.append(Transform3D(Basis.from_euler(Vector3(0, rng.randf() * TAU, 0)).scaled(Vector3(sc, sc, sc)), p))
+	mm.instance_count = xs.size()
+	for i in xs.size():
+		mm.set_instance_transform(i, xs[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.material_override = cmat
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(mmi)
+	bonfire(root, c)
+	return root
+
