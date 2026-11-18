@@ -37,7 +37,7 @@ Everything here is ready to paste into Play Console. Listing text in all 16 lang
 | Asset | Size | Status |
 | --- | --- | --- |
 | App icon | 512 x 512 PNG | `store/icon-512.png` |
-| Feature graphic | 1024 x 500 PNG/JPG | `store/feature-graphic.png` |
+| Feature graphic | 1024 x 500 PNG/JPG | `store/feature-graphic.png` (draft from a desktop render; `--nohud` hides the HUD for captures) |
 | Phone screenshots | 4-8, 16:9 landscape, min 1080 px on the short side | capture on a phone (the qa/ screenshots come from a software renderer) |
 | Trailer | YouTube link, 30-45 s | planned |
 

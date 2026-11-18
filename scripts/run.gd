@@ -204,6 +204,10 @@ func _ready() -> void:
 	hud = hud_script.new()
 	add_child(hud)
 	hud.setup(self)
+	if Game.args.has("nohud"):
+		# store art and trailer capture: no HUD, no damage numbers
+		hud.visible = false
+		_num_budget = -1e9
 
 	if Game.autoplay:
 		var bot_script = load("res://scripts/bot.gd")
